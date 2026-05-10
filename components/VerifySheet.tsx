@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -30,8 +30,19 @@ export default function VerifySheet({
   const [editPrice, setEditPrice] = useState(price.toFixed(2));
   const [quantity, setQuantity] = useState(1);
 
+  // Sync internal state when the modal opens or props change
+  useEffect(() => {
+    if (open) {
+      setEditName(name);
+      setEditPrice(price.toFixed(2));
+      setQuantity(1);
+    }
+  }, [open, name, price]);
+
   const handleConfirm = () => {
-    const updatedPrice = parseFloat(editPrice) || 0;
+    // Sanitize input (handle commas and ensure it's a valid number)
+    const sanitizedPrice = editPrice.replace(',', '.');
+    const updatedPrice = parseFloat(sanitizedPrice) || 0;
     onConfirm(editName || 'Product', updatedPrice, quantity);
   };
 
@@ -58,7 +69,7 @@ export default function VerifySheet({
 
         {/* Sheet */}
         <View style={styles.sheet}>
-          {/* Handle */}
+          {/* Handle for visual indicator */}
           <View style={styles.handleContainer}>
             <View style={styles.handle} />
           </View>
@@ -81,7 +92,7 @@ export default function VerifySheet({
           <View style={styles.field}>
             <Text style={styles.label}>Price</Text>
             <View style={styles.priceContainer}>
-              <Text style={styles.currencySymbol}>$</Text>
+              <Text style={styles.currencySymbol}>₱</Text>
               <TextInput
                 style={styles.priceInput}
                 placeholder="0.00"
@@ -113,15 +124,15 @@ export default function VerifySheet({
             </View>
           </View>
 
-          {/* Total */}
+          {/* Total Calculation */}
           <View style={styles.totalContainer}>
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalPrice}>
-              ${(parseFloat(editPrice || '0') * quantity).toFixed(2)}
+              ₱{(parseFloat(editPrice.replace(',', '.') || '0') * quantity).toFixed(2)}
             </Text>
           </View>
 
-          {/* Actions */}
+          {/* Action Buttons */}
           <View style={styles.actions}>
             <TouchableOpacity
               style={[styles.btn, styles.cancelBtn]}
@@ -149,30 +160,30 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
   sheet: {
-    backgroundColor: '#1a1a1a',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: '#121212',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     maxHeight: '80%',
   },
   handleContainer: {
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   handle: {
-    width: 40,
+    width: 36,
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 2,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: 'white',
     marginBottom: 20,
     textAlign: 'center',
@@ -181,64 +192,68 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   label: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.5)',
     marginBottom: 8,
-    fontWeight: '500',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     color: 'white',
     fontSize: 16,
     borderWidth: 1,
-    borderColor: 'rgba(55,138,221,0.2)',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(55,138,221,0.2)',
-    paddingHorizontal: 14,
+    borderColor: 'rgba(55,138,221,0.3)',
+    paddingHorizontal: 16,
   },
   currencySymbol: {
     fontSize: 18,
-    color: 'rgba(255,255,255,0.7)',
-    marginRight: 4,
+    color: '#378ADD',
+    fontWeight: '600',
+    marginRight: 6,
   },
   priceInput: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 14,
     color: 'white',
     fontSize: 16,
+    fontWeight: '600',
   },
   quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 10,
-    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: 'rgba(55,138,221,0.2)',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   quantityBtn: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(55,138,221,0.3)',
-    borderRadius: 8,
+    backgroundColor: 'rgba(55,138,221,0.15)',
+    borderRadius: 10,
   },
   quantityText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: '700',
     minWidth: 40,
     textAlign: 'center',
   },
@@ -246,21 +261,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(55,138,221,0.1)',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginVertical: 16,
+    backgroundColor: 'rgba(55,138,221,0.08)',
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    marginVertical: 20,
     borderWidth: 1,
-    borderColor: 'rgba(55,138,221,0.3)',
+    borderColor: 'rgba(55,138,221,0.2)',
   },
   totalLabel: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.5)',
+    fontWeight: '500',
   },
   totalPrice: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
     color: '#378ADD',
   },
   actions: {
@@ -269,26 +285,32 @@ const styles = StyleSheet.create({
   },
   btn: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 10,
+    paddingVertical: 16,
+    borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelBtn: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   cancelBtnText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 15,
-    fontWeight: '500',
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 16,
+    fontWeight: '600',
   },
   confirmBtn: {
     backgroundColor: '#378ADD',
+    shadowColor: '#378ADD',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   confirmBtnText: {
     color: 'white',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
