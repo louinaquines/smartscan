@@ -5,14 +5,6 @@
     "scheme": "smartscan",
     "version": "1.0.0",
     "orientation": "portrait",
-    "plugins": [
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "SmartScan needs camera access to scan price tags."
-        }
-      ]
-    ],
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
