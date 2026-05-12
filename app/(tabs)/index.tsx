@@ -1,152 +1,190 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { useState } from 'react';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useCartStore } from '../../store/useCartStore';
 import { router } from 'expo-router';
-
-const fmt = (n: number) =>
-    '₱' + n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+import BudgetDonut from '../../components/BudgetDonut';
+import { formatMoney } from '../../lib/format';
+import { colors, shadow } from '../../lib/theme';
+import { useCartStore } from '../../store/useCartStore';
 
 export default function Dashboard() {
-    const { items, budget, setBudget, removeItem, total, remaining } = useCartStore();
-    const [budgetInput, setBudgetInput] = useState('');
+    const { items, budget, sessions, setBudget, total, remaining } = useCartStore();
+    const [budgetInput, setBudgetInput] = useState(budget > 0 ? String(budget) : '');
 
     const spent = total();
     const rem = remaining();
-    const pct = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
-    const isOver = rem < 0;
-    const isWarn = !isOver && budget > 0 && rem < budget * 0.15;
+    const progress = budget > 0 ? Math.min((spent / budget) * 100, 100) : 0;
+    const scannedCount = items.filter((item) => item.isScanned).length;
+    const manualCount = items.length - scannedCount;
+    const statusColor = rem < 0 ? colors.danger : progress > 85 ? colors.warning : colors.success;
+    const budgetMessage = budget <= 0
+        ? 'Set a budget to track your trip'
+        : rem < 0
+            ? 'You are over budget'
+            : progress > 85
+                ? 'Close to your budget'
+                : 'Budget is on track';
 
-    const handleSetBudget = () => {
-        const val = parseFloat(budgetInput);
-        if (isNaN(val) || val <= 0) { Alert.alert('Invalid', 'Enter a valid budget amount'); return; }
-        setBudget(val);
-        setBudgetInput('');
+    const handleBudgetSave = async () => {
+        const value = Number(budgetInput.replace(/,/g, ''));
+        if (!Number.isFinite(value) || value <= 0) {
+            Alert.alert('Invalid budget', 'Enter a budget greater than zero.');
+            return;
+        }
+        await setBudget(value);
     };
 
-    const barColor = isOver ? '#E24B4A' : isWarn ? '#EF9F27' : '#1D9E75';
-
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-            <Text style={styles.heading}>SmartScan</Text>
+        <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
+            <View style={styles.header}>
+                <View>
+                    <Text style={styles.kicker}>Today</Text>
+                    <Text style={styles.title}>SmartScan</Text>
+                </View>
+                <TouchableOpacity style={styles.scanIcon} onPress={() => router.push('/scan')}>
+                    <Ionicons name="scan" size={24} color="white" />
+                </TouchableOpacity>
+            </View>
 
-            {/* Budget setup */}
-            <View style={styles.card}>
-                <Text style={styles.label}>Set grocery budget</Text>
-                <View style={styles.row}>
+            <View style={styles.budgetPanel}>
+                <View style={styles.budgetTop}>
+                    <View style={styles.budgetCopy}>
+                        <Text style={styles.label}>Budget</Text>
+                        <Text style={styles.budgetAmount}>{budget > 0 ? formatMoney(budget) : 'Set amount'}</Text>
+                        <Text style={styles.budgetMessage}>{budgetMessage}</Text>
+                        <Text style={[styles.remaining, { color: statusColor }]}>
+                            {rem < 0 ? `${formatMoney(Math.abs(rem))} over` : `${formatMoney(rem)} left`}
+                        </Text>
+                    </View>
+                    <BudgetDonut spent={spent} budget={budget} />
+                </View>
+
+                <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: statusColor }]} />
+                </View>
+
+                <View style={styles.budgetInputRow}>
                     <TextInput
-                        style={styles.input}
-                        placeholder="e.g. 1500"
-                        keyboardType="numeric"
+                        style={styles.budgetInput}
                         value={budgetInput}
                         onChangeText={setBudgetInput}
-                        placeholderTextColor="#999"
+                        keyboardType="decimal-pad"
+                        placeholder="Budget amount"
+                        placeholderTextColor="#94A0AC"
                     />
-                    <TouchableOpacity style={styles.setBtn} onPress={handleSetBudget}>
-                        <Text style={styles.setBtnText}>Set</Text>
+                    <TouchableOpacity style={styles.saveButton} onPress={handleBudgetSave}>
+                        <Ionicons name="checkmark" size={20} color="white" />
                     </TouchableOpacity>
                 </View>
             </View>
 
-            {/* Budget overview */}
-            <View style={styles.card}>
-                <View style={styles.budgetRow}>
-                    <View>
-                        <Text style={styles.label}>Budget</Text>
-                        <Text style={styles.bigNum}>{fmt(budget)}</Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={styles.label}>Remaining</Text>
-                        <Text style={[styles.bigNum, { color: barColor }]}>{fmt(Math.abs(rem))}</Text>
-                    </View>
+            <View style={styles.metrics}>
+                <View style={styles.metric}>
+                    <Ionicons name="bag-handle-outline" size={18} color={colors.primary} />
+                    <Text style={styles.metricValue}>{items.length}</Text>
+                    <Text style={styles.metricLabel}>Items</Text>
                 </View>
-                <View style={styles.progressBg}>
-                    <View style={[styles.progressFill, { width: `${pct}%`, backgroundColor: barColor }]} />
+                <View style={styles.metric}>
+                    <Ionicons name="wallet-outline" size={18} color={colors.success} />
+                    <Text style={styles.metricValue}>{formatMoney(spent)}</Text>
+                    <Text style={styles.metricLabel}>Cart total</Text>
                 </View>
-                <View style={styles.budgetRow}>
-                    <Text style={styles.meta}>Spent: {fmt(spent)}</Text>
-                    <Text style={styles.meta}>{budget > 0 ? Math.round(pct) + '% used' : '—'}</Text>
+                <View style={styles.metric}>
+                    <Ionicons name="receipt-outline" size={18} color={colors.warning} />
+                    <Text style={styles.metricValue}>{sessions.length}</Text>
+                    <Text style={styles.metricLabel}>Sessions</Text>
                 </View>
             </View>
 
-            {/* Stats */}
-            <View style={styles.statsRow}>
-                <View style={[styles.statCard, { flex: 1, marginRight: 8 }]}>
-                    <Text style={styles.label}>Items</Text>
-                    <Text style={styles.statNum}>{items.length}</Text>
-                </View>
-                <View style={[styles.statCard, { flex: 1 }]}>
-                    <Text style={styles.label}>Scanned</Text>
-                    <Text style={styles.statNum}>{items.filter(i => i.isScanned).length}</Text>
-                </View>
-            </View>
-
-            {/* Item list */}
             <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>All Items</Text>
+                <Text style={styles.sectionTitle}>Current cart</Text>
+                <TouchableOpacity onPress={() => router.push('/cart')}>
+                    <Text style={styles.sectionAction}>Edit</Text>
+                </TouchableOpacity>
             </View>
 
             {items.length === 0 ? (
-                <View style={styles.empty}>
-                    <Ionicons name="basket-outline" size={40} color="#ccc" />
-                    <Text style={styles.emptyText}>No items yet. Scan a tag or add manually.</Text>
+                <View style={styles.emptyState}>
+                    <View style={styles.emptyIcon}>
+                        <Ionicons name="basket-outline" size={32} color={colors.primary} />
+                    </View>
+                    <Text style={styles.emptyTitle}>No items yet</Text>
+                    <Text style={styles.emptyText}>Scan a tag or add an item from the cart tab.</Text>
+                    <TouchableOpacity style={styles.emptyAction} onPress={() => router.push('/cart')}>
+                        <Text style={styles.emptyActionText}>Add manually</Text>
+                    </TouchableOpacity>
                 </View>
             ) : (
-                items.map(item => (
+                items.slice(0, 5).map((item) => (
                     <View key={item.id} style={styles.itemRow}>
-                        <View style={[styles.itemIcon, item.isScanned ? styles.iconScanned : styles.iconManual]}>
-                            <Ionicons name={item.isScanned ? 'scan' : 'list'} size={16} color={item.isScanned ? '#0F6E56' : '#378ADD'} />
+                        <View style={[styles.itemIcon, item.isScanned ? styles.scannedIcon : styles.manualIcon]}>
+                            <Ionicons name={item.isScanned ? 'scan' : 'create-outline'} size={16} color={item.isScanned ? colors.success : colors.primary} />
                         </View>
-                        <View style={{ flex: 1 }}>
+                        <View style={styles.itemInfo}>
                             <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-                            <Text style={styles.itemMeta}>{item.isScanned ? 'Scanned' : 'Manual'}{item.quantity > 1 ? ` · ×${item.quantity}` : ''}</Text>
+                            <Text style={styles.itemMeta}>{item.quantity} x {formatMoney(item.price)}</Text>
                         </View>
-                        <Text style={styles.itemPrice}>{fmt(item.price * item.quantity)}</Text>
-                        <TouchableOpacity onPress={() => removeItem(item.id)} style={{ padding: 6 }}>
-                            <Ionicons name="trash-outline" size={18} color="#aaa" />
-                        </TouchableOpacity>
+                        <Text style={styles.itemPrice}>{formatMoney(item.price * item.quantity)}</Text>
                     </View>
                 ))
             )}
 
-            {/* Scan button */}
-            <TouchableOpacity style={styles.scanBtn} onPress={() => router.push('/scan')}>
-                <Ionicons name="scan" size={22} color="white" />
-                <Text style={styles.scanBtnText}>Point & Scan Price Tag</Text>
-            </TouchableOpacity>
+            <View style={styles.splitMetrics}>
+                <View style={styles.splitItem}>
+                    <Text style={styles.splitValue}>{scannedCount}</Text>
+                    <Text style={styles.splitLabel}>Scanned</Text>
+                </View>
+                <View style={styles.splitItem}>
+                    <Text style={styles.splitValue}>{manualCount}</Text>
+                    <Text style={styles.splitLabel}>Manual</Text>
+                </View>
+            </View>
         </ScrollView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f5f5f5' },
-    content: { padding: 16, paddingBottom: 40 },
-    heading: { fontSize: 22, fontWeight: '600', color: '#1a1a1a', marginBottom: 16 },
-    card: { backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 14, borderWidth: 0.5, borderColor: '#e0e0e0' },
-    label: { fontSize: 12, color: '#888', marginBottom: 4 },
-    row: { flexDirection: 'row', gap: 8 },
-    input: { flex: 1, backgroundColor: '#f5f5f5', borderRadius: 8, padding: 10, fontSize: 15, color: '#1a1a1a', borderWidth: 0.5, borderColor: '#e0e0e0' },
-    setBtn: { backgroundColor: '#EBF4FF', borderRadius: 8, paddingHorizontal: 16, justifyContent: 'center' },
-    setBtnText: { color: '#378ADD', fontWeight: '500', fontSize: 14 },
-    budgetRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-    bigNum: { fontSize: 26, fontWeight: '500', color: '#1a1a1a' },
-    progressBg: { height: 6, backgroundColor: '#f0f0f0', borderRadius: 99, overflow: 'hidden', marginBottom: 8 },
+    screen: { flex: 1, backgroundColor: colors.bg },
+    content: { padding: 18, paddingBottom: 34 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 },
+    kicker: { fontSize: 13, color: colors.muted, fontWeight: '700' },
+    title: { fontSize: 30, color: colors.text, fontWeight: '800', marginTop: 2 },
+    scanIcon: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', ...shadow },
+    budgetPanel: { backgroundColor: colors.surface, borderRadius: 8, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 14, ...shadow },
+    budgetTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 14 },
+    budgetCopy: { flex: 1 },
+    label: { fontSize: 12, color: colors.muted, fontWeight: '800', textTransform: 'uppercase' },
+    budgetAmount: { fontSize: 26, color: colors.text, fontWeight: '800', marginTop: 6 },
+    budgetMessage: { fontSize: 13, color: colors.muted, marginTop: 4, lineHeight: 18 },
+    remaining: { fontSize: 15, fontWeight: '700', marginTop: 8 },
+    progressTrack: { height: 8, backgroundColor: colors.surfaceMuted, borderRadius: 99, overflow: 'hidden', marginTop: 14 },
     progressFill: { height: '100%', borderRadius: 99 },
-    meta: { fontSize: 12, color: '#888' },
-    statsRow: { flexDirection: 'row', marginBottom: 14 },
-    statCard: { backgroundColor: '#f5f5f5', borderRadius: 10, padding: 12 },
-    statNum: { fontSize: 26, fontWeight: '500', color: '#1a1a1a' },
-    sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    sectionTitle: { fontSize: 14, fontWeight: '500', color: '#1a1a1a' },
-    empty: { alignItems: 'center', paddingVertical: 40 },
-    emptyText: { color: '#aaa', fontSize: 14, marginTop: 10, textAlign: 'center' },
-    itemRow: { backgroundColor: '#fff', borderRadius: 10, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8, borderWidth: 0.5, borderColor: '#e0e0e0' },
-    itemIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-    iconScanned: { backgroundColor: '#E1F5EE' },
-    iconManual: { backgroundColor: '#EBF4FF' },
-    itemName: { fontSize: 13, fontWeight: '500', color: '#1a1a1a' },
-    itemMeta: { fontSize: 11, color: '#999', marginTop: 1 },
-    itemPrice: { fontSize: 14, fontWeight: '500', color: '#1a1a1a' },
-    scanBtn: { backgroundColor: '#378ADD', borderRadius: 12, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16 },
-    scanBtnText: { color: 'white', fontSize: 15, fontWeight: '500' },
+    budgetInputRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+    budgetInput: { flex: 1, height: 46, backgroundColor: colors.bg, borderRadius: 8, paddingHorizontal: 12, color: colors.text, borderWidth: 1, borderColor: colors.border },
+    saveButton: { width: 48, height: 46, borderRadius: 8, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+    metrics: { flexDirection: 'row', gap: 8, marginBottom: 18 },
+    metric: { flex: 1, backgroundColor: colors.surface, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: colors.border, minHeight: 92, justifyContent: 'center' },
+    metricValue: { fontSize: 18, color: colors.text, fontWeight: '800', marginTop: 8 },
+    metricLabel: { fontSize: 12, color: colors.muted, marginTop: 5 },
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+    sectionTitle: { fontSize: 17, color: colors.text, fontWeight: '800' },
+    sectionAction: { color: colors.primary, fontWeight: '800' },
+    emptyState: { alignItems: 'center', paddingVertical: 34, paddingHorizontal: 18, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border },
+    emptyIcon: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
+    emptyTitle: { fontSize: 16, color: colors.text, fontWeight: '800', marginTop: 12 },
+    emptyText: { color: colors.muted, marginTop: 4, textAlign: 'center', lineHeight: 19 },
+    emptyAction: { marginTop: 16, height: 42, paddingHorizontal: 18, borderRadius: 8, backgroundColor: colors.ink, justifyContent: 'center' },
+    emptyActionText: { color: 'white', fontWeight: '800' },
+    itemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: colors.border, marginBottom: 8 },
+    itemIcon: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
+    scannedIcon: { backgroundColor: colors.successSoft },
+    manualIcon: { backgroundColor: colors.primarySoft },
+    itemInfo: { flex: 1 },
+    itemName: { color: colors.text, fontSize: 14, fontWeight: '800' },
+    itemMeta: { color: colors.muted, fontSize: 12, marginTop: 2 },
+    itemPrice: { color: colors.text, fontSize: 14, fontWeight: '800' },
+    splitMetrics: { flexDirection: 'row', gap: 8, marginTop: 10 },
+    splitItem: { flex: 1, backgroundColor: colors.surfaceMuted, borderRadius: 8, padding: 14 },
+    splitValue: { color: colors.text, fontSize: 22, fontWeight: '800' },
+    splitLabel: { color: colors.muted, fontSize: 12, marginTop: 2 },
 });

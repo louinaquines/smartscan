@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { parsePriceTag } from '../lib/ocrParser';
 import { useCartStore } from '../store/useCartStore';
 import VerifySheet from '../components/VerifySheet';
+import { colors } from '../lib/theme';
 
 export default function ScanScreen() {
   const [hasPermission, setHasPermission] = useState(false);
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0a0a0a', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 12 },
   title: { color: 'white', fontSize: 20, fontWeight: '600', marginTop: 16 },
   text: { color: 'rgba(255,255,255,0.6)', fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  permBtn: { backgroundColor: '#378ADD', borderRadius: 12, paddingHorizontal: 32, paddingVertical: 14, marginTop: 8 },
+  permBtn: { backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 32, paddingVertical: 14, marginTop: 8 },
   permBtnText: { color: 'white', fontWeight: '600', fontSize: 15 },
   cancelBtn: { paddingVertical: 10 },
   cancelText: { color: 'rgba(255,255,255,0.4)', fontSize: 14 },
@@ -171,13 +172,13 @@ const styles = StyleSheet.create({
   hint: { color: 'white', fontSize: 14, fontWeight: '500', letterSpacing: 0.3, marginTop: 60 },
   subHint: { color: 'rgba(255,255,255,0.5)', fontSize: 12 },
   viewfinder: { width: 300, height: 160, position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  corner: { position: 'absolute', width: 24, height: 24, borderColor: '#378ADD', borderWidth: 3 },
+  corner: { position: 'absolute', width: 24, height: 24, borderColor: colors.primary, borderWidth: 3 },
   tl: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 4 },
   tr: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 4 },
   bl: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 4 },
   br: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 4 },
-  scanLine: { width: '85%', height: 2, backgroundColor: 'rgba(55,138,221,0.7)', borderRadius: 1 },
-  scanBtn: { backgroundColor: '#378ADD', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 40, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  scanLine: { width: '85%', height: 2, backgroundColor: 'rgba(47,127,196,0.76)', borderRadius: 1 },
+  scanBtn: { backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 14, paddingHorizontal: 40, flexDirection: 'row', alignItems: 'center', gap: 8 },
   scanBtnDisabled: { opacity: 0.5 },
   scanBtnText: { color: 'white', fontSize: 15, fontWeight: '600' },
 });

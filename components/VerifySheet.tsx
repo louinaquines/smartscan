@@ -10,6 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../lib/theme';
 
 interface VerifySheetProps {
   open: boolean;
@@ -164,8 +165,8 @@ const styles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: '#121212',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
@@ -201,7 +202,7 @@ const styles = StyleSheet.create({
   },
   input: {
     backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
     color: 'white',
@@ -213,14 +214,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(55,138,221,0.3)',
+    borderColor: 'rgba(47,127,196,0.3)',
     paddingHorizontal: 16,
   },
   currencySymbol: {
     fontSize: 18,
-    color: '#378ADD',
+    color: colors.primary,
     fontWeight: '600',
     marginRight: 6,
   },
@@ -236,7 +237,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
+    borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 8,
     borderWidth: 1,
@@ -247,8 +248,8 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(55,138,221,0.15)',
-    borderRadius: 10,
+    backgroundColor: 'rgba(47,127,196,0.15)',
+    borderRadius: 8,
   },
   quantityText: {
     color: 'white',
@@ -261,13 +262,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(55,138,221,0.08)',
-    borderRadius: 14,
+    backgroundColor: 'rgba(47,127,196,0.08)',
+    borderRadius: 8,
     paddingHorizontal: 18,
     paddingVertical: 16,
     marginVertical: 20,
     borderWidth: 1,
-    borderColor: 'rgba(55,138,221,0.2)',
+    borderColor: 'rgba(47,127,196,0.2)',
   },
   totalLabel: {
     fontSize: 15,
@@ -277,7 +278,7 @@ const styles = StyleSheet.create({
   totalPrice: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#378ADD',
+    color: colors.primary,
   },
   actions: {
     flexDirection: 'row',
@@ -286,7 +287,7 @@ const styles = StyleSheet.create({
   btn: {
     flex: 1,
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -301,8 +302,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   confirmBtn: {
-    backgroundColor: '#378ADD',
-    shadowColor: '#378ADD',
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
