@@ -1,14 +1,20 @@
 {
   "expo": {
-    "name": "SmartScan",
+    "name": "CANY",
     "slug": "smartscan",
-    "scheme": "smartscan",
+    "scheme": "cany",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F6F8FA"
+    },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#378ADD"
+        "backgroundColor": "#92BEEF"
       },
       "package": "com.yourname.smartscan",
       "permissions": [
@@ -20,6 +26,9 @@
       "eas": {
         "projectId": "47ff032e-fb7d-4f00-9c0c-bab604b0aefd"
       }
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

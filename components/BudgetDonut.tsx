@@ -16,7 +16,7 @@ export default function BudgetDonut({ spent, budget }: BudgetDonutProps) {
     const pct = budget > 0 ? Math.min(spent / budget, 1) : 0;
     const remainingStroke = circumference - pct * circumference;
     const isOver = budget > 0 && spent > budget;
-    const color = isOver ? colors.danger : pct > 0.85 ? colors.warning : colors.success;
+    const color = isOver ? colors.danger : pct > 0.85 ? colors.accent : colors.primaryDeep;
 
     return (
         <View style={styles.wrap}>
@@ -58,5 +58,5 @@ const styles = StyleSheet.create({
     percent: { fontSize: 26, fontWeight: '800', color: colors.text },
     caption: { fontSize: 11, color: colors.muted, marginTop: 1 },
     total: { marginTop: 8, fontSize: 13, fontWeight: '700', color: colors.text },
-    over: { color: colors.danger },
+    over: { color: colors.accentDeep },
 });

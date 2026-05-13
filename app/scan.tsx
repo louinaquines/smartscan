@@ -25,7 +25,7 @@ export default function ScanScreen() {
       PermissionsAndroid.PERMISSIONS.CAMERA,
       {
         title: 'Camera Permission',
-        message: 'SmartScan needs camera access to scan price tags.',
+        message: 'CANY needs camera access to scan price tags.',
         buttonPositive: 'Allow',
         buttonNegative: 'Deny',
       }
@@ -76,7 +76,7 @@ export default function ScanScreen() {
       <View style={styles.container}>
         <Ionicons name="camera-outline" size={56} color="rgba(255,255,255,0.4)" />
         <Text style={styles.title}>Camera Access</Text>
-        <Text style={styles.text}>SmartScan needs camera access to scan price tags.</Text>
+        <Text style={styles.text}>CANY needs camera access to scan price tags.</Text>
         <TouchableOpacity style={styles.permBtn} onPress={requestPermission}>
           <Text style={styles.permBtnText}>Grant Permission</Text>
         </TouchableOpacity>
@@ -163,22 +163,22 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0a0a0a', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 12 },
   title: { color: 'white', fontSize: 20, fontWeight: '600', marginTop: 16 },
   text: { color: 'rgba(255,255,255,0.6)', fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  permBtn: { backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 32, paddingVertical: 14, marginTop: 8 },
+  permBtn: { backgroundColor: colors.accent, borderRadius: 16, paddingHorizontal: 32, paddingVertical: 14, marginTop: 8 },
   permBtnText: { color: 'white', fontWeight: '600', fontSize: 15 },
   cancelBtn: { paddingVertical: 10 },
   cancelText: { color: 'rgba(255,255,255,0.4)', fontSize: 14 },
   overlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingBottom: 52 },
-  closeBtn: { position: 'absolute', top: 52, right: 20, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, padding: 8 },
+  closeBtn: { position: 'absolute', top: 52, right: 20, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 20, padding: 8 },
   hint: { color: 'white', fontSize: 14, fontWeight: '500', letterSpacing: 0.3, marginTop: 60 },
   subHint: { color: 'rgba(255,255,255,0.5)', fontSize: 12 },
   viewfinder: { width: 300, height: 160, position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  corner: { position: 'absolute', width: 24, height: 24, borderColor: colors.primary, borderWidth: 3 },
+  corner: { position: 'absolute', width: 24, height: 24, borderColor: colors.accent, borderWidth: 3 },
   tl: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 4 },
   tr: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 4 },
   bl: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 4 },
   br: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 4 },
-  scanLine: { width: '85%', height: 2, backgroundColor: 'rgba(47,127,196,0.76)', borderRadius: 1 },
-  scanBtn: { backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 14, paddingHorizontal: 40, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  scanLine: { width: '85%', height: 2, backgroundColor: 'rgba(244,142,173,0.85)', borderRadius: 1 },
+  scanBtn: { backgroundColor: colors.accent, borderRadius: 18, paddingVertical: 14, paddingHorizontal: 40, flexDirection: 'row', alignItems: 'center', gap: 8 },
   scanBtnDisabled: { opacity: 0.5 },
   scanBtnText: { color: 'white', fontSize: 15, fontWeight: '600' },
 });
