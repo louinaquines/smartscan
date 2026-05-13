@@ -22,6 +22,12 @@
         "android.permission.RECORD_AUDIO"
       ]
     },
+    "ios": {
+      "bundleIdentifier": "com.yourname.cany",
+      "infoPlist": {
+        "NSCameraUsageDescription": "CANY needs camera access to scan grocery price tags."
+      }
+    },
     "extra": {
       "eas": {
         "projectId": "47ff032e-fb7d-4f00-9c0c-bab604b0aefd"

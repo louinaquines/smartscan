@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { Stack } from 'expo-router';
-import { PaperProvider } from 'react-native-paper';
 import { useCartStore } from '../store/useCartStore';
 import { colors } from '../lib/theme';
 import Skeleton from '../components/Skeleton';
@@ -54,18 +53,16 @@ export default function RootLayout() {
   }
 
   return (
-    <PaperProvider>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="scan"
-          options={{
-            headerShown: false,
-            presentation: 'fullScreenModal',
-          }}
-        />
-      </Stack>
-    </PaperProvider>
+    <Stack>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="scan"
+        options={{
+          headerShown: false,
+          presentation: 'fullScreenModal',
+        }}
+      />
+    </Stack>
   );
 }
 

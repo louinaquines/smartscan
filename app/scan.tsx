@@ -1,8 +1,8 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet,
   TouchableOpacity, ActivityIndicator, Alert,
-  PermissionsAndroid,
+  PermissionsAndroid, Platform, Linking,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,57 +11,95 @@ import { useCartStore } from '../store/useCartStore';
 import VerifySheet from '../components/VerifySheet';
 import { colors } from '../lib/theme';
 
+const AUTO_SCAN_INTERVAL_MS = 1800;
+
 export default function ScanScreen() {
-  const [hasPermission, setHasPermission] = useState(false);
-  const [permissionChecked, setPermissionChecked] = useState(false);
+  const [hasPermission, setHasPermission] = useState(Platform.OS === 'ios');
+  const [permissionChecked, setPermissionChecked] = useState(Platform.OS === 'ios');
   const [isScanning, setIsScanning] = useState(false);
+  const [scanStatus, setScanStatus] = useState('Looking for item name and price');
   const [detected, setDetected] = useState<{ name: string; price: number } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const cameraRef = useRef<any>(null);
+  const isScanningRef = useRef(false);
+  const foundRef = useRef(false);
   const addItem = useCartStore((s) => s.addItem);
 
-  const requestPermission = useCallback(async () => {
-    const result = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.CAMERA,
-      {
-        title: 'Camera Permission',
-        message: 'CANY needs camera access to scan price tags.',
-        buttonPositive: 'Allow',
-        buttonNegative: 'Deny',
+  useEffect(() => {
+    let cancelled = false;
+
+    const requestPermission = async () => {
+      if (Platform.OS !== 'android') {
+        setHasPermission(true);
+        setPermissionChecked(true);
+        return;
       }
-    );
-    setHasPermission(result === PermissionsAndroid.RESULTS.GRANTED);
-    setPermissionChecked(true);
+
+      const result = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.CAMERA,
+        {
+          title: 'Camera Permission',
+          message: 'CANY needs camera access to scan price tags.',
+          buttonPositive: 'Allow',
+          buttonNegative: 'Deny',
+        }
+      );
+
+      if (!cancelled) {
+        setHasPermission(result === PermissionsAndroid.RESULTS.GRANTED);
+        setPermissionChecked(true);
+      }
+    };
+
+    requestPermission();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const handleScan = useCallback(async () => {
-    if (isScanning || !cameraRef.current) return;
+  const recognizeCurrentFrame = useCallback(async () => {
+    if (isScanningRef.current || foundRef.current || !cameraRef.current) return;
+
+    isScanningRef.current = true;
     setIsScanning(true);
+    setScanStatus('Reading shelf tag...');
+
     try {
       const photo = await cameraRef.current.capture();
       if (!photo?.uri) throw new Error('No photo');
 
       const TextRecognition = require('@react-native-ml-kit/text-recognition').default;
       const result = await TextRecognition.recognize(photo.uri);
-      const parsed = parsePriceTag(result.text);
+      const parsed = parsePriceTag(result);
 
       if (parsed) {
+        foundRef.current = true;
         setDetected(parsed);
         setSheetOpen(true);
+        setScanStatus('Item found');
       } else {
-        Alert.alert(
-          'Could not read tag',
-          'Make sure the price tag is clear and well-lit, then try again.',
-          [{ text: 'OK' }]
-        );
+        setScanStatus('Align bold item name and peso price');
       }
     } catch (e) {
       console.error(e);
-      Alert.alert('Error', 'Something went wrong. Please try again.');
+      setScanStatus('Still looking...');
     } finally {
+      isScanningRef.current = false;
       setIsScanning(false);
     }
-  }, [isScanning]);
+  }, []);
+
+  useEffect(() => {
+    if (!hasPermission || sheetOpen) return;
+
+    const timer = setInterval(recognizeCurrentFrame, AUTO_SCAN_INTERVAL_MS);
+    const initialTimer = setTimeout(recognizeCurrentFrame, 700);
+
+    return () => {
+      clearInterval(timer);
+      clearTimeout(initialTimer);
+    };
+  }, [hasPermission, recognizeCurrentFrame, sheetOpen]);
 
   const handleConfirm = useCallback((name: string, price: number, quantity: number) => {
     addItem({ name, price, quantity, isScanned: true });
@@ -70,19 +108,19 @@ export default function ScanScreen() {
     router.dismiss();
   }, [addItem]);
 
-  // Permission request screen
+  const handleCancelDetected = useCallback(() => {
+    setSheetOpen(false);
+    setDetected(null);
+    foundRef.current = false;
+    setScanStatus('Looking for item name and price');
+  }, []);
+
   if (!permissionChecked) {
     return (
       <View style={styles.container}>
-        <Ionicons name="camera-outline" size={56} color="rgba(255,255,255,0.4)" />
-        <Text style={styles.title}>Camera Access</Text>
-        <Text style={styles.text}>CANY needs camera access to scan price tags.</Text>
-        <TouchableOpacity style={styles.permBtn} onPress={requestPermission}>
-          <Text style={styles.permBtnText}>Grant Permission</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.cancelBtn} onPress={() => router.dismiss()}>
-          <Text style={styles.cancelText}>Cancel</Text>
-        </TouchableOpacity>
+        <ActivityIndicator color={colors.accent} size="large" />
+        <Text style={styles.title}>Opening Camera</Text>
+        <Text style={styles.text}>CANY is preparing the scanner.</Text>
       </View>
     );
   }
@@ -91,10 +129,10 @@ export default function ScanScreen() {
     return (
       <View style={styles.container}>
         <Ionicons name="camera-outline" size={56} color="rgba(255,255,255,0.3)" />
-        <Text style={styles.title}>Permission Denied</Text>
-        <Text style={styles.text}>Enable camera access in your phone settings.</Text>
-        <TouchableOpacity style={styles.permBtn} onPress={requestPermission}>
-          <Text style={styles.permBtnText}>Try Again</Text>
+        <Text style={styles.title}>Camera access needed</Text>
+        <Text style={styles.text}>Enable camera access in your phone settings to scan price tags.</Text>
+        <TouchableOpacity style={styles.permBtn} onPress={() => Linking.openSettings()}>
+          <Text style={styles.permBtnText}>Open Settings</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.cancelBtn} onPress={() => router.dismiss()}>
           <Text style={styles.cancelText}>Go Back</Text>
@@ -103,11 +141,10 @@ export default function ScanScreen() {
     );
   }
 
-  // Lazy load Camera component
   const { Camera, CameraType } = require('react-native-camera-kit');
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
+    <View style={styles.cameraRoot}>
       <Camera
         ref={cameraRef}
         style={StyleSheet.absoluteFill}
@@ -121,29 +158,23 @@ export default function ScanScreen() {
           <Ionicons name="close" size={24} color="white" />
         </TouchableOpacity>
 
-        <Text style={styles.hint}>Point at a shelf price tag</Text>
+        <View style={styles.topBadge}>
+          <Ionicons name="sparkles" size={15} color="white" />
+          <Text style={styles.hint}>Auto scanning</Text>
+        </View>
 
         <View style={styles.viewfinder}>
           <View style={[styles.corner, styles.tl]} />
           <View style={[styles.corner, styles.tr]} />
           <View style={[styles.corner, styles.bl]} />
           <View style={[styles.corner, styles.br]} />
-          <View style={styles.scanLine} />
+          <View style={[styles.scanLine, isScanning && styles.scanLineActive]} />
         </View>
 
-        <Text style={styles.subHint}>Align the price label inside the frame</Text>
-
-        <TouchableOpacity
-          style={[styles.scanBtn, isScanning && styles.scanBtnDisabled]}
-          onPress={handleScan}
-          disabled={isScanning}>
-          {isScanning
-            ? <ActivityIndicator color="white" size="small" />
-            : <>
-              <Ionicons name="scan" size={22} color="white" />
-              <Text style={styles.scanBtnText}>Scan Tag</Text>
-            </>}
-        </TouchableOpacity>
+        <View style={styles.statusPill}>
+          {isScanning ? <ActivityIndicator color="white" size="small" /> : <Ionicons name="text" size={17} color="white" />}
+          <Text style={styles.statusText}>{scanStatus}</Text>
+        </View>
       </View>
 
       {detected && (
@@ -152,7 +183,7 @@ export default function ScanScreen() {
           name={detected.name}
           price={detected.price}
           onConfirm={handleConfirm}
-          onCancel={() => { setSheetOpen(false); setDetected(null); }}
+          onCancel={handleCancelDetected}
         />
       )}
     </View>
@@ -160,25 +191,26 @@ export default function ScanScreen() {
 }
 
 const styles = StyleSheet.create({
+  cameraRoot: { flex: 1, backgroundColor: '#000' },
   container: { flex: 1, backgroundColor: '#0a0a0a', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 12 },
-  title: { color: 'white', fontSize: 20, fontWeight: '600', marginTop: 16 },
+  title: { color: 'white', fontSize: 20, fontWeight: '700', marginTop: 16 },
   text: { color: 'rgba(255,255,255,0.6)', fontSize: 14, textAlign: 'center', lineHeight: 20 },
   permBtn: { backgroundColor: colors.accent, borderRadius: 16, paddingHorizontal: 32, paddingVertical: 14, marginTop: 8 },
-  permBtnText: { color: 'white', fontWeight: '600', fontSize: 15 },
+  permBtnText: { color: 'white', fontWeight: '700', fontSize: 15 },
   cancelBtn: { paddingVertical: 10 },
   cancelText: { color: 'rgba(255,255,255,0.4)', fontSize: 14 },
   overlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingBottom: 52 },
   closeBtn: { position: 'absolute', top: 52, right: 20, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 20, padding: 8 },
-  hint: { color: 'white', fontSize: 14, fontWeight: '500', letterSpacing: 0.3, marginTop: 60 },
-  subHint: { color: 'rgba(255,255,255,0.5)', fontSize: 12 },
-  viewfinder: { width: 300, height: 160, position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  corner: { position: 'absolute', width: 24, height: 24, borderColor: colors.accent, borderWidth: 3 },
-  tl: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 4 },
-  tr: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 4 },
-  bl: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 4 },
-  br: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 4 },
-  scanLine: { width: '85%', height: 2, backgroundColor: 'rgba(244,142,173,0.85)', borderRadius: 1 },
-  scanBtn: { backgroundColor: colors.accent, borderRadius: 18, paddingVertical: 14, paddingHorizontal: 40, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  scanBtnDisabled: { opacity: 0.5 },
-  scanBtnText: { color: 'white', fontSize: 15, fontWeight: '600' },
+  topBadge: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(244,142,173,0.92)', borderRadius: 99, paddingHorizontal: 14, paddingVertical: 9, marginTop: 54 },
+  hint: { color: 'white', fontSize: 13, fontWeight: '800' },
+  viewfinder: { width: 310, height: 172, position: 'relative', alignItems: 'center', justifyContent: 'center' },
+  corner: { position: 'absolute', width: 26, height: 26, borderColor: colors.accent, borderWidth: 3 },
+  tl: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 6 },
+  tr: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 6 },
+  bl: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 6 },
+  br: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 6 },
+  scanLine: { width: '86%', height: 2, backgroundColor: 'rgba(244,142,173,0.75)', borderRadius: 1 },
+  scanLineActive: { height: 3, backgroundColor: colors.accent },
+  statusPill: { minHeight: 48, maxWidth: '88%', borderRadius: 18, backgroundColor: 'rgba(19,40,58,0.82)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingHorizontal: 18 },
+  statusText: { color: 'white', fontSize: 14, fontWeight: '700', textAlign: 'center' },
 });
