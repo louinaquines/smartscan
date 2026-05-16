@@ -3,13 +3,14 @@ import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import BudgetDonut from '../../components/BudgetDonut';
+import Skeleton from '../../components/Skeleton';
 import { formatMoney } from '../../lib/format';
 import { colors, shadow } from '../../lib/theme';
 import { useScreenPadding } from '../../lib/useScreenPadding';
 import { useCartStore } from '../../store/useCartStore';
 
 export default function Dashboard() {
-    const { items, budget, sessions, setBudget, total, remaining } = useCartStore();
+    const { items, budget, sessions, setBudget, total, remaining, isHydrated } = useCartStore();
     const [budgetInput, setBudgetInput] = useState(budget > 0 ? String(budget) : '');
     const screenPadding = useScreenPadding();
 
@@ -52,6 +53,10 @@ export default function Dashboard() {
                 </View>
             </View>
 
+            {!isHydrated ? (
+                <DashboardSkeleton />
+            ) : (
+                <>
             <View style={styles.budgetPanel}>
                 <View style={styles.panelGlow} />
                 <View style={styles.budgetTop}>
@@ -152,7 +157,52 @@ export default function Dashboard() {
                     <Text style={styles.splitLabel}>Manual</Text>
                 </View>
             </View>
+                </>
+            )}
         </ScrollView>
+    );
+}
+
+function DashboardSkeleton() {
+    return (
+        <View>
+            <View style={styles.skeletonBudget}>
+                <View style={styles.skeletonBudgetTop}>
+                    <View style={styles.skeletonBudgetCopy}>
+                        <Skeleton width={72} height={13} radius={7} />
+                        <Skeleton width="82%" height={34} radius={10} style={styles.skeletonGap} />
+                        <Skeleton width="64%" height={16} radius={8} style={styles.skeletonGapSmall} />
+                        <Skeleton width="52%" height={20} radius={8} style={styles.skeletonGapSmall} />
+                    </View>
+                    <Skeleton width={132} height={132} radius={66} />
+                </View>
+                <Skeleton height={9} radius={99} style={styles.skeletonGap} />
+                <View style={styles.skeletonInputRow}>
+                    <Skeleton height={48} radius={14} style={styles.skeletonInput} />
+                    <Skeleton width={50} height={48} radius={14} />
+                </View>
+            </View>
+
+            <View style={styles.metrics}>
+                <Skeleton height={104} radius={18} style={styles.skeletonMetric} />
+                <Skeleton height={104} radius={18} style={styles.skeletonMetric} />
+                <Skeleton height={104} radius={18} style={styles.skeletonMetric} />
+            </View>
+
+            <View style={styles.sectionHeader}>
+                <Skeleton width={130} height={22} radius={8} />
+                <Skeleton width={42} height={18} radius={8} />
+            </View>
+
+            <View style={styles.skeletonCartItem}>
+                <Skeleton width={36} height={36} radius={13} />
+                <View style={styles.skeletonCartCopy}>
+                    <Skeleton width="88%" height={17} radius={8} />
+                    <Skeleton width="50%" height={13} radius={7} style={styles.skeletonGapSmall} />
+                </View>
+                <Skeleton width={82} height={18} radius={8} />
+            </View>
+        </View>
     );
 }
 
@@ -206,4 +256,14 @@ const styles = StyleSheet.create({
     splitItem: { flex: 1, backgroundColor: colors.surfaceBlue, borderRadius: 18, padding: 14 },
     splitValue: { color: colors.text, fontSize: 22, fontWeight: '800' },
     splitLabel: { color: colors.muted, fontSize: 12, marginTop: 2 },
+    skeletonBudget: { backgroundColor: colors.surface, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.border, marginBottom: 14, ...shadow },
+    skeletonBudgetTop: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+    skeletonBudgetCopy: { flex: 1 },
+    skeletonGap: { marginTop: 14 },
+    skeletonGapSmall: { marginTop: 9 },
+    skeletonInputRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+    skeletonInput: { flex: 1 },
+    skeletonMetric: { flex: 1 },
+    skeletonCartItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 18, padding: 12, borderWidth: 1, borderColor: colors.border },
+    skeletonCartCopy: { flex: 1, marginLeft: 10 },
 });

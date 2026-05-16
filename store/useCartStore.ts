@@ -23,6 +23,7 @@ type CartStore = {
     sessions: ShoppingSession[];
     budget: number;
     sessionId: string | null;
+    isHydrated: boolean;
     total: () => number;
     remaining: () => number;
     setBudget: (amount: number) => Promise<void>;
@@ -48,6 +49,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
     sessions: [],
     budget: 0,
     sessionId: null,
+    isHydrated: false,
 
     total: () => get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
     remaining: () => get().budget - get().total(),
@@ -120,6 +122,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
             budget: savedBudget ?? 0,
             items,
             sessions,
+            isHydrated: true,
         });
     },
 }));
