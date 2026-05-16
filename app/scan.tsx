@@ -2,7 +2,7 @@ import { useRef, useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet,
   TouchableOpacity, ActivityIndicator, Alert,
-  PermissionsAndroid, Platform, Linking,
+  PermissionsAndroid, Platform, Linking, NativeModules,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,13 +17,23 @@ export default function ScanScreen() {
   const [hasPermission, setHasPermission] = useState(Platform.OS === 'ios');
   const [permissionChecked, setPermissionChecked] = useState(Platform.OS === 'ios');
   const [isScanning, setIsScanning] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
   const [scanStatus, setScanStatus] = useState('Looking for item name and price');
   const [detected, setDetected] = useState<{ name: string; price: number } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const cameraRef = useRef<any>(null);
   const isScanningRef = useRef(false);
   const foundRef = useRef(false);
+  const mountedRef = useRef(true);
   const addItem = useCartStore((s) => s.addItem);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      foundRef.current = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,39 +68,63 @@ export default function ScanScreen() {
   }, []);
 
   const recognizeCurrentFrame = useCallback(async () => {
-    if (isScanningRef.current || foundRef.current || !cameraRef.current) return;
+    if (isScanningRef.current || foundRef.current || !cameraReady || !cameraRef.current) return;
 
     isScanningRef.current = true;
-    setIsScanning(true);
-    setScanStatus('Reading shelf tag...');
+    if (mountedRef.current) {
+      setIsScanning(true);
+      setScanStatus('Reading shelf tag...');
+    }
 
     try {
       const photo = await cameraRef.current.capture();
       if (!photo?.uri) throw new Error('No photo');
 
-      const TextRecognition = require('@react-native-ml-kit/text-recognition').default;
+      const TextRecognition = NativeModules.TextRecognition;
+      if (!TextRecognition?.recognize) {
+        throw new Error('Text recognition native module is not available in this build.');
+      }
+
       const result = await TextRecognition.recognize(photo.uri);
       const parsed = parsePriceTag(result);
 
       if (parsed) {
         foundRef.current = true;
+        if (!mountedRef.current) return;
         setDetected(parsed);
         setSheetOpen(true);
         setScanStatus('Item found');
       } else {
-        setScanStatus('Align bold item name and peso price');
+        if (mountedRef.current) setScanStatus('Align bold item name and peso price');
       }
     } catch (e) {
       console.error(e);
-      setScanStatus('Still looking...');
+      const message = e instanceof Error ? e.message : String(e);
+      if (mountedRef.current && !message.toLowerCase().includes('camera is closed')) {
+        setScanStatus('Still looking...');
+      }
     } finally {
       isScanningRef.current = false;
-      setIsScanning(false);
+      if (mountedRef.current) setIsScanning(false);
     }
-  }, []);
+  }, [cameraReady]);
 
   useEffect(() => {
-    if (!hasPermission || sheetOpen) return;
+    if (!hasPermission) return;
+
+    setCameraReady(false);
+    const readyTimer = setTimeout(() => {
+      if (mountedRef.current) {
+        setCameraReady(true);
+        setScanStatus('Looking for item name and price');
+      }
+    }, 1200);
+
+    return () => clearTimeout(readyTimer);
+  }, [hasPermission]);
+
+  useEffect(() => {
+    if (!hasPermission || !cameraReady || sheetOpen) return;
 
     const timer = setInterval(recognizeCurrentFrame, AUTO_SCAN_INTERVAL_MS);
     const initialTimer = setTimeout(recognizeCurrentFrame, 700);
@@ -99,7 +133,7 @@ export default function ScanScreen() {
       clearInterval(timer);
       clearTimeout(initialTimer);
     };
-  }, [hasPermission, recognizeCurrentFrame, sheetOpen]);
+  }, [hasPermission, cameraReady, recognizeCurrentFrame, sheetOpen]);
 
   const handleConfirm = useCallback((name: string, price: number, quantity: number) => {
     addItem({ name, price, quantity, isScanned: true });
@@ -150,7 +184,11 @@ export default function ScanScreen() {
         style={StyleSheet.absoluteFill}
         cameraType={CameraType.Back}
         flashMode="auto"
-        onError={(e: any) => console.error('Camera error:', e)}
+        onError={(e: any) => {
+          console.error('Camera error:', e);
+          setCameraReady(false);
+          setScanStatus('Camera is not ready');
+        }}
       />
 
       <View style={styles.overlay}>
