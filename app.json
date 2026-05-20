@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "CANY",
+    "name": "Cany",
     "slug": "smartscan",
     "scheme": "cany",
     "version": "1.0.0",
@@ -9,15 +9,15 @@
       "ios",
       "android"
     ],
-    "icon": "./assets/icon.png",
+    "icon": "./assets/icon.jpg",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash-icon.jpg",
       "resizeMode": "contain",
       "backgroundColor": "#F6F8FA"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/adaptive-icon.jpg",
         "backgroundColor": "#92BEEF"
       },
       "package": "com.yourname.smartscan",

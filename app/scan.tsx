@@ -5,13 +5,14 @@ import {
   PermissionsAndroid, Platform, Linking, NativeModules,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { parsePriceTag } from '../lib/ocrParser';
 import { useCartStore } from '../store/useCartStore';
 import VerifySheet from '../components/VerifySheet';
 import { colors } from '../lib/theme';
 
-const AUTO_SCAN_INTERVAL_MS = 1800;
+const AUTO_SCAN_INTERVAL_MS = 2600;
 
 export default function ScanScreen() {
   const [hasPermission, setHasPermission] = useState(Platform.OS === 'ios');
@@ -25,6 +26,7 @@ export default function ScanScreen() {
   const isScanningRef = useRef(false);
   const foundRef = useRef(false);
   const mountedRef = useRef(true);
+  const focusedRef = useRef(false);
   const addItem = useCartStore((s) => s.addItem);
 
   useEffect(() => {
@@ -34,6 +36,20 @@ export default function ScanScreen() {
       foundRef.current = true;
     };
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      focusedRef.current = true;
+      foundRef.current = false;
+
+      return () => {
+        focusedRef.current = false;
+        foundRef.current = true;
+        isScanningRef.current = false;
+        setCameraReady(false);
+      };
+    }, [])
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -49,7 +65,7 @@ export default function ScanScreen() {
         PermissionsAndroid.PERMISSIONS.CAMERA,
         {
           title: 'Camera Permission',
-          message: 'CANY needs camera access to scan price tags.',
+          message: 'Cany needs camera access to scan price tags.',
           buttonPositive: 'Allow',
           buttonNegative: 'Deny',
         }
@@ -68,7 +84,14 @@ export default function ScanScreen() {
   }, []);
 
   const recognizeCurrentFrame = useCallback(async () => {
-    if (isScanningRef.current || foundRef.current || !cameraReady || !cameraRef.current) return;
+    if (
+      isScanningRef.current ||
+      foundRef.current ||
+      !mountedRef.current ||
+      !focusedRef.current ||
+      !cameraReady ||
+      !cameraRef.current
+    ) return;
 
     isScanningRef.current = true;
     if (mountedRef.current) {
@@ -100,7 +123,16 @@ export default function ScanScreen() {
     } catch (e) {
       console.error(e);
       const message = e instanceof Error ? e.message : String(e);
-      if (mountedRef.current && !message.toLowerCase().includes('camera is closed')) {
+      if (message.toLowerCase().includes('camera is closed')) {
+        if (mountedRef.current) {
+          setCameraReady(false);
+          setTimeout(() => {
+            if (mountedRef.current && focusedRef.current) {
+              setCameraReady(true);
+            }
+          }, 1500);
+        }
+      } else if (mountedRef.current) {
         setScanStatus('Still looking...');
       }
     } finally {
@@ -114,20 +146,20 @@ export default function ScanScreen() {
 
     setCameraReady(false);
     const readyTimer = setTimeout(() => {
-      if (mountedRef.current) {
+      if (mountedRef.current && focusedRef.current) {
         setCameraReady(true);
         setScanStatus('Looking for item name and price');
       }
-    }, 1200);
+    }, 2200);
 
     return () => clearTimeout(readyTimer);
   }, [hasPermission]);
 
   useEffect(() => {
-    if (!hasPermission || !cameraReady || sheetOpen) return;
+    if (!hasPermission || !cameraReady || sheetOpen || !focusedRef.current) return;
 
     const timer = setInterval(recognizeCurrentFrame, AUTO_SCAN_INTERVAL_MS);
-    const initialTimer = setTimeout(recognizeCurrentFrame, 700);
+    const initialTimer = setTimeout(recognizeCurrentFrame, 1200);
 
     return () => {
       clearInterval(timer);
@@ -154,7 +186,7 @@ export default function ScanScreen() {
       <View style={styles.container}>
         <ActivityIndicator color={colors.accent} size="large" />
         <Text style={styles.title}>Opening Camera</Text>
-        <Text style={styles.text}>CANY is preparing the scanner.</Text>
+        <Text style={styles.text}>Cany is preparing the scanner.</Text>
       </View>
     );
   }
@@ -230,25 +262,25 @@ export default function ScanScreen() {
 
 const styles = StyleSheet.create({
   cameraRoot: { flex: 1, backgroundColor: '#000' },
-  container: { flex: 1, backgroundColor: '#0a0a0a', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 12 },
-  title: { color: 'white', fontSize: 20, fontWeight: '700', marginTop: 16 },
-  text: { color: 'rgba(255,255,255,0.6)', fontSize: 14, textAlign: 'center', lineHeight: 20 },
-  permBtn: { backgroundColor: colors.accent, borderRadius: 16, paddingHorizontal: 32, paddingVertical: 14, marginTop: 8 },
-  permBtnText: { color: 'white', fontWeight: '700', fontSize: 15 },
+  container: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 12 },
+  title: { color: colors.text, fontSize: 20, fontWeight: '700', marginTop: 16 },
+  text: { color: colors.muted, fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  permBtn: { backgroundColor: colors.primary, borderRadius: 16, paddingHorizontal: 32, paddingVertical: 14, marginTop: 8 },
+  permBtnText: { color: '#000', fontWeight: '700', fontSize: 15 },
   cancelBtn: { paddingVertical: 10 },
-  cancelText: { color: 'rgba(255,255,255,0.4)', fontSize: 14 },
+  cancelText: { color: colors.soft, fontSize: 14 },
   overlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingBottom: 52 },
-  closeBtn: { position: 'absolute', top: 52, right: 20, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 20, padding: 8 },
-  topBadge: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(244,142,173,0.92)', borderRadius: 99, paddingHorizontal: 14, paddingVertical: 9, marginTop: 54 },
-  hint: { color: 'white', fontSize: 13, fontWeight: '800' },
+  closeBtn: { position: 'absolute', top: 52, right: 20, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 20, padding: 8, borderWidth: 1, borderColor: colors.border },
+  topBadge: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(6, 182, 212, 0.25)', borderRadius: 99, paddingHorizontal: 14, paddingVertical: 9, marginTop: 54, borderWidth: 1, borderColor: colors.primary },
+  hint: { color: colors.primary, fontSize: 13, fontWeight: '800' },
   viewfinder: { width: 310, height: 172, position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  corner: { position: 'absolute', width: 26, height: 26, borderColor: colors.accent, borderWidth: 3 },
+  corner: { position: 'absolute', width: 26, height: 26, borderColor: colors.primary, borderWidth: 3, shadowColor: colors.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 10, elevation: 5 },
   tl: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 6 },
   tr: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 6 },
   bl: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 6 },
   br: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 6 },
-  scanLine: { width: '86%', height: 2, backgroundColor: 'rgba(244,142,173,0.75)', borderRadius: 1 },
-  scanLineActive: { height: 3, backgroundColor: colors.accent },
-  statusPill: { minHeight: 48, maxWidth: '88%', borderRadius: 18, backgroundColor: 'rgba(19,40,58,0.82)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingHorizontal: 18 },
-  statusText: { color: 'white', fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  scanLine: { width: '86%', height: 2, backgroundColor: 'rgba(6, 182, 212, 0.4)', borderRadius: 1 },
+  scanLineActive: { height: 3, backgroundColor: colors.accent, shadowColor: colors.accent, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 8, elevation: 6 },
+  statusPill: { minHeight: 48, maxWidth: '88%', borderRadius: 18, backgroundColor: 'rgba(15, 26, 36, 0.9)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingHorizontal: 18, borderWidth: 1, borderColor: colors.border },
+  statusText: { color: colors.text, fontSize: 14, fontWeight: '700', textAlign: 'center' },
 });

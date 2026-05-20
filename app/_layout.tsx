@@ -27,8 +27,8 @@ export default function RootLayout() {
     return (
       <View style={styles.loadingScreen}>
         <View style={styles.brandBlock}>
-          <Image source={require('../assets/cany-logo.png')} style={styles.logo} />
-          <Text style={styles.logoTitle}>CANY</Text>
+          <Image source={require('../assets/cany-logo.jpg')} style={styles.logo} />
+          <Text style={styles.logoTitle}>Cany</Text>
           <Text style={styles.logoCaption}>Smart grocery scanning</Text>
         </View>
       </View>
@@ -65,6 +65,8 @@ const styles = StyleSheet.create({
     height: 132,
     borderRadius: 32,
     marginBottom: 18,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   logoTitle: {
     color: colors.text,
@@ -72,9 +74,10 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   logoCaption: {
-    color: colors.muted,
+    color: colors.primary,
     fontSize: 14,
     marginTop: 6,
     fontWeight: '700',
+    textTransform: 'uppercase',
   },
 });

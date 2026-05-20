@@ -93,7 +93,7 @@ export default function VerifySheet({
           <View style={styles.field}>
             <Text style={styles.label}>Price</Text>
             <View style={styles.priceContainer}>
-              <Text style={styles.currencySymbol}>₱</Text>
+              <Text style={styles.currencySymbol}>PHP</Text>
               <TextInput
                 style={styles.priceInput}
                 placeholder="0.00"
@@ -129,7 +129,7 @@ export default function VerifySheet({
           <View style={styles.totalContainer}>
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalPrice}>
-              ₱{(parseFloat(editPrice.replace(',', '.') || '0') * quantity).toFixed(2)}
+              PHP {(parseFloat(editPrice.replace(',', '.') || '0') * quantity).toFixed(2)}
             </Text>
           </View>
 
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   sheet: {
-    backgroundColor: colors.ink,
+    backgroundColor: colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -216,11 +216,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(244,142,173,0.35)',
+    borderColor: colors.borderPink,
     paddingHorizontal: 16,
   },
   currencySymbol: {
-    fontSize: 18,
+    fontSize: 13,
     color: colors.accent,
     fontWeight: '600',
     marginRight: 6,
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(244,142,173,0.18)',
+    backgroundColor: colors.surfacePink,
     borderRadius: 12,
   },
   quantityText: {
@@ -262,13 +262,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(244,142,173,0.1)',
+    backgroundColor: colors.surfaceBlue,
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 16,
     marginVertical: 20,
     borderWidth: 1,
-    borderColor: 'rgba(244,142,173,0.25)',
+    borderColor: colors.primarySoft,
   },
   totalLabel: {
     fontSize: 15,
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   confirmBtnText: {
-    color: 'white',
+    color: '#000',
     fontSize: 16,
     fontWeight: '700',
   },

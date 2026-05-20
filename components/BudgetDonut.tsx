@@ -9,14 +9,15 @@ type BudgetDonutProps = {
 };
 
 export default function BudgetDonut({ spent, budget }: BudgetDonutProps) {
-    const size = 148;
-    const stroke = 16;
+    const size = 132;
+    const stroke = 13;
     const radius = (size - stroke) / 2;
     const circumference = 2 * Math.PI * radius;
     const pct = budget > 0 ? Math.min(spent / budget, 1) : 0;
     const remainingStroke = circumference - pct * circumference;
     const isOver = budget > 0 && spent > budget;
-    const color = isOver ? colors.danger : pct > 0.85 ? colors.accent : colors.primaryDeep;
+    const color = isOver ? colors.danger : pct > 0.85 ? colors.warning : colors.success;
+    const label = budget <= 0 ? 'set budget' : isOver ? 'over' : pct > 0.85 ? 'caution' : 'on track';
 
     return (
         <View style={styles.wrap}>
@@ -25,7 +26,7 @@ export default function BudgetDonut({ spent, budget }: BudgetDonutProps) {
                     cx={size / 2}
                     cy={size / 2}
                     r={radius}
-                    stroke={colors.surfaceMuted}
+                    stroke="rgba(255,255,255,0.08)"
                     strokeWidth={stroke}
                     fill="transparent"
                 />
@@ -44,19 +45,18 @@ export default function BudgetDonut({ spent, budget }: BudgetDonutProps) {
                 />
             </Svg>
             <View style={styles.center}>
-                <Text style={styles.percent}>{budget > 0 ? `${Math.round(pct * 100)}%` : '0%'}</Text>
-                <Text style={styles.caption}>used</Text>
+                <Text style={[styles.percent, { color }]}>{budget > 0 ? `${Math.round(pct * 100)}%` : '0%'}</Text>
+                <Text style={styles.caption}>{label}</Text>
             </View>
-            <Text style={[styles.total, isOver && styles.over]}>{formatMoney(spent)}</Text>
+            <Text style={[styles.total, { color }]}>{formatMoney(spent)}</Text>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     wrap: { alignItems: 'center', justifyContent: 'center' },
-    center: { position: 'absolute', top: 47, alignItems: 'center' },
-    percent: { fontSize: 26, fontWeight: '800', color: colors.text },
-    caption: { fontSize: 11, color: colors.muted, marginTop: 1 },
-    total: { marginTop: 8, fontSize: 13, fontWeight: '700', color: colors.text },
-    over: { color: colors.accentDeep },
+    center: { position: 'absolute', top: 42, alignItems: 'center' },
+    percent: { fontSize: 24, fontWeight: '900' },
+    caption: { fontSize: 10, color: colors.muted, marginTop: 1, fontWeight: '800', textTransform: 'uppercase' },
+    total: { marginTop: 8, fontSize: 12, fontWeight: '800' },
 });
