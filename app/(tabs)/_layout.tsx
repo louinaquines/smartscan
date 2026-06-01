@@ -71,7 +71,7 @@ export default function TabLayout() {
             accessibilityLabel="Scan price tag"
             style={styles.scanFab}
             onPress={() => router.push('/scan')}>
-            <Ionicons name="scan" size={27} color="#000" />
+            <Ionicons name="scan" size={27} color="#FFF" />
           </TouchableOpacity>
         </View>
       </View>
@@ -82,7 +82,7 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   tabBarGlass: {
-    backgroundColor: 'rgba(7,11,20,0.92)',
+    backgroundColor: 'rgba(255,255,255,0.88)',
     borderTopWidth: 1,
     borderTopColor: colors.glassBorder,
   },
@@ -103,8 +103,8 @@ const styles = StyleSheet.create({
     width: 62,
     height: 62,
     borderRadius: 31,
-    backgroundColor: colors.accent,
-    opacity: 0.4,
+    backgroundColor: colors.primary,
+    opacity: 0.18,
   },
   scanFab: {
     position: 'absolute',
@@ -113,10 +113,10 @@ const styles = StyleSheet.create({
     borderRadius: 31,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.accent,
+    backgroundColor: colors.primary,
     borderWidth: 3,
-    borderColor: 'rgba(0,0,0,0.3)',
-    shadowColor: colors.accent,
+    borderColor: 'rgba(255,255,255,0.75)',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.6,
     shadowRadius: 18,

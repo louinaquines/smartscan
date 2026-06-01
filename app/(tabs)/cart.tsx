@@ -110,7 +110,7 @@ export default function Cart() {
                                 placeholderTextColor={colors.soft}
                             />
                             <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
-                                <Ionicons name="add" size={24} color="#000" />
+                                <Ionicons name="add" size={24} color="#FFF" />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -130,7 +130,7 @@ export default function Cart() {
                             <Text style={styles.emptyTitle}>Cart is empty</Text>
                             <Text style={styles.emptyText}>Add an item manually or scan a price tag.</Text>
                             <TouchableOpacity style={styles.emptyAction} onPress={() => router.push('/scan')}>
-                                <Ionicons name="scan" size={18} color="#000" />
+                                <Ionicons name="scan" size={18} color="#FFF" />
                                 <Text style={styles.emptyActionText}>Scan item</Text>
                             </TouchableOpacity>
                         </View>
@@ -165,7 +165,7 @@ export default function Cart() {
 
                     <TouchableOpacity style={[styles.checkoutButton, items.length === 0 && styles.disabled]} onPress={handleSaveSession} disabled={items.length === 0}>
                         <View style={styles.checkoutFill} />
-                        <Ionicons name="checkmark-done" size={22} color="#000" />
+                        <Ionicons name="checkmark-done" size={22} color="#FFF" />
                         <Text style={styles.checkoutText}>Save Session</Text>
                     </TouchableOpacity>
                 </View>
@@ -176,8 +176,8 @@ export default function Cart() {
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
-    ambientTop: { ...StyleSheet.absoluteFillObject, height: 320, backgroundColor: '#201224' },
-    stickyHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100, borderBottomWidth: 1, borderBottomColor: colors.glassBorder, backgroundColor: 'rgba(7,11,20,0.94)' },
+    ambientTop: { ...StyleSheet.absoluteFillObject, height: 320, backgroundColor: '#FFFFFF' },
+    stickyHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100, borderBottomWidth: 1, borderBottomColor: colors.glassBorder, backgroundColor: 'rgba(255,255,255,0.9)' },
     headerContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 16 },
     kicker: { color: colors.primary, fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
     title: { color: colors.text, fontSize: 28, fontWeight: '900', marginTop: 2 },
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     headerTotalValue: { color: colors.text, fontSize: 24, fontWeight: '900', marginTop: 2 },
     
     content: {},
-    form: { backgroundColor: 'rgba(18,27,42,0.9)', borderRadius: 24, padding: 18, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 20, overflow: 'hidden' },
+    form: { backgroundColor: colors.card, borderRadius: 24, padding: 18, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 20, overflow: 'hidden' },
     sectionTitle: { color: colors.text, fontSize: 18, fontWeight: '900' },
     formHint: { color: colors.soft, fontSize: 13, marginTop: 4 },
     input: { height: 50, backgroundColor: colors.glass, borderRadius: 16, paddingHorizontal: 16, color: colors.text, borderWidth: 1, borderColor: colors.glassBorder, marginTop: 12, fontSize: 15 },
@@ -198,12 +198,12 @@ const styles = StyleSheet.create({
     sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
     clearText: { color: colors.danger, fontWeight: '800' },
     
-    emptyState: { backgroundColor: 'rgba(18,27,42,0.9)', alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20, borderRadius: 24, borderWidth: 1, borderColor: colors.glassBorder, overflow: 'hidden' },
+    emptyState: { backgroundColor: colors.card, alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20, borderRadius: 24, borderWidth: 1, borderColor: colors.glassBorder, overflow: 'hidden' },
     emptyIcon: { width: 64, height: 64, borderRadius: 24, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.glassBorder },
     emptyTitle: { color: colors.text, fontWeight: '800', marginTop: 16, fontSize: 17 },
     emptyText: { color: colors.soft, marginTop: 6, textAlign: 'center', fontSize: 14 },
     emptyAction: { marginTop: 18, height: 46, paddingHorizontal: 20, borderRadius: 16, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', gap: 8, ...shadow },
-    emptyActionText: { color: '#000', fontWeight: '800', fontSize: 15 },
+    emptyActionText: { color: '#FFF', fontWeight: '800', fontSize: 15 },
     
     itemRow: { backgroundColor: colors.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 12, overflow: 'hidden' },
     itemAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, opacity: 0.9 },
@@ -220,6 +220,6 @@ const styles = StyleSheet.create({
     
     checkoutButton: { marginTop: 12, height: 56, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, ...shadow, overflow: 'hidden' },
     checkoutFill: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.success },
-    checkoutText: { color: '#000', fontSize: 17, fontWeight: '900' },
+    checkoutText: { color: '#FFF', fontSize: 17, fontWeight: '900' },
     disabled: { opacity: 0.45 },
 });

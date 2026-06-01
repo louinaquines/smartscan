@@ -29,7 +29,8 @@
     "ios": {
       "bundleIdentifier": "com.yourname.cany",
       "infoPlist": {
-        "NSCameraUsageDescription": "CANY needs camera access to scan grocery price tags."
+        "NSCameraUsageDescription": "CANY needs camera access to scan grocery price tags.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "extra": {

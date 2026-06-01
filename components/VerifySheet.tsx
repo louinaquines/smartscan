@@ -83,7 +83,7 @@ export default function VerifySheet({
             <TextInput
               style={styles.input}
               placeholder="Enter product name"
-              placeholderTextColor="rgba(255,255,255,0.3)"
+              placeholderTextColor="rgba(0,0,0,0.32)"
               value={editName}
               onChangeText={setEditName}
             />
@@ -97,7 +97,7 @@ export default function VerifySheet({
               <TextInput
                 style={styles.priceInput}
                 placeholder="0.00"
-                placeholderTextColor="rgba(255,255,255,0.3)"
+                placeholderTextColor="rgba(0,0,0,0.32)"
                 value={editPrice}
                 onChangeText={setEditPrice}
                 keyboardType="decimal-pad"
@@ -113,14 +113,14 @@ export default function VerifySheet({
                 style={styles.quantityBtn}
                 onPress={decrementQuantity}
               >
-                <Ionicons name="remove" size={20} color="white" />
+                <Ionicons name="remove" size={20} color={colors.text} />
               </TouchableOpacity>
               <Text style={styles.quantityText}>{quantity}</Text>
               <TouchableOpacity
                 style={styles.quantityBtn}
                 onPress={incrementQuantity}
               >
-                <Ionicons name="add" size={20} color="white" />
+                <Ionicons name="add" size={20} color={colors.text} />
               </TouchableOpacity>
             </View>
           </View>
@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.36)',
   },
   sheet: {
     backgroundColor: colors.card,
@@ -179,13 +179,13 @@ const styles = StyleSheet.create({
   handle: {
     width: 36,
     height: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(0,0,0,0.18)',
     borderRadius: 2,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: 'white',
+    color: colors.text,
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -194,26 +194,26 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.5)',
+    color: colors.muted,
     marginBottom: 8,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.66)',
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    color: 'white',
+    color: colors.text,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: colors.glassBorder,
   },
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.66)',
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.borderPink,
@@ -221,14 +221,14 @@ const styles = StyleSheet.create({
   },
   currencySymbol: {
     fontSize: 13,
-    color: colors.accent,
+    color: colors.text,
     fontWeight: '600',
     marginRight: 6,
   },
   priceInput: {
     flex: 1,
     paddingVertical: 14,
-    color: 'white',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -236,12 +236,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.66)',
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: colors.glassBorder,
   },
   quantityBtn: {
     width: 40,
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   quantityText: {
-    color: 'white',
+    color: colors.text,
     fontSize: 18,
     fontWeight: '700',
     minWidth: 40,
@@ -272,13 +272,13 @@ const styles = StyleSheet.create({
   },
   totalLabel: {
     fontSize: 15,
-    color: 'rgba(255,255,255,0.5)',
+    color: colors.muted,
     fontWeight: '500',
   },
   totalPrice: {
     fontSize: 22,
     fontWeight: '800',
-    color: colors.accent,
+    color: colors.text,
   },
   actions: {
     flexDirection: 'row',
@@ -292,25 +292,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelBtn: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.66)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: colors.glassBorder,
   },
   cancelBtnText: {
-    color: 'rgba(255,255,255,0.6)',
+    color: colors.text,
     fontSize: 16,
     fontWeight: '600',
   },
   confirmBtn: {
-    backgroundColor: colors.accent,
-    shadowColor: colors.accent,
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
   confirmBtnText: {
-    color: '#000',
+    color: '#FFF',
     fontSize: 16,
     fontWeight: '700',
   },

@@ -1,47 +1,48 @@
 export const colors = {
-    // Logo-led blue and pink system
-    bg: '#070B14',
-    bgWarm: '#0C101C',
-    surface: '#101724',
-    surfaceBlue: '#101E33',
-    surfacePink: '#24111C',
-    surfaceMuted: '#1A2230',
-    card: '#121B2A',
-    border: 'rgba(211, 226, 246, 0.11)',
-    borderPink: 'rgba(244, 142, 173, 0.2)',
+    // Black and white glass system
+    bg: '#F7F7F4',
+    bgWarm: '#FFFFFF',
+    surface: '#FFFFFF',
+    surfaceBlue: 'rgba(0,0,0,0.055)',
+    surfacePink: 'rgba(0,0,0,0.075)',
+    surfaceMuted: 'rgba(0,0,0,0.06)',
+    card: '#FFFFFF',
+    border: 'rgba(0,0,0,0.11)',
+    borderPink: 'rgba(0,0,0,0.13)',
 
     // Typography
-    text: '#F8FBFF',
-    muted: '#9AA8BB',
-    soft: 'rgba(248,251,255,0.48)',
+    text: '#080808',
+    muted: '#666666',
+    soft: 'rgba(0,0,0,0.44)',
 
-    // Brand accents
-    primary: '#8EBEF4',
-    primarySoft: 'rgba(142, 190, 244, 0.16)',
-    primaryDeep: '#3C82D9',
+    // Monochrome accents
+    primary: '#080808',
+    primarySoft: 'rgba(0,0,0,0.07)',
+    primaryDeep: '#000000',
     
-    accent: '#F48EAD',
-    accentSoft: 'rgba(244, 142, 173, 0.16)',
-    accentDeep: '#D94F7D',
+    accent: '#080808',
+    accentSoft: 'rgba(0,0,0,0.08)',
+    accentDeep: '#000000',
 
     // Status
-    success: '#24C58A',
-    successSoft: 'rgba(36, 197, 138, 0.16)',
-    warning: '#F6B342',
-    warningSoft: 'rgba(246, 179, 66, 0.17)',
-    danger: '#F06476',
-    dangerSoft: 'rgba(240, 100, 118, 0.16)',
+    success: '#080808',
+    successSoft: 'rgba(0,0,0,0.07)',
+    warning: '#3A3A3A',
+    warningSoft: 'rgba(0,0,0,0.09)',
+    danger: '#000000',
+    dangerSoft: 'rgba(0,0,0,0.12)',
 
     // Glass & Utilities
-    glass: 'rgba(255, 255, 255, 0.055)',
-    glassBorder: 'rgba(211, 226, 246, 0.14)',
-    skeleton: 'rgba(255,255,255,0.07)',
+    glass: '#FFFFFF',
+    glassDark: 'rgba(0,0,0,0.82)',
+    glassBorder: 'rgba(0,0,0,0.12)',
+    skeleton: 'rgba(0,0,0,0.075)',
 };
 
 export const shadow = {
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.7,
-    shadowRadius: 24,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.12,
+    shadowRadius: 26,
+    elevation: 5,
 };

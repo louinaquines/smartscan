@@ -184,7 +184,7 @@ export default function ScanScreen() {
   if (!permissionChecked) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator color={colors.accent} size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
         <Text style={styles.title}>Opening Camera</Text>
         <Text style={styles.text}>Cany is preparing the scanner.</Text>
       </View>
@@ -194,7 +194,7 @@ export default function ScanScreen() {
   if (!hasPermission) {
     return (
       <View style={styles.container}>
-        <Ionicons name="camera-outline" size={56} color="rgba(255,255,255,0.3)" />
+        <Ionicons name="camera-outline" size={56} color="rgba(0,0,0,0.34)" />
         <Text style={styles.title}>Camera access needed</Text>
         <Text style={styles.text}>Enable camera access in your phone settings to scan price tags.</Text>
         <TouchableOpacity style={styles.permBtn} onPress={() => Linking.openSettings()}>
@@ -266,21 +266,21 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 20, fontWeight: '700', marginTop: 16 },
   text: { color: colors.muted, fontSize: 14, textAlign: 'center', lineHeight: 20 },
   permBtn: { backgroundColor: colors.primary, borderRadius: 16, paddingHorizontal: 32, paddingVertical: 14, marginTop: 8 },
-  permBtnText: { color: '#000', fontWeight: '700', fontSize: 15 },
+  permBtnText: { color: '#FFF', fontWeight: '700', fontSize: 15 },
   cancelBtn: { paddingVertical: 10 },
   cancelText: { color: colors.soft, fontSize: 14 },
   overlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingBottom: 52 },
   closeBtn: { position: 'absolute', top: 52, right: 20, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 20, padding: 8, borderWidth: 1, borderColor: colors.border },
-  topBadge: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(6, 182, 212, 0.25)', borderRadius: 99, paddingHorizontal: 14, paddingVertical: 9, marginTop: 54, borderWidth: 1, borderColor: colors.primary },
-  hint: { color: colors.primary, fontSize: 13, fontWeight: '800' },
+  topBadge: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(0,0,0,0.58)', borderRadius: 99, paddingHorizontal: 14, paddingVertical: 9, marginTop: 54, borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)' },
+  hint: { color: '#FFF', fontSize: 13, fontWeight: '800' },
   viewfinder: { width: 310, height: 172, position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  corner: { position: 'absolute', width: 26, height: 26, borderColor: colors.primary, borderWidth: 3, shadowColor: colors.primary, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 10, elevation: 5 },
+  corner: { position: 'absolute', width: 26, height: 26, borderColor: '#FFF', borderWidth: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.45, shadowRadius: 10, elevation: 5 },
   tl: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 6 },
   tr: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 6 },
   bl: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 6 },
   br: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 6 },
-  scanLine: { width: '86%', height: 2, backgroundColor: 'rgba(6, 182, 212, 0.4)', borderRadius: 1 },
-  scanLineActive: { height: 3, backgroundColor: colors.accent, shadowColor: colors.accent, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 8, elevation: 6 },
-  statusPill: { minHeight: 48, maxWidth: '88%', borderRadius: 18, backgroundColor: 'rgba(15, 26, 36, 0.9)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingHorizontal: 18, borderWidth: 1, borderColor: colors.border },
-  statusText: { color: colors.text, fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  scanLine: { width: '86%', height: 2, backgroundColor: 'rgba(255,255,255,0.55)', borderRadius: 1 },
+  scanLineActive: { height: 3, backgroundColor: '#FFF', shadowColor: '#000', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 8, elevation: 6 },
+  statusPill: { minHeight: 48, maxWidth: '88%', borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.82)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingHorizontal: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.32)' },
+  statusText: { color: '#FFF', fontSize: 14, fontWeight: '700', textAlign: 'center' },
 });

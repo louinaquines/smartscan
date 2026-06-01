@@ -83,10 +83,6 @@ export default function Dashboard() {
 
                 {/* Glassmorphic Budget Panel */}
                 <View style={styles.budgetGlassCard}>
-                    <View style={styles.glassShine} />
-                    <View style={styles.cardGlowBlue} />
-                    <View style={styles.cardGlowPink} />
-                    
                     <View style={styles.budgetTop}>
                         <View style={styles.budgetCopy}>
                             <View style={[styles.statusPill, { backgroundColor: statusBg }]}>
@@ -133,7 +129,7 @@ export default function Dashboard() {
                             placeholderTextColor={colors.soft}
                         />
                         <TouchableOpacity style={styles.saveButton} onPress={handleBudgetSave}>
-                            <Ionicons name="checkmark" size={20} color="#000" />
+                            <Ionicons name="checkmark" size={20} color="#FFF" />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -212,8 +208,8 @@ export default function Dashboard() {
 
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.bg },
-    ambientTop: { ...StyleSheet.absoluteFillObject, height: 360, backgroundColor: '#101E33' },
-    ambientBlob: { position: 'absolute', top: -126, right: -84, width: 276, height: 276, borderRadius: 138, backgroundColor: 'rgba(244,142,173,0.18)' },
+    ambientTop: { ...StyleSheet.absoluteFillObject, height: 360, backgroundColor: '#FFFFFF' },
+    ambientBlob: { position: 'absolute', top: -126, right: -84, width: 276, height: 276, borderRadius: 138, backgroundColor: 'rgba(0,0,0,0.06)' },
     content: {},
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
     brandRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -224,7 +220,7 @@ const styles = StyleSheet.create({
     headerPillText: { color: colors.primary, fontSize: 12, fontWeight: '900' },
     
     budgetGlassCard: {
-        backgroundColor: 'rgba(18,27,42,0.94)',
+        backgroundColor: colors.card,
         borderRadius: 26,
         padding: 22,
         marginBottom: 20,
@@ -233,9 +229,6 @@ const styles = StyleSheet.create({
         borderColor: colors.glassBorder,
         ...shadow
     },
-    glassShine: { position: 'absolute', top: 0, left: 0, right: 0, height: 96, backgroundColor: 'rgba(255,255,255,0.05)' },
-    cardGlowBlue: { position: 'absolute', top: -44, left: -40, width: 130, height: 130, borderRadius: 65, backgroundColor: 'rgba(142,190,244,0.14)' },
-    cardGlowPink: { position: 'absolute', bottom: -58, right: -42, width: 146, height: 146, borderRadius: 73, backgroundColor: 'rgba(244,142,173,0.14)' },
     budgetTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
     budgetCopy: { flex: 1 },
     statusPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 99, marginBottom: 12 },
@@ -247,7 +240,7 @@ const styles = StyleSheet.create({
     budgetMessage: { fontSize: 13, color: colors.soft, marginTop: 4 },
     remaining: { fontSize: 14, fontWeight: '800', marginTop: 6 },
     
-    progressTrack: { height: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 99, overflow: 'hidden', marginTop: 22, borderWidth: 1, borderColor: colors.glassBorder },
+    progressTrack: { height: 10, backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 99, overflow: 'hidden', marginTop: 22, borderWidth: 1, borderColor: colors.glassBorder },
     progressFill: { height: '100%', borderRadius: 99 },
     
     budgetInputRow: { flexDirection: 'row', gap: 10, marginTop: 18 },
@@ -256,7 +249,7 @@ const styles = StyleSheet.create({
     
     metricsWrapper: { marginBottom: 24 },
     metrics: { gap: 12, flexDirection: 'row' },
-    metric: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 20, padding: 14, paddingRight: 24, borderWidth: 1, borderColor: colors.glassBorder, backgroundColor: 'rgba(18,27,42,0.8)', overflow: 'hidden' },
+    metric: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 20, padding: 14, paddingRight: 24, borderWidth: 1, borderColor: colors.glassBorder, backgroundColor: colors.card, overflow: 'hidden' },
     metricIconBlue: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.glassBorder },
     metricIconPink: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.glassBorder },
     metricValue: { fontSize: 20, color: colors.text, fontWeight: '900' },
@@ -266,7 +259,7 @@ const styles = StyleSheet.create({
     sectionTitle: { fontSize: 18, color: colors.text, fontWeight: '900' },
     sectionAction: { color: colors.primary, fontWeight: '800' },
     
-    emptyState: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20, borderRadius: 24, borderWidth: 1, borderColor: colors.glassBorder, backgroundColor: 'rgba(18,27,42,0.8)', overflow: 'hidden' },
+    emptyState: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20, borderRadius: 24, borderWidth: 1, borderColor: colors.glassBorder, backgroundColor: colors.card, overflow: 'hidden' },
     emptyIcon: { width: 64, height: 64, borderRadius: 24, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.glassBorder },
     emptyTitle: { fontSize: 17, color: colors.text, fontWeight: '800', marginTop: 16 },
     emptyText: { color: colors.soft, marginTop: 6, textAlign: 'center', fontSize: 14 },
