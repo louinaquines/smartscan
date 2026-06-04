@@ -8,14 +8,18 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../lib/theme';
+import { OcrChoice, OcrPriceChoice } from '../lib/ocrParser';
 
 interface VerifySheetProps {
   open: boolean;
   name: string;
   price: number;
+  nameChoices?: OcrChoice[];
+  priceChoices?: OcrPriceChoice[];
   onConfirm: (name: string, price: number, quantity: number) => void;
   onCancel: () => void;
 }
@@ -24,6 +28,8 @@ export default function VerifySheet({
   open,
   name,
   price,
+  nameChoices = [],
+  priceChoices = [],
   onConfirm,
   onCancel,
 }: VerifySheetProps) {
@@ -76,6 +82,51 @@ export default function VerifySheet({
           </View>
 
           <Text style={styles.title}>Verify Product</Text>
+          {(nameChoices.length > 0 || priceChoices.length > 0) && (
+            <View style={styles.smartPickPanel}>
+              <View style={styles.smartPickHeader}>
+                <Ionicons name="hand-left-outline" size={16} color={colors.text} />
+                <Text style={styles.smartPickTitle}>Tap the correct text if Cany guessed wrong</Text>
+              </View>
+
+              {nameChoices.length > 0 && (
+                <View style={styles.choiceGroup}>
+                  <Text style={styles.choiceLabel}>Product name</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
+                    {nameChoices.map((choice) => (
+                      <TouchableOpacity
+                        key={choice.value}
+                        activeOpacity={0.78}
+                        style={[styles.choiceChip, editName === choice.value && styles.choiceChipActive]}
+                        onPress={() => setEditName(choice.value)}>
+                        <Text style={[styles.choiceText, editName === choice.value && styles.choiceTextActive]} numberOfLines={1}>{choice.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {priceChoices.length > 0 && (
+                <View style={styles.choiceGroup}>
+                  <Text style={styles.choiceLabel}>Price</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
+                    {priceChoices.map((choice) => {
+                      const selected = Number(editPrice) === choice.value;
+                      return (
+                        <TouchableOpacity
+                          key={choice.label}
+                          activeOpacity={0.78}
+                          style={[styles.choiceChip, selected && styles.choiceChipActive]}
+                          onPress={() => setEditPrice(choice.value.toFixed(2))}>
+                          <Text style={[styles.choiceText, selected && styles.choiceTextActive]}>{choice.label}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+            </View>
+          )}
 
           {/* Product Name */}
           <View style={styles.field}>
@@ -188,6 +239,61 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 20,
     textAlign: 'center',
+  },
+  smartPickPanel: {
+    backgroundColor: colors.surfaceBlue,
+    borderRadius: 18,
+    padding: 12,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  smartPickHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginBottom: 10,
+  },
+  smartPickTitle: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  choiceGroup: {
+    marginTop: 8,
+  },
+  choiceLabel: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    marginBottom: 7,
+  },
+  choiceRow: {
+    gap: 8,
+    paddingRight: 8,
+  },
+  choiceChip: {
+    maxWidth: 220,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 99,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  choiceChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  choiceText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  choiceTextActive: {
+    color: '#FFF',
   },
   field: {
     marginBottom: 18,

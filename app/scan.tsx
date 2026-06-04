@@ -1,13 +1,13 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet,
-  TouchableOpacity, ActivityIndicator, Alert,
+  TouchableOpacity, ActivityIndicator,
   PermissionsAndroid, Platform, Linking, NativeModules,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { parsePriceTag } from '../lib/ocrParser';
+import { getOcrSelectionChoices, OcrChoice, OcrPriceChoice, parsePriceTag } from '../lib/ocrParser';
 import { useCartStore } from '../store/useCartStore';
 import VerifySheet from '../components/VerifySheet';
 import { colors } from '../lib/theme';
@@ -21,6 +21,7 @@ export default function ScanScreen() {
   const [cameraReady, setCameraReady] = useState(false);
   const [scanStatus, setScanStatus] = useState('Looking for item name and price');
   const [detected, setDetected] = useState<{ name: string; price: number } | null>(null);
+  const [choices, setChoices] = useState<{ names: OcrChoice[]; prices: OcrPriceChoice[] }>({ names: [], prices: [] });
   const [sheetOpen, setSheetOpen] = useState(false);
   const cameraRef = useRef<any>(null);
   const isScanningRef = useRef(false);
@@ -110,10 +111,12 @@ export default function ScanScreen() {
 
       const result = await TextRecognition.recognize(photo.uri);
       const parsed = parsePriceTag(result);
+      const nextChoices = getOcrSelectionChoices(result);
 
       if (parsed) {
         foundRef.current = true;
         if (!mountedRef.current) return;
+        setChoices(nextChoices);
         setDetected(parsed);
         setSheetOpen(true);
         setScanStatus('Item found');
@@ -171,12 +174,14 @@ export default function ScanScreen() {
     addItem({ name, price, quantity, isScanned: true });
     setSheetOpen(false);
     setDetected(null);
+    setChoices({ names: [], prices: [] });
     router.dismiss();
   }, [addItem]);
 
   const handleCancelDetected = useCallback(() => {
     setSheetOpen(false);
     setDetected(null);
+    setChoices({ names: [], prices: [] });
     foundRef.current = false;
     setScanStatus('Looking for item name and price');
   }, []);
@@ -228,22 +233,27 @@ export default function ScanScreen() {
           <Ionicons name="close" size={24} color="white" />
         </TouchableOpacity>
 
-        <View style={styles.topBadge}>
-          <Ionicons name="sparkles" size={15} color="white" />
-          <Text style={styles.hint}>Auto scanning</Text>
+        <View style={styles.topMask}>
+          <View style={styles.topBadge}>
+            <Ionicons name="sparkles" size={15} color="white" />
+            <Text style={styles.hint}>One price tag only</Text>
+          </View>
         </View>
 
-        <View style={styles.viewfinder}>
-          <View style={[styles.corner, styles.tl]} />
-          <View style={[styles.corner, styles.tr]} />
-          <View style={[styles.corner, styles.bl]} />
-          <View style={[styles.corner, styles.br]} />
-          <View style={[styles.scanLine, isScanning && styles.scanLineActive]} />
+        <View style={styles.scanRow}>
+          <View style={styles.sideMask} />
+          <View style={styles.viewfinder}>
+            <View style={[styles.scanLine, isScanning && styles.scanLineActive]} />
+          </View>
+          <View style={styles.sideMask} />
         </View>
 
-        <View style={styles.statusPill}>
-          {isScanning ? <ActivityIndicator color="white" size="small" /> : <Ionicons name="text" size={17} color="white" />}
-          <Text style={styles.statusText}>{scanStatus}</Text>
+        <View style={styles.bottomMask}>
+          <View style={styles.statusPill}>
+            {isScanning ? <ActivityIndicator color="white" size="small" /> : <Ionicons name="text" size={17} color="white" />}
+            <Text style={styles.statusText}>{scanStatus}</Text>
+          </View>
+          <Text style={styles.scanHelp}>Keep the product name and peso price inside the box.</Text>
         </View>
       </View>
 
@@ -252,6 +262,8 @@ export default function ScanScreen() {
           open={sheetOpen}
           name={detected.name}
           price={detected.price}
+          nameChoices={choices.names}
+          priceChoices={choices.prices}
           onConfirm={handleConfirm}
           onCancel={handleCancelDetected}
         />
@@ -269,18 +281,18 @@ const styles = StyleSheet.create({
   permBtnText: { color: '#FFF', fontWeight: '700', fontSize: 15 },
   cancelBtn: { paddingVertical: 10 },
   cancelText: { color: colors.soft, fontSize: 14 },
-  overlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'space-between', paddingTop: 60, paddingBottom: 52 },
-  closeBtn: { position: 'absolute', top: 52, right: 20, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 20, padding: 8, borderWidth: 1, borderColor: colors.border },
-  topBadge: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(0,0,0,0.58)', borderRadius: 99, paddingHorizontal: 14, paddingVertical: 9, marginTop: 54, borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)' },
+  overlay: { ...StyleSheet.absoluteFillObject },
+  closeBtn: { position: 'absolute', top: 52, right: 20, zIndex: 3, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 20, padding: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.36)' },
+  topMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 24, paddingTop: 66 },
+  topBadge: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 99, paddingHorizontal: 14, paddingVertical: 9, borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)' },
   hint: { color: '#FFF', fontSize: 13, fontWeight: '800' },
-  viewfinder: { width: 310, height: 172, position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  corner: { position: 'absolute', width: 26, height: 26, borderColor: '#FFF', borderWidth: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.45, shadowRadius: 10, elevation: 5 },
-  tl: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 6 },
-  tr: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 6 },
-  bl: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 6 },
-  br: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 6 },
+  scanRow: { flexDirection: 'row', alignItems: 'stretch', justifyContent: 'center' },
+  sideMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.78)' },
+  viewfinder: { width: 322, height: 190, position: 'relative', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#FFF', borderRadius: 10, backgroundColor: 'transparent' },
   scanLine: { width: '86%', height: 2, backgroundColor: 'rgba(255,255,255,0.55)', borderRadius: 1 },
   scanLineActive: { height: 3, backgroundColor: '#FFF', shadowColor: '#000', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 8, elevation: 6 },
+  bottomMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', alignItems: 'center', paddingTop: 24, paddingBottom: 52, paddingHorizontal: 22 },
   statusPill: { minHeight: 48, maxWidth: '88%', borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.82)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingHorizontal: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.32)' },
   statusText: { color: '#FFF', fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  scanHelp: { color: 'rgba(255,255,255,0.72)', fontSize: 12, fontWeight: '700', textAlign: 'center', marginTop: 12, lineHeight: 17 },
 });

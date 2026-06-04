@@ -141,6 +141,26 @@ const lineScore = (line: OcrLine, priceLine?: OcrLine) => {
   return lengthScore * 2 + uppercaseRatio * 1.4 + wordScore + heightScore + proximityScore + leftSideScore;
 };
 
+export type OcrChoice = {
+  label: string;
+  value: string;
+};
+
+export type OcrPriceChoice = {
+  label: string;
+  value: number;
+};
+
+const uniqueBy = <T,>(items: T[], getKey: (item: T) => string) => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = getKey(item).toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 export function extractOcrLines(result: any): OcrLine[] {
   const rawBlocks = result?.blocks ?? result?.textBlocks ?? [];
   const linesFromBlocks = rawBlocks.flatMap((block: any) => {
@@ -196,4 +216,31 @@ export function parsePriceTag(input: string | any): { name: string; price: numbe
   const candidateName = leftSideName || cleanName(nameLine?.text ?? '') || fallbackName;
   const name = candidateName && !isWeakName(candidateName) ? candidateName : 'Product';
   return { name, price: parsedPrice.price };
+}
+
+export function getOcrSelectionChoices(input: string | any): { names: OcrChoice[]; prices: OcrPriceChoice[] } {
+  const lines = typeof input === 'string'
+    ? input.split(/\n+/).map((text) => ({ text }))
+    : extractOcrLines(input);
+
+  const priceChoices = uniqueBy(
+    lines
+      .map((line) => parsePriceFromText(line.text))
+      .filter((price): price is ParsedPrice => Boolean(price))
+      .map((price) => ({
+        label: `PHP ${price.price.toFixed(2)}`,
+        value: price.price,
+      })),
+    (price) => price.label
+  ).slice(0, 6);
+
+  const nameChoices = uniqueBy(
+    lines
+      .map((line) => cleanName(line.text))
+      .filter((text) => text.length >= 3 && /[a-zA-Z]/.test(text) && !isWeakName(text))
+      .map((text) => ({ label: text, value: text })),
+    (choice) => choice.value
+  ).slice(0, 8);
+
+  return { names: nameChoices, prices: priceChoices };
 }

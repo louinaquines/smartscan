@@ -30,8 +30,10 @@ type CartStore = {
     setSessionId: (id: string) => void;
     addItem: (item: Omit<CartItem, 'id' | 'createdAt'>) => void;
     removeItem: (id: string) => void;
+    updateItem: (id: string, updates: Pick<CartItem, 'name' | 'price' | 'quantity'>) => void;
     updateQuantity: (id: string, quantity: number) => void;
     saveSession: () => Promise<boolean>;
+    deleteSession: (id: string) => void;
     clearCart: () => void;
     loadState: () => Promise<void>;
 };
@@ -81,6 +83,20 @@ export const useCartStore = create<CartStore>((set, get) => ({
             return { items };
         }),
 
+    updateItem: (id, updates) =>
+        set((state) => {
+            const cleanName = updates.name.trim() || 'Product';
+            const cleanPrice = Number.isFinite(updates.price) && updates.price > 0 ? updates.price : 0;
+            const cleanQuantity = Math.max(1, Math.floor(updates.quantity || 1));
+            const items = state.items.map((i) =>
+                i.id === id
+                    ? { ...i, name: cleanName, price: cleanPrice, quantity: cleanQuantity }
+                    : i
+            );
+            persistItems(items);
+            return { items };
+        }),
+
     updateQuantity: (id, quantity) =>
         set((state) => {
             const nextQuantity = Math.max(1, Math.floor(quantity || 1));
@@ -106,6 +122,13 @@ export const useCartStore = create<CartStore>((set, get) => ({
         set({ sessions: nextSessions, items: [], sessionId: null });
         return true;
     },
+
+    deleteSession: (id) =>
+        set((state) => {
+            const sessions = state.sessions.filter((session) => session.id !== id);
+            persistSessions(sessions);
+            return { sessions };
+        }),
 
     clearCart: () => {
         persistItems([]);

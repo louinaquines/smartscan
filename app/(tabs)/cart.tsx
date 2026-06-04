@@ -1,18 +1,24 @@
 import { useMemo, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import AppDialog from '../../components/AppDialog';
 import Mascot from '../../components/Mascot';
 import { formatMoney } from '../../lib/format';
 import { colors, shadow } from '../../lib/theme';
 import { useScreenPadding } from '../../lib/useScreenPadding';
-import { useCartStore } from '../../store/useCartStore';
+import { CartItem, useCartStore } from '../../store/useCartStore';
 
 export default function Cart() {
-    const { items, addItem, removeItem, updateQuantity, saveSession, clearCart, total } = useCartStore();
+    const { items, addItem, removeItem, updateItem, updateQuantity, saveSession, clearCart, total } = useCartStore();
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
     const [quantity, setQuantity] = useState('1');
+    const [editingItem, setEditingItem] = useState<CartItem | null>(null);
+    const [editName, setEditName] = useState('');
+    const [editPrice, setEditPrice] = useState('');
+    const [editQuantity, setEditQuantity] = useState('1');
+    const [dialog, setDialog] = useState<{ title: string; message: string; icon?: keyof typeof Ionicons.glyphMap; actions?: { label: string; onPress: () => void; variant?: 'primary' | 'soft' }[] } | null>(null);
     const screenPadding = useScreenPadding();
 
     const cartTotal = total();
@@ -24,11 +30,11 @@ export default function Cart() {
         const parsedQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
 
         if (!cleanName) {
-            Alert.alert('Missing name', 'Enter the item name.');
+            setDialog({ title: 'Missing name', message: 'Enter the item name before adding it to your cart.', icon: 'create-outline' });
             return;
         }
         if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
-            Alert.alert('Invalid price', 'Enter a price greater than zero.');
+            setDialog({ title: 'Invalid price', message: 'Enter a price greater than zero.', icon: 'cash-outline' });
             return;
         }
 
@@ -41,18 +47,57 @@ export default function Cart() {
     const handleSaveSession = async () => {
         const saved = await saveSession();
         if (!saved) {
-            Alert.alert('Empty cart', 'Add at least one item before saving.');
+            setDialog({ title: 'Empty cart', message: 'Add at least one item before saving this shopping session.', icon: 'cart-outline' });
             return;
         }
-        Alert.alert('Session saved', 'Your cart was moved to history.');
+        setDialog({ title: 'Session saved', message: 'Your cart was moved to history.', icon: 'checkmark-done-outline' });
     };
 
     const confirmClear = () => {
         if (items.length === 0) return;
-        Alert.alert('Clear cart?', 'This removes all current items.', [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Clear', style: 'destructive', onPress: clearCart },
-        ]);
+        setDialog({
+            title: 'Clear cart?',
+            message: 'This removes all current items.',
+            icon: 'trash-outline',
+            actions: [
+                { label: 'Cancel', variant: 'soft', onPress: () => setDialog(null) },
+                { label: 'Clear', onPress: () => { clearCart(); setDialog(null); } },
+            ],
+        });
+    };
+
+    const openEditItem = (item: CartItem) => {
+        setEditingItem(item);
+        setEditName(item.name);
+        setEditPrice(item.price.toFixed(2));
+        setEditQuantity(String(item.quantity));
+    };
+
+    const closeEditItem = () => {
+        setEditingItem(null);
+        setEditName('');
+        setEditPrice('');
+        setEditQuantity('1');
+    };
+
+    const handleSaveEdit = () => {
+        if (!editingItem) return;
+        const cleanName = editName.trim();
+        const parsedPrice = Number(editPrice.replace(',', '.'));
+        const parsedQuantity = Math.max(1, Math.floor(Number(editQuantity) || 1));
+
+        if (!cleanName) {
+            setDialog({ title: 'Missing name', message: 'Enter the item name before saving.', icon: 'create-outline' });
+            return;
+        }
+
+        if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+            setDialog({ title: 'Invalid price', message: 'Enter a price greater than zero.', icon: 'cash-outline' });
+            return;
+        }
+
+        updateItem(editingItem.id, { name: cleanName, price: parsedPrice, quantity: parsedQuantity });
+        closeEditItem();
     };
 
     let mascotMessage = "Let's fill up the cart!";
@@ -141,7 +186,7 @@ export default function Cart() {
                                 <View style={styles.itemMain}>
                                     <View style={styles.itemText}>
                                         <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-                                        <Text style={styles.itemMeta}>{formatMoney(item.price)} each{item.isScanned ? ' · Scanned' : ''}</Text>
+                                        <Text style={styles.itemMeta}>{formatMoney(item.price)} each{item.isScanned ? ' - Scanned' : ''}</Text>
                                     </View>
                                     <Text style={styles.itemTotal}>{formatMoney(item.price * item.quantity)}</Text>
                                 </View>
@@ -155,6 +200,9 @@ export default function Cart() {
                                             <Ionicons name="add" size={18} color={colors.text} />
                                         </TouchableOpacity>
                                     </View>
+                                    <TouchableOpacity style={styles.editButton} onPress={() => openEditItem(item)}>
+                                        <Ionicons name="create-outline" size={18} color={colors.text} />
+                                    </TouchableOpacity>
                                     <TouchableOpacity style={styles.deleteButton} onPress={() => removeItem(item.id)}>
                                         <Ionicons name="trash-outline" size={18} color={colors.text} />
                                     </TouchableOpacity>
@@ -170,6 +218,63 @@ export default function Cart() {
                     </TouchableOpacity>
                 </View>
             </ScrollView>
+            <AppDialog
+                visible={Boolean(dialog)}
+                title={dialog?.title ?? ''}
+                message={dialog?.message ?? ''}
+                icon={dialog?.icon}
+                onDismiss={() => setDialog(null)}
+                actions={dialog?.actions ?? [{ label: 'OK', onPress: () => setDialog(null) }]}
+            />
+            <Modal visible={Boolean(editingItem)} transparent animationType="slide" onRequestClose={closeEditItem}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.editModalRoot}>
+                    <Pressable style={StyleSheet.absoluteFill} onPress={closeEditItem} />
+                    <View style={styles.editSheet}>
+                        <View style={styles.editHandle} />
+                        <Text style={styles.editTitle}>Edit item</Text>
+                        <Text style={styles.editLabel}>Product name</Text>
+                        <TextInput
+                            style={styles.input}
+                            value={editName}
+                            onChangeText={setEditName}
+                            placeholder="Item name"
+                            placeholderTextColor={colors.soft}
+                        />
+                        <View style={styles.editGrid}>
+                            <View style={styles.editGridItem}>
+                                <Text style={styles.editLabel}>Price</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={editPrice}
+                                    onChangeText={setEditPrice}
+                                    keyboardType="decimal-pad"
+                                    placeholder="Price"
+                                    placeholderTextColor={colors.soft}
+                                />
+                            </View>
+                            <View style={styles.editGridQty}>
+                                <Text style={styles.editLabel}>Qty</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={editQuantity}
+                                    onChangeText={setEditQuantity}
+                                    keyboardType="number-pad"
+                                    placeholder="Qty"
+                                    placeholderTextColor={colors.soft}
+                                />
+                            </View>
+                        </View>
+                        <View style={styles.editActions}>
+                            <TouchableOpacity style={[styles.editActionButton, styles.editCancel]} onPress={closeEditItem}>
+                                <Text style={styles.editCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.editActionButton, styles.editSave]} onPress={handleSaveEdit}>
+                                <Text style={styles.editSaveText}>Save</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
         </View>
     );
 }
@@ -216,10 +321,25 @@ const styles = StyleSheet.create({
     qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.glass, borderRadius: 14, padding: 4, borderWidth: 1, borderColor: colors.glassBorder },
     qtyButton: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.glass, alignItems: 'center', justifyContent: 'center' },
     qtyText: { minWidth: 24, textAlign: 'center', color: colors.text, fontSize: 16, fontWeight: '900' },
+    editButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.surfaceBlue, borderWidth: 1, borderColor: colors.glassBorder, alignItems: 'center', justifyContent: 'center' },
     deleteButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.dangerSoft, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
     
     checkoutButton: { marginTop: 12, height: 56, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, ...shadow, overflow: 'hidden' },
     checkoutFill: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.success },
     checkoutText: { color: '#FFF', fontSize: 17, fontWeight: '900' },
     disabled: { opacity: 0.45 },
+    editModalRoot: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.34)' },
+    editSheet: { backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 38 : 22, borderWidth: 1, borderColor: colors.glassBorder },
+    editHandle: { alignSelf: 'center', width: 38, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: 16 },
+    editTitle: { color: colors.text, fontSize: 22, fontWeight: '900', textAlign: 'center', marginBottom: 16 },
+    editLabel: { color: colors.muted, fontSize: 12, fontWeight: '900', textTransform: 'uppercase', marginTop: 10 },
+    editGrid: { flexDirection: 'row', gap: 10 },
+    editGridItem: { flex: 1 },
+    editGridQty: { width: 94 },
+    editActions: { flexDirection: 'row', gap: 10, marginTop: 20 },
+    editActionButton: { flex: 1, minHeight: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+    editCancel: { backgroundColor: colors.surfaceBlue, borderWidth: 1, borderColor: colors.glassBorder },
+    editSave: { backgroundColor: colors.primary },
+    editCancelText: { color: colors.text, fontSize: 16, fontWeight: '900' },
+    editSaveText: { color: '#FFF', fontSize: 16, fontWeight: '900' },
 });

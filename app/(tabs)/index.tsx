@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Alert, Animated, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import AppDialog from '../../components/AppDialog';
 import BudgetDonut from '../../components/BudgetDonut';
 import Mascot from '../../components/Mascot';
 import { formatMoney } from '../../lib/format';
@@ -12,7 +13,10 @@ import { useCartStore } from '../../store/useCartStore';
 export default function Dashboard() {
     const { items, budget, sessions, setBudget, total, remaining, isHydrated } = useCartStore();
     const [budgetInput, setBudgetInput] = useState(budget > 0 ? String(budget) : '');
+    const [dialogOpen, setDialogOpen] = useState(false);
+    const [recentPage, setRecentPage] = useState(0);
     const screenPadding = useScreenPadding();
+    const { width } = useWindowDimensions();
 
     const spent = total();
     const rem = remaining();
@@ -24,6 +28,9 @@ export default function Dashboard() {
     const statusText = budget <= 0 ? 'Set your budget' : rem < 0 ? 'Over budget' : progress > 85 ? 'Almost full' : 'On track';
 
     const progressAnim = useRef(new Animated.Value(0)).current;
+    const recentFade = useRef(new Animated.Value(1)).current;
+    const itemPages = Array.from({ length: Math.ceil(items.length / 5) }, (_, index) => items.slice(index * 5, index * 5 + 5));
+    const pageWidth = Math.max(280, width - screenPadding.paddingHorizontal * 2);
 
     useEffect(() => {
         Animated.spring(progressAnim, {
@@ -34,10 +41,25 @@ export default function Dashboard() {
         }).start();
     }, [progress, progressAnim]);
 
+    useEffect(() => {
+        Animated.sequence([
+            Animated.timing(recentFade, {
+                toValue: 0.35,
+                duration: 110,
+                useNativeDriver: true,
+            }),
+            Animated.timing(recentFade, {
+                toValue: 1,
+                duration: 180,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, [recentFade, recentPage]);
+
     const handleBudgetSave = async () => {
         const value = Number(budgetInput.replace(/,/g, ''));
         if (!Number.isFinite(value) || value <= 0) {
-            Alert.alert('Invalid budget', 'Enter a budget greater than zero.');
+            setDialogOpen(true);
             return;
         }
         await setBudget(value);
@@ -185,23 +207,55 @@ export default function Dashboard() {
                         <Text style={styles.emptyText}>Tap the scanner below to begin!</Text>
                     </View>
                 ) : (
-                    items.slice(0, 4).map((item) => (
-                        <View key={item.id} style={styles.itemRow}>
-                            <View style={[styles.itemIcon, item.isScanned ? styles.scannedIcon : styles.manualIcon]}>
-                                <Ionicons name={item.isScanned ? 'scan' : 'create-outline'} size={16} color={item.isScanned ? colors.accent : colors.primary} />
+                    <>
+                        <Animated.View style={{ opacity: recentFade }}>
+                            <ScrollView
+                                horizontal
+                                pagingEnabled
+                                showsHorizontalScrollIndicator={false}
+                                onMomentumScrollEnd={(event) => {
+                                    const nextPage = Math.round(event.nativeEvent.contentOffset.x / pageWidth);
+                                    setRecentPage(nextPage);
+                                }}>
+                                {itemPages.map((pageItems, pageIndex) => (
+                                    <View key={`page-${pageIndex}`} style={[styles.itemPage, { width: pageWidth }]}>
+                                        {pageItems.map((item) => (
+                                            <View key={item.id} style={styles.itemRow}>
+                                                <View style={[styles.itemIcon, item.isScanned ? styles.scannedIcon : styles.manualIcon]}>
+                                                    <Ionicons name={item.isScanned ? 'scan' : 'create-outline'} size={16} color={item.isScanned ? colors.accent : colors.primary} />
+                                                </View>
+                                                <View style={styles.itemInfo}>
+                                                    <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
+                                                    <Text style={styles.itemMeta}>{item.quantity} x {formatMoney(item.price)}</Text>
+                                                </View>
+                                                <Text style={styles.itemPrice}>{formatMoney(item.price * item.quantity)}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                ))}
+                            </ScrollView>
+                        </Animated.View>
+                        {itemPages.length > 1 && (
+                            <View style={styles.pageDots}>
+                                {itemPages.map((_, index) => (
+                                    <View key={index} style={[styles.pageDot, index === recentPage && styles.pageDotActive]} />
+                                ))}
                             </View>
-                            <View style={styles.itemInfo}>
-                                <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-                                <Text style={styles.itemMeta}>{item.quantity} x {formatMoney(item.price)}</Text>
-                            </View>
-                            <Text style={styles.itemPrice}>{formatMoney(item.price * item.quantity)}</Text>
-                        </View>
-                    ))
+                        )}
+                    </>
                 )}
                 
                 {/* Spacer for floating FAB */}
                 <View style={{ height: 100 }} />
             </ScrollView>
+            <AppDialog
+                visible={dialogOpen}
+                title="Invalid budget"
+                message="Enter a budget greater than zero."
+                icon="wallet-outline"
+                onDismiss={() => setDialogOpen(false)}
+                actions={[{ label: 'OK', onPress: () => setDialogOpen(false) }]}
+            />
         </View>
     );
 }
@@ -265,6 +319,7 @@ const styles = StyleSheet.create({
     emptyText: { color: colors.soft, marginTop: 6, textAlign: 'center', fontSize: 14 },
     
     itemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 20, padding: 14, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 10 },
+    itemPage: { paddingRight: 1 },
     itemIcon: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
     scannedIcon: { backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.glassBorder },
     manualIcon: { backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.glassBorder },
@@ -272,4 +327,7 @@ const styles = StyleSheet.create({
     itemName: { color: colors.text, fontSize: 15, fontWeight: '800' },
     itemMeta: { color: colors.muted, fontSize: 12, marginTop: 4 },
     itemPrice: { color: colors.primary, fontSize: 16, fontWeight: '900' },
+    pageDots: { flexDirection: 'row', alignSelf: 'center', gap: 7, marginTop: 4 },
+    pageDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.border },
+    pageDotActive: { width: 18, backgroundColor: colors.primary },
 });
