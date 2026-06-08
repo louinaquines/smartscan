@@ -14,6 +14,7 @@ export default function Dashboard() {
     const { items, budget, sessions, setBudget, total, remaining, isHydrated } = useCartStore();
     const [budgetInput, setBudgetInput] = useState(budget > 0 ? String(budget) : '');
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [budgetSavedDialogOpen, setBudgetSavedDialogOpen] = useState(false);
     const [recentPage, setRecentPage] = useState(0);
     const screenPadding = useScreenPadding();
     const { width } = useWindowDimensions();
@@ -63,6 +64,7 @@ export default function Dashboard() {
             return;
         }
         await setBudget(value);
+        setBudgetSavedDialogOpen(true);
     };
 
     let mascotMessage = "Ready to start scanning? Set a budget and let's go.";
@@ -255,6 +257,14 @@ export default function Dashboard() {
                 icon="wallet-outline"
                 onDismiss={() => setDialogOpen(false)}
                 actions={[{ label: 'OK', onPress: () => setDialogOpen(false) }]}
+            />
+            <AppDialog
+                visible={budgetSavedDialogOpen}
+                title="Budget set"
+                message="Your budget has been updated."
+                icon="checkmark-done-outline"
+                onDismiss={() => setBudgetSavedDialogOpen(false)}
+                actions={[{ label: 'OK', onPress: () => setBudgetSavedDialogOpen(false) }]}
             />
         </View>
     );

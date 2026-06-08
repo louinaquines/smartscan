@@ -18,10 +18,14 @@ const SPLIT_PRICE_RE = new RegExp(`(?:${PESO_MARK}|PHP|P)?\\s*(\\d{1,4})\\s+(\\d
 const SPLIT_PRICE_WITH_MARK_RE = new RegExp(`(?:${PESO_MARK}|PHP|P)\\s*(\\d{1,4})\\s*(\\d{2})?`, 'i');
 const DOT_CENTS_PRICE_RE = new RegExp(`(?:${PESO_MARK}|PHP|P)?\\s*(\\d{1,4})\\s*[,.]\\s*(\\d{2})(?=\\s*(?:/\\s*PC|PC|EA|EACH|$))`, 'i');
 const DOT_CENTS_PRICE_WITH_MARK_RE = new RegExp(`(?:${PESO_MARK}|PHP|P)\\s*(\\d{1,4})\\s*[,.]\\s*(\\d{2})`, 'i');
+const UNMARKED_SPLIT_PRICE_RE = /\b(\d{1,4})\s+(\d{2})\b/i;
+const COMPACT_CENTS_RE = /\b(\d{1,4})(?:º|°|o|O){2}\b/;
+const GENERIC_PRICE_RE = /\b(\d{1,4}(?:[,.]\d{2}))\b/;
 
 const normalizeOcrText = (value: string) =>
   value
     .replace(/[₱]/g, PESO_MARK)
+    .replace(COMPACT_CENTS_RE, '$1 00')
     .replace(/\b(?:P|PHP)\s*([0-9])/gi, `${PESO_MARK} $1`)
     .replace(/\s+/g, ' ')
     .trim();
@@ -69,12 +73,35 @@ const parsePriceFromText = (value: string): ParsedPrice | null => {
     if (price !== null) return { price, text: splitMatch[0] };
   }
 
+  const unmarkedSplitMatch = text.match(UNMARKED_SPLIT_PRICE_RE);
+  if (unmarkedSplitMatch) {
+    const price = toPrice(unmarkedSplitMatch[1], unmarkedSplitMatch[2]);
+    const hasLongNumber = /\b\d{5,}\b/.test(text);
+    const looksLikeShelfTag = text.length <= 52 || /[a-zA-Z]/.test(text);
+    if (price !== null && price >= 1 && price <= 9999 && !hasLongNumber && looksLikeShelfTag) {
+      return { price, text: unmarkedSplitMatch[0] };
+    }
+  }
+
   const markedSplitMatch = text.match(SPLIT_PRICE_WITH_MARK_RE);
   if (markedSplitMatch) {
     const whole = markedSplitMatch[1];
     const cents = markedSplitMatch[2];
     const price = toPrice(whole, cents ?? '00');
     if (price !== null) return { price, text: markedSplitMatch[0] };
+  }
+
+  // Generic price detection: any number with optional decimal/cents
+  const genericMatch = text.match(GENERIC_PRICE_RE);
+  if (genericMatch) {
+    const price = toPrice(genericMatch[1]);
+    if (price !== null && price >= 1 && price <= 9999) {
+      // Additional filter: avoid matching likely codes (e.g., long integers without context)
+      // If the matched text is the whole line and line length <= 5, treat as unlikely price
+      if (genericMatch[0].length >= 2 && !(genericMatch[0].length <= 3 && !/[.,]/.test(genericMatch[0]))) {
+        return { price, text: genericMatch[0] };
+      }
+    }
   }
 
   return null;

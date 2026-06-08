@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { getOcrSelectionChoices, OcrChoice, OcrPriceChoice, parsePriceTag } from '../lib/ocrParser';
 import { useCartStore } from '../store/useCartStore';
 import VerifySheet from '../components/VerifySheet';
+import AppDialog from '../components/AppDialog';
 import { colors } from '../lib/theme';
 
 const AUTO_SCAN_INTERVAL_MS = 2600;
@@ -23,6 +24,7 @@ export default function ScanScreen() {
   const [detected, setDetected] = useState<{ name: string; price: number } | null>(null);
   const [choices, setChoices] = useState<{ names: OcrChoice[]; prices: OcrPriceChoice[] }>({ names: [], prices: [] });
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [addedToCartDialogOpen, setAddedToCartDialogOpen] = useState(false);
   const cameraRef = useRef<any>(null);
   const isScanningRef = useRef(false);
   const foundRef = useRef(false);
@@ -172,6 +174,7 @@ export default function ScanScreen() {
 
   const handleConfirm = useCallback((name: string, price: number, quantity: number) => {
     addItem({ name, price, quantity, isScanned: true });
+    setAddedToCartDialogOpen(true);
     setSheetOpen(false);
     setDetected(null);
     setChoices({ names: [], prices: [] });
@@ -236,7 +239,7 @@ export default function ScanScreen() {
         <View style={styles.topMask}>
           <View style={styles.topBadge}>
             <Ionicons name="sparkles" size={15} color="white" />
-            <Text style={styles.hint}>One price tag only</Text>
+            <Text style={styles.hint}>Place the price tag inside the frame</Text>
           </View>
         </View>
 
@@ -268,6 +271,14 @@ export default function ScanScreen() {
           onCancel={handleCancelDetected}
         />
       )}
+      <AppDialog
+        visible={addedToCartDialogOpen}
+        title="Item added"
+        message="Product added to cart."
+        icon="checkmark-done-outline"
+        onDismiss={() => setAddedToCartDialogOpen(false)}
+        actions={[{ label: 'OK', onPress: () => setAddedToCartDialogOpen(false) }]}
+      />
     </View>
   );
 }

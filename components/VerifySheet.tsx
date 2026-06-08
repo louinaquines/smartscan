@@ -9,6 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Animated,
+  Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../lib/theme';
@@ -36,6 +38,8 @@ export default function VerifySheet({
   const [editName, setEditName] = useState(name);
   const [editPrice, setEditPrice] = useState(price.toFixed(2));
   const [quantity, setQuantity] = useState(1);
+  const scaleAnim = useRef(new Animated.Value(0)).current;
+  const pressAnim = useRef(new Animated.Value(1)).current;
 
   // Sync internal state when the modal opens or props change
   useEffect(() => {
@@ -45,16 +49,43 @@ export default function VerifySheet({
       setQuantity(1);
     }
   }, [open, name, price]);
+  useEffect(() => {
+    if (open) {
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 250,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+    } else {
+      scaleAnim.setValue(0);
+    }
+  }, [open, scaleAnim]);
 
   const handleConfirm = () => {
-    // Sanitize input (handle commas and ensure it's a valid number)
-    const sanitizedPrice = editPrice.replace(',', '.');
-    const updatedPrice = parseFloat(sanitizedPrice) || 0;
-    onConfirm(editName || 'Product', updatedPrice, quantity);
+    Animated.sequence([
+      Animated.timing(pressAnim, {
+        toValue: 0.9,
+        duration: 100,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }),
+      Animated.timing(pressAnim, {
+        toValue: 1,
+        duration: 100,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: false,
+      }),
+    ]).start(() => {
+      const sanitizedPrice = editPrice.replace(',', '.');
+      const updatedPrice = parseFloat(sanitizedPrice) || 0;
+      onConfirm(editName || 'Product', updatedPrice, quantity);
+    });
   };
 
   const incrementQuantity = () => setQuantity((q) => q + 1);
   const decrementQuantity = () => setQuantity((q) => Math.max(1, q - 1));
+  const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
 
   return (
     <Modal
@@ -75,131 +106,116 @@ export default function VerifySheet({
         />
 
         {/* Sheet */}
-        <View style={styles.sheet}>
-          {/* Handle for visual indicator */}
+        <Animated.View style={[styles.sheet, { transform: [{ scale: scaleAnim }], opacity: scaleAnim }]}>
           <View style={styles.handleContainer}>
             <View style={styles.handle} />
           </View>
 
           <Text style={styles.title}>Verify Product</Text>
-          {(nameChoices.length > 0 || priceChoices.length > 0) && (
-            <View style={styles.smartPickPanel}>
-              <View style={styles.smartPickHeader}>
-                <Ionicons name="hand-left-outline" size={16} color={colors.text} />
-                <Text style={styles.smartPickTitle}>Tap the correct text if Cany guessed wrong</Text>
-              </View>
 
-              {nameChoices.length > 0 && (
-                <View style={styles.choiceGroup}>
-                  <Text style={styles.choiceLabel}>Product name</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
-                    {nameChoices.map((choice) => (
-                      <TouchableOpacity
-                        key={choice.value}
-                        activeOpacity={0.78}
-                        style={[styles.choiceChip, editName === choice.value && styles.choiceChipActive]}
-                        onPress={() => setEditName(choice.value)}>
-                        <Text style={[styles.choiceText, editName === choice.value && styles.choiceTextActive]} numberOfLines={1}>{choice.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+          <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetScrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            {(nameChoices.length > 0 || priceChoices.length > 0) && (
+              <View style={styles.smartPickPanel}>
+                <View style={styles.smartPickHeader}>
+                  <Ionicons name="hand-left-outline" size={16} color={colors.text} />
+                  <Text style={styles.smartPickTitle}>Tap the correct text if Cany guessed wrong</Text>
                 </View>
-              )}
 
-              {priceChoices.length > 0 && (
-                <View style={styles.choiceGroup}>
-                  <Text style={styles.choiceLabel}>Price</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
-                    {priceChoices.map((choice) => {
-                      const selected = Number(editPrice) === choice.value;
-                      return (
+                {nameChoices.length > 0 && (
+                  <View style={styles.choiceGroup}>
+                    <Text style={styles.choiceLabel}>Product name</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
+                      {nameChoices.map((choice) => (
                         <TouchableOpacity
-                          key={choice.label}
+                          key={choice.value}
                           activeOpacity={0.78}
-                          style={[styles.choiceChip, selected && styles.choiceChipActive]}
-                          onPress={() => setEditPrice(choice.value.toFixed(2))}>
-                          <Text style={[styles.choiceText, selected && styles.choiceTextActive]}>{choice.label}</Text>
+                          style={[styles.choiceChip, editName === choice.value && styles.choiceChipActive]}
+                          onPress={() => setEditName(choice.value)}>
+                          <Text style={[styles.choiceText, editName === choice.value && styles.choiceTextActive]} numberOfLines={1}>{choice.label}</Text>
                         </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-              )}
-            </View>
-          )}
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
 
-          {/* Product Name */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Product Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter product name"
-              placeholderTextColor="rgba(0,0,0,0.32)"
-              value={editName}
-              onChangeText={setEditName}
-            />
-          </View>
+                {priceChoices.length > 0 && (
+                  <View style={styles.choiceGroup}>
+                    <Text style={styles.choiceLabel}>Price</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
+                      {priceChoices.map((choice) => {
+                        const selected = Number(editPrice) === choice.value;
+                        return (
+                          <TouchableOpacity
+                            key={choice.label}
+                            activeOpacity={0.78}
+                            style={[styles.choiceChip, selected && styles.choiceChipActive]}
+                            onPress={() => setEditPrice(choice.value.toFixed(2))}>
+                            <Text style={[styles.choiceText, selected && styles.choiceTextActive]}>{choice.label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
+              </View>
+            )}
 
-          {/* Price */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Price</Text>
-            <View style={styles.priceContainer}>
-              <Text style={styles.currencySymbol}>PHP</Text>
+            <View style={styles.field}>
+              <Text style={styles.label}>Product Name</Text>
               <TextInput
-                style={styles.priceInput}
-                placeholder="0.00"
+                style={styles.input}
+                placeholder="Enter product name"
                 placeholderTextColor="rgba(0,0,0,0.32)"
-                value={editPrice}
-                onChangeText={setEditPrice}
-                keyboardType="decimal-pad"
+                value={editName}
+                onChangeText={setEditName}
               />
             </View>
-          </View>
 
-          {/* Quantity */}
-          <View style={styles.field}>
-            <Text style={styles.label}>Quantity</Text>
-            <View style={styles.quantityContainer}>
-              <TouchableOpacity
-                style={styles.quantityBtn}
-                onPress={decrementQuantity}
-              >
-                <Ionicons name="remove" size={20} color={colors.text} />
-              </TouchableOpacity>
-              <Text style={styles.quantityText}>{quantity}</Text>
-              <TouchableOpacity
-                style={styles.quantityBtn}
-                onPress={incrementQuantity}
-              >
-                <Ionicons name="add" size={20} color={colors.text} />
-              </TouchableOpacity>
+            <View style={styles.field}>
+              <Text style={styles.label}>Price</Text>
+              <View style={styles.priceContainer}>
+                <Text style={styles.currencySymbol}>PHP</Text>
+                <TextInput
+                  style={styles.priceInput}
+                  placeholder="0.00"
+                  placeholderTextColor="rgba(0,0,0,0.32)"
+                  value={editPrice}
+                  onChangeText={setEditPrice}
+                  keyboardType="decimal-pad"
+                />
+              </View>
             </View>
-          </View>
 
-          {/* Total Calculation */}
-          <View style={styles.totalContainer}>
-            <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalPrice}>
-              PHP {(parseFloat(editPrice.replace(',', '.') || '0') * quantity).toFixed(2)}
-            </Text>
-          </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>Quantity</Text>
+              <View style={styles.quantityContainer}>
+                <TouchableOpacity style={styles.quantityBtn} onPress={decrementQuantity}>
+                  <Ionicons name="remove" size={20} color={colors.text} />
+                </TouchableOpacity>
+                <Text style={styles.quantityText}>{quantity}</Text>
+                <TouchableOpacity style={styles.quantityBtn} onPress={incrementQuantity}>
+                  <Ionicons name="add" size={20} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+            </View>
 
-          {/* Action Buttons */}
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={[styles.btn, styles.cancelBtn]}
-              onPress={onCancel}
-            >
-              <Text style={styles.cancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.btn, styles.confirmBtn]}
-              onPress={handleConfirm}
-            >
-              <Text style={styles.confirmBtnText}>Add to Cart</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            <View style={styles.totalContainer}>
+              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalPrice}>
+                PHP {(parseFloat(editPrice.replace(',', '.') || '0') * quantity).toFixed(2)}
+              </Text>
+            </View>
+
+            <View style={styles.actions}>
+              <TouchableOpacity style={[styles.btn, styles.cancelBtn]} onPress={onCancel}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <AnimatedTouchableOpacity style={[styles.btn, styles.confirmBtn, { transform: [{ scale: pressAnim } ]}]} onPress={handleConfirm}>
+                <Text style={styles.confirmBtnText}>Add to Cart</Text>
+              </AnimatedTouchableOpacity>
+            </View>
+          </ScrollView>
+        </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -221,7 +237,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-    maxHeight: '80%',
+    maxHeight: '86%',
+  },
+  sheetScroll: {
+    maxHeight: 560,
+  },
+  sheetScrollContent: {
+    paddingBottom: 10,
   },
   handleContainer: {
     alignItems: 'center',
@@ -389,6 +411,9 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: 12,
+    paddingTop: 12,
+    marginTop: 20,
+    backgroundColor: colors.card,
   },
   btn: {
     flex: 1,
