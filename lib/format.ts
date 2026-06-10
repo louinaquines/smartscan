@@ -1,5 +1,5 @@
 export const formatMoney = (amount: number) =>
-    `PHP ${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+    `₱ ${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
 
 export const formatShortDate = (iso: string) =>
     new Intl.DateTimeFormat('en-PH', {

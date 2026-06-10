@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../lib/theme';
 import { OcrChoice, OcrPriceChoice } from '../lib/ocrParser';
+import { useToast } from '../context/ToastContext';
+import { formatMoney } from '../lib/format';
 
 interface VerifySheetProps {
   open: boolean;
@@ -38,8 +40,15 @@ export default function VerifySheet({
   const [editName, setEditName] = useState(name);
   const [editPrice, setEditPrice] = useState(price.toFixed(2));
   const [quantity, setQuantity] = useState(1);
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const pressAnim = useRef(new Animated.Value(1)).current;
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [confirmedPrice, setConfirmedPrice] = useState(0);
+  const scaleAnim = useRef(new Animated.Value(0));
+  const pressAnim = useRef(new Animated.Value(1));
+  const successScale = useRef(new Animated.Value(0));
+  const successOpacity = useRef(new Animated.Value(0));
+  const checkScale = useRef(new Animated.Value(0));
+  const textOpacity = useRef(new Animated.Value(0));
+  const { showToast } = useToast();
 
   // Sync internal state when the modal opens or props change
   useEffect(() => {
@@ -51,26 +60,26 @@ export default function VerifySheet({
   }, [open, name, price]);
   useEffect(() => {
     if (open) {
-      Animated.timing(scaleAnim, {
+      Animated.timing(scaleAnim.current, {
         toValue: 1,
         duration: 250,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: false,
       }).start();
     } else {
-      scaleAnim.setValue(0);
+      scaleAnim.current.setValue(0);
     }
   }, [open, scaleAnim]);
 
   const handleConfirm = () => {
     Animated.sequence([
-      Animated.timing(pressAnim, {
+      Animated.timing(pressAnim.current, {
         toValue: 0.9,
         duration: 100,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: false,
       }),
-      Animated.timing(pressAnim, {
+      Animated.timing(pressAnim.current, {
         toValue: 1,
         duration: 100,
         easing: Easing.in(Easing.cubic),
@@ -79,7 +88,50 @@ export default function VerifySheet({
     ]).start(() => {
       const sanitizedPrice = editPrice.replace(',', '.');
       const updatedPrice = parseFloat(sanitizedPrice) || 0;
-      onConfirm(editName || 'Product', updatedPrice, quantity);
+      const totalPrice = updatedPrice * quantity;
+      setConfirmedPrice(totalPrice);
+      setShowSuccess(true);
+
+      // Reset animation values
+      successScale.current.setValue(0);
+      successOpacity.current.setValue(0);
+      checkScale.current.setValue(0);
+      textOpacity.current.setValue(0);
+
+      // Play success animation sequence
+      Animated.parallel([
+        Animated.timing(successOpacity.current, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(successScale.current, {
+          toValue: 1,
+          friction: 6,
+          tension: 80,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        Animated.parallel([
+          Animated.spring(checkScale.current, {
+            toValue: 1,
+            friction: 4,
+            tension: 100,
+            useNativeDriver: true,
+          }),
+          Animated.timing(textOpacity.current, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+
+      // Auto-dismiss after 1.5 seconds
+      setTimeout(() => {
+        setShowSuccess(false);
+        onConfirm(editName || 'Product', updatedPrice, quantity);
+      }, 1500);
     });
   };
 
@@ -106,7 +158,7 @@ export default function VerifySheet({
         />
 
         {/* Sheet */}
-        <Animated.View style={[styles.sheet, { transform: [{ scale: scaleAnim }], opacity: scaleAnim }]}>
+        <Animated.View style={[styles.sheet, { transform: [{ scale: scaleAnim.current }], opacity: scaleAnim.current }]}>
           <View style={styles.handleContainer}>
             <View style={styles.handle} />
           </View>
@@ -174,7 +226,7 @@ export default function VerifySheet({
             <View style={styles.field}>
               <Text style={styles.label}>Price</Text>
               <View style={styles.priceContainer}>
-                <Text style={styles.currencySymbol}>PHP</Text>
+                <Text style={styles.currencySymbol}>₱</Text>
                 <TextInput
                   style={styles.priceInput}
                   placeholder="0.00"
@@ -202,7 +254,7 @@ export default function VerifySheet({
             <View style={styles.totalContainer}>
               <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalPrice}>
-                PHP {(parseFloat(editPrice.replace(',', '.') || '0') * quantity).toFixed(2)}
+                ₱ {(parseFloat(editPrice.replace(',', '.') || '0') * quantity).toFixed(2)}
               </Text>
             </View>
 
@@ -210,12 +262,27 @@ export default function VerifySheet({
               <TouchableOpacity style={[styles.btn, styles.cancelBtn]} onPress={onCancel}>
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
-              <AnimatedTouchableOpacity style={[styles.btn, styles.confirmBtn, { transform: [{ scale: pressAnim } ]}]} onPress={handleConfirm}>
+              <AnimatedTouchableOpacity style={[styles.btn, styles.confirmBtn, { transform: [{ scale: pressAnim.current } ]}]} onPress={handleConfirm}>
                 <Text style={styles.confirmBtnText}>Add to Cart</Text>
               </AnimatedTouchableOpacity>
             </View>
           </ScrollView>
         </Animated.View>
+
+          {/* Success Overlay */}
+          {showSuccess && (
+            <Animated.View style={[styles.successOverlay, { opacity: successOpacity.current }]}>
+              <Animated.View style={[styles.successContent, { transform: [{ scale: successScale.current }] }]}>
+                <Animated.View style={[styles.successCheckCircle, { transform: [{ scale: checkScale.current }] }]}>
+                  <Ionicons name="checkmark" size={38} color="#FFF" />
+                </Animated.View>
+                <Animated.View style={{ opacity: textOpacity.current }}>
+                  <Text style={styles.successTitle}>You've successfully scanned an item</Text>
+                  <Text style={styles.successPrice}>{formatMoney(confirmedPrice)}</Text>
+                </Animated.View>
+              </Animated.View>
+            </Animated.View>
+          )}
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -444,5 +511,42 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  successOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 99,
+  },
+  successContent: {
+    alignItems: 'center',
+    gap: 16,
+  },
+  successCheckCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    elevation: 8,
+  },
+  successTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.text,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  successPrice: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: colors.primary,
+    textAlign: 'center',
   },
 });

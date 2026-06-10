@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AppDialog from '../../components/AppDialog';
@@ -10,7 +10,7 @@ import { useScreenPadding } from '../../lib/useScreenPadding';
 import { CartItem, useCartStore } from '../../store/useCartStore';
 
 export default function Cart() {
-    const { items, addItem, removeItem, updateItem, updateQuantity, saveSession, clearCart, total } = useCartStore();
+    const { items, budget, addItem, removeItem, updateItem, updateQuantity, saveSession, clearCart, total } = useCartStore();
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
     const [quantity, setQuantity] = useState('1');
@@ -19,6 +19,12 @@ export default function Cart() {
     const [editPrice, setEditPrice] = useState('');
     const [editQuantity, setEditQuantity] = useState('1');
     const [dialog, setDialog] = useState<{ title: string; message: string; icon?: keyof typeof Ionicons.glyphMap; actions?: { label: string; onPress: () => void; variant?: 'primary' | 'soft' }[] } | null>(null);
+    const [showSuccess, setShowSuccess] = useState(false);
+    const [addedItemPrice, setAddedItemPrice] = useState(0);
+    const successScale = useRef(new Animated.Value(0));
+    const successOpacity = useRef(new Animated.Value(0));
+    const checkScale = useRef(new Animated.Value(0));
+    const textOpacity = useRef(new Animated.Value(0));
     const screenPadding = useScreenPadding();
 
     const cartTotal = total();
@@ -39,6 +45,48 @@ export default function Cart() {
         }
 
         addItem({ name: cleanName, price: parsedPrice, quantity: parsedQuantity, isScanned: false });
+        const itemTotal = parsedPrice * parsedQuantity;
+        setAddedItemPrice(itemTotal);
+        setShowSuccess(true);
+
+        // Reset animation values
+        successScale.current.setValue(0);
+        successOpacity.current.setValue(0);
+        checkScale.current.setValue(0);
+        textOpacity.current.setValue(0);
+
+        // Play success animation
+        Animated.parallel([
+            Animated.timing(successOpacity.current, {
+                toValue: 1,
+                duration: 200,
+                useNativeDriver: true,
+            }),
+            Animated.spring(successScale.current, {
+                toValue: 1,
+                friction: 6,
+                tension: 80,
+                useNativeDriver: true,
+            }),
+        ]).start(() => {
+            Animated.parallel([
+                Animated.spring(checkScale.current, {
+                    toValue: 1,
+                    friction: 4,
+                    tension: 100,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(textOpacity.current, {
+                    toValue: 1,
+                    duration: 200,
+                    useNativeDriver: true,
+                }),
+            ]).start();
+        });
+
+        // Auto-dismiss after 1.5 seconds
+        setTimeout(() => setShowSuccess(false), 1500);
+
         setName('');
         setPrice('');
         setQuantity('1');
@@ -100,9 +148,27 @@ export default function Cart() {
         closeEditItem();
     };
 
-    let mascotMessage = "Let's fill up the cart!";
+    const spent = total();
+    let mascotMessage = "Your cart is empty. Add items manually or scan price tags to get started!";
+    let mascotType: 'neutral' | 'happy' | 'alert' = items.length === 0 ? 'alert' : 'happy';
+
     if (items.length > 0) {
-        mascotMessage = `You've got ${itemCount} item${itemCount > 1 ? 's' : ''} here. Looking good!`;
+        if (budget > 0) {
+            const progress = spent / budget;
+            if (progress > 1) {
+                mascotMessage = "Whoops! You've spent more than your budget. Time to review your cart?";
+                mascotType = 'alert';
+            } else if (progress >= 0.5) {
+                mascotMessage = "You're over halfway through your budget. Keep an eye on it!";
+                mascotType = 'alert';
+            } else {
+                mascotMessage = "You're well within your budget. Looking good!";
+                mascotType = 'happy';
+            }
+        } else {
+            mascotMessage = `You've got ${itemCount} item${itemCount > 1 ? 's' : ''} here. Set a budget to track spending!`;
+            mascotType = 'happy';
+        }
     }
 
     return (
@@ -125,7 +191,7 @@ export default function Cart() {
 
             <ScrollView contentContainerStyle={[styles.content, { paddingTop: (screenPadding.paddingTop || 40) + 100, paddingBottom: 120 }]} keyboardShouldPersistTaps="handled">
                 <View style={{ paddingHorizontal: screenPadding.paddingHorizontal }}>
-                    <Mascot message={mascotMessage} type={items.length === 0 ? 'alert' : 'happy'} />
+                    <Mascot message={mascotMessage} type={mascotType} />
 
                     <View style={styles.form}>
                         <Text style={styles.sectionTitle}>Manual item</Text>
@@ -275,6 +341,21 @@ export default function Cart() {
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
+
+            {/* Success Overlay */}
+            {showSuccess && (
+                <Animated.View style={[styles.successOverlay, { opacity: successOpacity.current }]}>
+                    <Animated.View style={[styles.successContent, { transform: [{ scale: successScale.current }] }]}>
+                        <Animated.View style={[styles.successCheckCircle, { transform: [{ scale: checkScale.current }] }]}>
+                            <Ionicons name="checkmark" size={38} color="#FFF" />
+                        </Animated.View>
+                        <Animated.View style={{ opacity: textOpacity.current }}>
+                            <Text style={styles.successTitle}>You've successfully added an item</Text>
+                            <Text style={styles.successPrice}>{formatMoney(addedItemPrice)}</Text>
+                        </Animated.View>
+                    </Animated.View>
+                </Animated.View>
+            )}
         </View>
     );
 }
@@ -342,4 +423,42 @@ const styles = StyleSheet.create({
     editSave: { backgroundColor: colors.primary },
     editCancelText: { color: colors.text, fontSize: 16, fontWeight: '900' },
     editSaveText: { color: '#FFF', fontSize: 16, fontWeight: '900' },
+
+    successOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255,255,255,0.92)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 200,
+    },
+    successContent: {
+        alignItems: 'center',
+        gap: 16,
+    },
+    successCheckCircle: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        backgroundColor: colors.primary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.35,
+        shadowRadius: 14,
+        elevation: 8,
+    },
+    successTitle: {
+        fontSize: 17,
+        fontWeight: '800',
+        color: colors.text,
+        textAlign: 'center',
+        marginTop: 4,
+    },
+    successPrice: {
+        fontSize: 22,
+        fontWeight: '900',
+        color: colors.primary,
+        textAlign: 'center',
+    },
 });

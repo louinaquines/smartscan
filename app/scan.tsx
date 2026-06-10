@@ -13,7 +13,7 @@ import VerifySheet from '../components/VerifySheet';
 import AppDialog from '../components/AppDialog';
 import { colors } from '../lib/theme';
 
-const AUTO_SCAN_INTERVAL_MS = 2600;
+const AUTO_SCAN_INTERVAL_MS = 1000;
 
 export default function ScanScreen() {
   const [hasPermission, setHasPermission] = useState(Platform.OS === 'ios');
@@ -155,7 +155,7 @@ export default function ScanScreen() {
         setCameraReady(true);
         setScanStatus('Looking for item name and price');
       }
-    }, 2200);
+    }, 1000);
 
     return () => clearTimeout(readyTimer);
   }, [hasPermission]);
@@ -164,7 +164,7 @@ export default function ScanScreen() {
     if (!hasPermission || !cameraReady || sheetOpen || !focusedRef.current) return;
 
     const timer = setInterval(recognizeCurrentFrame, AUTO_SCAN_INTERVAL_MS);
-    const initialTimer = setTimeout(recognizeCurrentFrame, 1200);
+    const initialTimer = setTimeout(recognizeCurrentFrame, 500);
 
     return () => {
       clearInterval(timer);

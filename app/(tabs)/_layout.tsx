@@ -7,13 +7,13 @@ import { colors } from '../../lib/theme';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1));
 
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.15, duration: 1200, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1, duration: 1200, useNativeDriver: true })
+        Animated.timing(pulseAnim.current, { toValue: 1.15, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim.current, { toValue: 1, duration: 1200, useNativeDriver: true })
       ])
     ).start();
   }, [pulseAnim]);
@@ -65,7 +65,7 @@ export default function TabLayout() {
 
       <View style={[styles.scanContainer, { right: Math.max(16, insets.right), bottom: insets.bottom + 78 }]}>
         <View style={styles.fabPulseContainer}>
-          <Animated.View style={[styles.scanFabGlow, { transform: [{ scale: pulseAnim }] }]} />
+          <Animated.View style={[styles.scanFabGlow, { transform: [{ scale: pulseAnim.current }] }]} />
           <TouchableOpacity
             accessibilityRole="button"
             accessibilityLabel="Scan price tag"

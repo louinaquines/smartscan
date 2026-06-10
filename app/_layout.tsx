@@ -1,19 +1,47 @@
-import { useEffect, useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useState, useRef } from 'react';
+import { Image, StyleSheet, Text, View, Animated } from 'react-native';
 import { Stack } from 'expo-router';
 import { useCartStore } from '../store/useCartStore';
 import { colors } from '../lib/theme';
+import { ToastProvider } from '../context/ToastContext';
 
 export default function RootLayout() {
   const loadState = useCartStore((s) => s.loadState);
   const [ready, setReady] = useState(false);
+  const logoScale = useRef(new Animated.Value(0)).current;
+  const textOpacity = useRef(new Animated.Value(0)).current;
+  const textTranslateY = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.spring(logoScale, {
+        toValue: 1,
+        friction: 5,
+        tension: 60,
+        useNativeDriver: true,
+      }),
+      Animated.parallel([
+        Animated.timing(textOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.spring(textTranslateY, {
+          toValue: 0,
+          friction: 6,
+          tension: 50,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, []);
 
   useEffect(() => {
     let mounted = true;
 
     Promise.all([
       loadState(),
-      new Promise((resolve) => setTimeout(resolve, 900)),
+      new Promise((resolve) => setTimeout(resolve, 1800)),
     ]).finally(() => {
       if (mounted) setReady(true);
     });
@@ -26,26 +54,30 @@ export default function RootLayout() {
   if (!ready) {
     return (
       <View style={styles.loadingScreen}>
-        <View style={styles.brandBlock}>
+        <Animated.View style={[styles.brandBlock, { transform: [{ scale: logoScale }] }]}>
           <Image source={require('../assets/cany-logo.jpg')} style={styles.logo} />
+        </Animated.View>
+        <Animated.View style={{ opacity: textOpacity, transform: [{ translateY: textTranslateY }], alignItems: 'center' }}>
           <Text style={styles.logoTitle}>Cany</Text>
           <Text style={styles.logoCaption}>Smart grocery scanning</Text>
-        </View>
+        </Animated.View>
       </View>
     );
   }
 
   return (
-    <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen
-        name="scan"
-        options={{
-          headerShown: false,
-          presentation: 'fullScreenModal',
-        }}
-      />
-    </Stack>
+    <ToastProvider>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="scan"
+          options={{
+            headerShown: false,
+            presentation: 'fullScreenModal',
+          }}
+        />
+      </Stack>
+    </ToastProvider>
   );
 }
 

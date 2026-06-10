@@ -12,12 +12,12 @@ type ParsedPrice = {
 };
 
 const PESO_MARK = String.fromCharCode(0x20b1);
-const DECIMAL_PRICE_RE = new RegExp(`(?:${PESO_MARK}|PHP|P)?\\s*(\\d{1,4}(?:[,.]\\d{2}))`, 'i');
-const DECIMAL_PRICE_WITH_MARK_RE = new RegExp(`(?:${PESO_MARK}|PHP|P)\\s*(\\d{1,4}(?:[,.]\\d{2}))`, 'i');
-const SPLIT_PRICE_RE = new RegExp(`(?:${PESO_MARK}|PHP|P)?\\s*(\\d{1,4})\\s+(\\d{2})(?=\\s*(?:/\\s*PC|PC|EA|EACH|$))`, 'i');
-const SPLIT_PRICE_WITH_MARK_RE = new RegExp(`(?:${PESO_MARK}|PHP|P)\\s*(\\d{1,4})\\s*(\\d{2})?`, 'i');
-const DOT_CENTS_PRICE_RE = new RegExp(`(?:${PESO_MARK}|PHP|P)?\\s*(\\d{1,4})\\s*[,.]\\s*(\\d{2})(?=\\s*(?:/\\s*PC|PC|EA|EACH|$))`, 'i');
-const DOT_CENTS_PRICE_WITH_MARK_RE = new RegExp(`(?:${PESO_MARK}|PHP|P)\\s*(\\d{1,4})\\s*[,.]\\s*(\\d{2})`, 'i');
+const DECIMAL_PRICE_RE = new RegExp(`(?:${PESO_MARK}|₱|P)?\\s*(\\d{1,4}(?:[,.]\\d{2}))`, 'i');
+const DECIMAL_PRICE_WITH_MARK_RE = new RegExp(`(?:${PESO_MARK}|₱|P)\\s*(\\d{1,4}(?:[,.]\\d{2}))`, 'i');
+const SPLIT_PRICE_RE = new RegExp(`(?:${PESO_MARK}|₱|P)?\\s*(\\d{1,4})\\s+(\\d{2})(?=\\s*(?:/\\s*PC|PC|EA|EACH|$))`, 'i');
+const SPLIT_PRICE_WITH_MARK_RE = new RegExp(`(?:${PESO_MARK}|₱|P)\\s*(\\d{1,4})\\s*(\\d{2})?`, 'i');
+const DOT_CENTS_PRICE_RE = new RegExp(`(?:${PESO_MARK}|₱|P)?\\s*(\\d{1,4})\\s*[,.]\\s*(\\d{2})(?=\\s*(?:/\\s*PC|PC|EA|EACH|$))`, 'i');
+const DOT_CENTS_PRICE_WITH_MARK_RE = new RegExp(`(?:${PESO_MARK}|₱|P)\\s*(\\d{1,4})\\s*[,.]\\s*(\\d{2})`, 'i');
 const UNMARKED_SPLIT_PRICE_RE = /\b(\d{1,4})\s+(\d{2})\b/i;
 const COMPACT_CENTS_RE = /\b(\d{1,4})(?:º|°|o|O){2}\b/;
 const GENERIC_PRICE_RE = /\b(\d{1,4}(?:[,.]\d{2}))\b/;
@@ -26,7 +26,7 @@ const normalizeOcrText = (value: string) =>
   value
     .replace(/[₱]/g, PESO_MARK)
     .replace(COMPACT_CENTS_RE, '$1 00')
-    .replace(/\b(?:P|PHP)\s*([0-9])/gi, `${PESO_MARK} $1`)
+    .replace(/\b(?:P|₱)\s*([0-9])/gi, `${PESO_MARK} $1`)
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -255,7 +255,7 @@ export function getOcrSelectionChoices(input: string | any): { names: OcrChoice[
       .map((line) => parsePriceFromText(line.text))
       .filter((price): price is ParsedPrice => Boolean(price))
       .map((price) => ({
-        label: `PHP ${price.price.toFixed(2)}`,
+        label: `₱ ${price.price.toFixed(2)}`,
         value: price.price,
       })),
     (price) => price.label

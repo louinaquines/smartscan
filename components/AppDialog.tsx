@@ -19,15 +19,15 @@ type AppDialogProps = {
 };
 
 export default function AppDialog({ visible, title, message, icon = 'alert-circle-outline', actions, onDismiss }: AppDialogProps) {
-  const entrance = useRef(new Animated.Value(0)).current;
+  const entrance = useRef(new Animated.Value(0));
 
   useEffect(() => {
     if (!visible) {
-      entrance.setValue(0);
+      entrance.current.setValue(0);
       return;
     }
 
-    Animated.spring(entrance, {
+    Animated.spring(entrance.current, {
       toValue: 1,
       useNativeDriver: true,
       friction: 7,
@@ -36,10 +36,10 @@ export default function AppDialog({ visible, title, message, icon = 'alert-circl
   }, [entrance, visible]);
 
   const cardStyle = {
-    opacity: entrance,
+    opacity: entrance.current,
     transform: [
       {
-        scale: entrance.interpolate({
+        scale: entrance.current.interpolate({
           inputRange: [0, 1],
           outputRange: [0.94, 1],
         }),

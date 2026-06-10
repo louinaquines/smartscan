@@ -28,13 +28,13 @@ export default function Dashboard() {
     const statusBg = rem < 0 ? colors.dangerSoft : progress > 85 ? colors.warningSoft : colors.successSoft;
     const statusText = budget <= 0 ? 'Set your budget' : rem < 0 ? 'Over budget' : progress > 85 ? 'Almost full' : 'On track';
 
-    const progressAnim = useRef(new Animated.Value(0)).current;
-    const recentFade = useRef(new Animated.Value(1)).current;
+    const progressAnim = useRef(new Animated.Value(0));
+    const recentFade = useRef(new Animated.Value(1));
     const itemPages = Array.from({ length: Math.ceil(items.length / 5) }, (_, index) => items.slice(index * 5, index * 5 + 5));
     const pageWidth = Math.max(280, width - screenPadding.paddingHorizontal * 2);
 
     useEffect(() => {
-        Animated.spring(progressAnim, {
+        Animated.spring(progressAnim.current, {
             toValue: progress,
             useNativeDriver: false,
             friction: 7,
@@ -44,12 +44,12 @@ export default function Dashboard() {
 
     useEffect(() => {
         Animated.sequence([
-            Animated.timing(recentFade, {
+            Animated.timing(recentFade.current, {
                 toValue: 0.35,
                 duration: 110,
                 useNativeDriver: true,
             }),
-            Animated.timing(recentFade, {
+            Animated.timing(recentFade.current, {
                 toValue: 1,
                 duration: 180,
                 useNativeDriver: true,
@@ -114,10 +114,12 @@ export default function Dashboard() {
                                 <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
                             </View>
                             <Text style={styles.label}>Budget</Text>
-                            <Text style={styles.budgetAmount}>{budget > 0 ? formatMoney(budget) : 'PHP 0.00'}</Text>
-                            <Text style={styles.spentLine}>Spent {formatMoney(spent)}</Text>
+                            <View style={styles.budgetAmountContainer}>
+                                <Text style={styles.budgetAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.45}>{budget > 0 ? formatMoney(budget) : '₱ 0.00'}</Text>
+                            </View>
+                            <Text style={styles.spentLine} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Spent {formatMoney(spent)}</Text>
                             {budget > 0 ? (
-                                <Text style={[styles.remaining, { color: statusColor }]}>
+                                <Text style={[styles.remaining, { color: statusColor }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
                                     {rem < 0 ? `${formatMoney(Math.abs(rem))} over budget` : `${formatMoney(rem)} left`}
                                 </Text>
                             ) : (
@@ -129,17 +131,17 @@ export default function Dashboard() {
 
                     {/* Animated Progress Track */}
                     <View style={styles.progressTrack}>
-                        <Animated.View 
+                        <Animated.View
                             style={[
-                                styles.progressFill, 
-                                { 
-                                    backgroundColor: statusColor, 
-                                    width: progressAnim.interpolate({
+                                styles.progressFill,
+                                {
+                                    backgroundColor: statusColor,
+                                    width: progressAnim.current.interpolate({
                                         inputRange: [0, 100],
                                         outputRange: ['0%', '100%']
                                     })
                                 }
-                            ]} 
+                            ]}
                         />
                     </View>
 
@@ -210,7 +212,7 @@ export default function Dashboard() {
                     </View>
                 ) : (
                     <>
-                        <Animated.View style={{ opacity: recentFade }}>
+                        <Animated.View style={{ opacity: recentFade.current }}>
                             <ScrollView
                                 horizontal
                                 pagingEnabled
@@ -299,7 +301,8 @@ const styles = StyleSheet.create({
     statusDot: { width: 7, height: 7, borderRadius: 4 },
     statusText: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
     label: { fontSize: 12, color: colors.soft, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-    budgetAmount: { fontSize: 34, color: colors.text, fontWeight: '900', marginTop: 2 },
+    budgetAmount: { fontSize: 34, color: colors.text, fontWeight: '900', marginTop: 2, flexShrink: 1 },
+    budgetAmountContainer: { flexDirection: 'row', alignItems: 'baseline', minWidth: 0, maxWidth: '100%' },
     spentLine: { fontSize: 13, color: colors.muted, marginTop: 5, fontWeight: '700' },
     budgetMessage: { fontSize: 13, color: colors.soft, marginTop: 4 },
     remaining: { fontSize: 14, fontWeight: '800', marginTop: 6 },

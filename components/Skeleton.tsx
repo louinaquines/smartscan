@@ -10,17 +10,17 @@ type SkeletonProps = {
 };
 
 export default function Skeleton({ width = '100%', height, radius = 8, style }: SkeletonProps) {
-    const opacity = useRef(new Animated.Value(0.45)).current;
+    const opacity = useRef(new Animated.Value(0.45));
 
     useEffect(() => {
         const loop = Animated.loop(
             Animated.sequence([
-                Animated.timing(opacity, {
+                Animated.timing(opacity.current, {
                     toValue: 1,
                     duration: 760,
                     useNativeDriver: true,
                 }),
-                Animated.timing(opacity, {
+                Animated.timing(opacity.current, {
                     toValue: 0.45,
                     duration: 760,
                     useNativeDriver: true,
@@ -36,7 +36,7 @@ export default function Skeleton({ width = '100%', height, radius = 8, style }: 
         <Animated.View
             style={[
                 styles.base,
-                { width, height, borderRadius: radius, opacity },
+                { width, height, borderRadius: radius, opacity: opacity.current },
                 style,
             ]}
         />

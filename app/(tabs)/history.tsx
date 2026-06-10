@@ -15,14 +15,14 @@ type SessionCardProps = {
 };
 
 function SessionCard({ session, onOpen, onDelete }: SessionCardProps) {
-    const translateX = useRef(new Animated.Value(0)).current;
+    const translateX = useRef(new Animated.Value(0));
     const [confirmOpen, setConfirmOpen] = useState(false);
     const unitCount = session.items.reduce((sum, item) => sum + item.quantity, 0);
     const budgetDiff = session.budget - session.total;
     const over = session.budget > 0 && budgetDiff < 0;
 
     const closeActions = () => {
-        Animated.spring(translateX, {
+        Animated.spring(translateX.current, {
             toValue: 0,
             useNativeDriver: true,
             friction: 8,
@@ -31,7 +31,7 @@ function SessionCard({ session, onOpen, onDelete }: SessionCardProps) {
     };
 
     const openActions = () => {
-        Animated.spring(translateX, {
+        Animated.spring(translateX.current, {
             toValue: -78,
             useNativeDriver: true,
             friction: 8,
@@ -44,21 +44,21 @@ function SessionCard({ session, onOpen, onDelete }: SessionCardProps) {
             onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy),
             onPanResponderMove: (_, gesture) => {
                 const nextX = Math.max(-86, Math.min(0, gesture.dx));
-                translateX.setValue(nextX);
+                translateX.current.setValue(nextX);
             },
             onPanResponderRelease: (_, gesture) => {
                 if (gesture.dx < -42) openActions();
                 else closeActions();
             },
         })
-    ).current;
+    );
 
     return (
         <View style={styles.swipeWrap}>
             <TouchableOpacity style={styles.deleteAction} onPress={() => setConfirmOpen(true)} activeOpacity={0.84}>
                 <Ionicons name="trash-outline" size={23} color="#FFF" />
             </TouchableOpacity>
-            <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
+            <Animated.View style={{ transform: [{ translateX: translateX.current }] }} {...panResponder.current.panHandlers}>
                 <Pressable style={styles.sessionCard} onPress={() => onOpen(session)}>
                     <View style={styles.sessionTop}>
                         <View style={styles.sessionIcon}>

@@ -8,18 +8,18 @@ interface MascotProps {
 }
 
 export default function Mascot({ message, type = 'neutral' }: MascotProps) {
-  const bounceAnim = useRef(new Animated.Value(0)).current;
+  const bounceAnim = useRef(new Animated.Value(0));
 
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(bounceAnim, {
+        Animated.timing(bounceAnim.current, {
           toValue: -6,
           duration: 1500,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
-        Animated.timing(bounceAnim, {
+        Animated.timing(bounceAnim.current, {
           toValue: 0,
           duration: 1500,
           easing: Easing.inOut(Easing.ease),
@@ -31,9 +31,9 @@ export default function Mascot({ message, type = 'neutral' }: MascotProps) {
 
   return (
     <View style={styles.container}>
-      <Animated.Image 
-        source={require('../assets/cow.png')} 
-        style={[styles.mascot, { transform: [{ translateY: bounceAnim }] }]} 
+      <Animated.Image
+        source={require('../assets/cow.png')}
+        style={[styles.mascot, { transform: [{ translateY: bounceAnim.current }] }]}
         resizeMode="contain"
       />
       <View style={styles.bubble}>
