@@ -5,6 +5,7 @@ export const StorageKeys = {
     CART_ITEMS: 'cartItems',
     SESSIONS: 'sessions',
     CURRENCY: 'currency',
+    ONBOARDING_COMPLETE: 'onboardingComplete',
 } as const;
 
 export const storage = {
@@ -29,3 +30,4 @@ export const storage = {
         }
     },
 };
+

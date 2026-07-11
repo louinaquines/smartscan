@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cany – Smart Grocery Budget & Scanner</title>
+  <link rel="icon" href="cany-logo.jpg" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'cany-bg': '#F7F7F4',
+            'cany-surface': '#FFFFFF',
+            'cany-dark': '#080808',
+            'cany-muted': '#666666',
+            'cany-border': 'rgba(0,0,0,0.11)',
+            'cany-soft': 'rgba(0,0,0,0.06)',
+            'cany-accent': '#080808',
+          },
+          fontFamily: {
+            sans: ['Outfit', 'Inter', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background-color: #F7F7F4;
+      font-family: 'Outfit', sans-serif;
+    }
+    .glass-nav {
+      background: rgba(247, 247, 244, 0.8);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .glass-card {
+      background: #FFFFFF;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
+    }
+    .phone-mockup {
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+      border: 8px solid #080808;
+      border-radius: 40px;
+      overflow: hidden;
+      background: #080808;
+    }
+    .phone-notch {
+      width: 110px;
+      height: 18px;
+      background: #080808;
+      border-bottom-left-radius: 12px;
+      border-bottom-right-radius: 12px;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+    }
+  </style>
+</head>
+<body class="text-[#080808] selection:bg-[#080808] selection:text-white antialiased">
+  
+  <!-- Navigation -->
+  <nav class="fixed top-6 inset-x-4 z-50 max-w-5xl mx-auto">
+    <div class="glass-nav rounded-full px-6 py-3 flex items-center justify-between shadow-sm">
+      <a class="flex items-center gap-2.5 group" href="#">
+        <img alt="Cany Logo" class="w-8 h-8 rounded-lg shadow-sm group-hover:scale-105 transition-transform duration-300" src="cany-logo.jpg">
+        <span class="font-bold text-xl tracking-tight text-cany-dark">Cany</span>
+      </a>
+      <div class="flex items-center gap-6">
+        <a class="text-sm transition-colors font-medium text-cany-dark/70 hover:text-cany-dark" href="#features">Features</a>
+        <a class="text-sm transition-colors font-medium text-cany-dark/70 hover:text-cany-dark" href="#how-it-works">How it Works</a>
+        <a href="#download" class="text-sm bg-cany-dark text-white px-5 py-2.5 rounded-full hover:bg-cany-dark/90 transition-colors font-semibold shadow-sm">Download APK</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <header class="pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden relative">
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/60 via-transparent to-transparent -z-10"></div>
+    
+    <div class="max-w-6xl mx-auto px-6 text-center flex flex-col items-center">
+      <!-- Tag / Badge -->
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-cany-soft border border-cany-border text-xs font-semibold uppercase tracking-wider mb-6">
+        <span>✨ Minimalist design</span>
+        <span class="w-1.5 h-1.5 rounded-full bg-cany-dark/40"></span>
+        <span>100% Offline & Private</span>
+      </div>
+
+      <h1 class="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-cany-dark mb-6 max-w-4xl leading-[1.08]">
+        The Grocery Scanner <br>That Pays for Itself.
+      </h1>
+      <p class="max-w-xl text-cany-muted mb-10 text-lg md:text-xl font-normal leading-relaxed">
+        Know exactly what you're spending before you hit the register. Set your budget, scan price tags instantly, and never go over limit.
+      </p>
+      
+      <div class="flex flex-col sm:flex-row items-center gap-4 justify-center mb-16">
+        <a href="#download" class="w-full sm:w-auto bg-cany-dark text-[#F7F7F4] px-8 py-4 rounded-full font-bold text-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md">
+          Download APK
+        </a>
+        <a href="#features" class="w-full sm:w-auto px-8 py-4 rounded-full font-bold text-lg border border-cany-border hover:bg-cany-soft transition-all">
+          Explore Features
+        </a>
+      </div>
+
+      <!-- App Screens Display (Hero Image) -->
+      <div class="relative w-full max-w-4xl flex justify-center items-center gap-6 mt-4">
+        <!-- Dashboard Screen Mockup -->
+        <div class="phone-mockup relative w-[240px] sm:w-[280px] md:w-[310px] transform -rotate-3 hover:rotate-0 transition-transform duration-500 z-10 hover:z-20">
+          <div class="phone-notch"></div>
+          <img alt="Cany Dashboard Screen" class="w-full h-auto object-cover aspect-[9/19.5]" src="assets/Cany images/1b727daa-d629-4da5-adbf-b9d22a46510a.jpg">
+        </div>
+        
+        <!-- Cart Screen Mockup -->
+        <div class="phone-mockup relative w-[240px] sm:w-[280px] md:w-[310px] transform rotate-3 hover:rotate-0 transition-transform duration-500 z-10 hover:z-20 -ml-12 sm:-ml-16">
+          <div class="phone-notch"></div>
+          <img alt="Cany Shopping Cart Screen" class="w-full h-auto object-cover aspect-[9/19.5]" src="assets/Cany images/2a1b73b2-ddf4-4e02-b876-3a81b7d11588.jpg">
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Features Section -->
+  <section id="features" class="py-20 md:py-32 border-t border-cany-border bg-white">
+    <div class="max-w-6xl mx-auto px-6">
+      
+      <div class="text-center max-w-2xl mx-auto mb-16 md:mb-24">
+        <h2 class="text-xs uppercase tracking-widest text-cany-muted font-bold mb-3">Core Features</h2>
+        <p class="text-3xl md:text-5xl font-extrabold tracking-tight text-cany-dark">
+          Everything you need to stay on budget.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center mb-24 md:mb-32">
+        <div class="lg:col-span-5 flex flex-col justify-center">
+          <div class="w-12 h-12 rounded-2xl bg-cany-soft flex items-center justify-center mb-6 border border-cany-border">
+            <span class="text-xl">📸</span>
+          </div>
+          <h3 class="text-2xl md:text-3xl font-extrabold tracking-tight mb-4">Instant price tag scanner</h3>
+          <p class="text-cany-muted leading-relaxed mb-6 font-normal">
+            Point your phone camera at any price label. Cany processes the text on-device to capture prices instantly without requiring barcodes or internet connections.
+          </p>
+          <ul class="space-y-3 text-sm font-semibold text-cany-dark/80">
+            <li class="flex items-center gap-2">
+              <span class="text-green-600">✓</span> No barcode database lookup needed
+            </li>
+            <li class="flex items-center gap-2">
+              <span class="text-green-600">✓</span> Fast local text-recognition (OCR)
+            </li>
+            <li class="flex items-center gap-2">
+              <span class="text-green-600">✓</span> Fully offline capability
+            </li>
+          </ul>
+        </div>
+        <div class="lg:col-span-7 flex justify-center">
+          <div class="phone-mockup w-[260px] sm:w-[280px] md:w-[310px] transform hover:scale-105 transition-transform duration-500">
+            <div class="phone-notch"></div>
+            <img alt="Smart OCR Scanner" class="w-full h-auto aspect-[9/19.5] object-cover" src="assets/Cany images/23d03cbe-e726-469c-a4df-e9e2b5eb0dc0.jpg">
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+        <div class="lg:col-span-7 flex justify-center order-last lg:order-first">
+          <div class="phone-mockup w-[260px] sm:w-[280px] md:w-[310px] transform hover:scale-105 transition-transform duration-500">
+            <div class="phone-notch"></div>
+            <img alt="History Screen" class="w-full h-auto aspect-[9/19.5] object-cover" src="assets/Cany images/4496820c-e38d-4b88-aeef-ba7362fc7eab.jpg">
+          </div>
+        </div>
+        <div class="lg:col-span-5 flex flex-col justify-center">
+          <div class="w-12 h-12 rounded-2xl bg-cany-soft flex items-center justify-center mb-6 border border-cany-border">
+            <span class="text-xl">📊</span>
+          </div>
+          <h3 class="text-2xl md:text-3xl font-extrabold tracking-tight mb-4">Complete shopping history</h3>
+          <p class="text-cany-muted leading-relaxed mb-6 font-normal">
+            Keep track of every shopping trip. Review past receipts and understand how your food and grocery expenditures change month-to-month.
+          </p>
+          <ul class="space-y-3 text-sm font-semibold text-cany-dark/80">
+            <li class="flex items-center gap-2">
+              <span class="text-green-600">✓</span> Organized receipts list
+            </li>
+            <li class="flex items-center gap-2">
+              <span class="text-green-600">✓</span> Total budget vs. actual spent comparison
+            </li>
+            <li class="flex items-center gap-2">
+              <span class="text-green-600">✓</span> Saved locally on your device
+            </li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- How It Works Section -->
+  <section id="how-it-works" class="py-20 md:py-32 border-t border-cany-border">
+    <div class="max-w-6xl mx-auto px-6">
+      
+      <div class="text-center max-w-2xl mx-auto mb-16 md:mb-24">
+        <h2 class="text-xs uppercase tracking-widest text-cany-muted font-bold mb-3">Simplicity First</h2>
+        <p class="text-3xl md:text-5xl font-extrabold tracking-tight text-cany-dark">
+          Spend smarter in three steps.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+        <!-- Step 1 -->
+        <div class="flex flex-col items-start glass-card p-8 rounded-3xl">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-cany-muted mb-4">Step 01</div>
+          <h3 class="text-xl font-bold mb-3">Set Your Budget</h3>
+          <p class="text-cany-muted text-sm leading-relaxed mb-6">
+            Enter your budget amount before filling up your cart. Cany establishes a clear maximum limit for the trip.
+          </p>
+          <div class="mt-auto w-full aspect-video bg-cany-soft rounded-2xl flex items-center justify-center font-bold text-lg text-cany-dark/60 border border-cany-border">
+            ₱ Limit
+          </div>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="flex flex-col items-start glass-card p-8 rounded-3xl">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-cany-muted mb-4">Step 02</div>
+          <h3 class="text-xl font-bold mb-3">Scan and Verify</h3>
+          <p class="text-cany-muted text-sm leading-relaxed mb-6">
+            Hover your camera scanner over price tags. Cany logs items instantly and calculates your budget status in real-time.
+          </p>
+          <div class="mt-auto w-full aspect-video bg-cany-soft rounded-2xl flex items-center justify-center font-bold text-lg text-cany-dark/60 border border-cany-border">
+            📷 Scan Tag
+          </div>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="flex flex-col items-start glass-card p-8 rounded-3xl">
+          <div class="text-xs uppercase font-extrabold tracking-widest text-cany-muted mb-4">Step 03</div>
+          <h3 class="text-xl font-bold mb-3">Review & Save</h3>
+          <p class="text-cany-muted text-sm leading-relaxed mb-6">
+            Complete your grocery trip with zero check-out surprise. Save the session to build your historical logs.
+          </p>
+          <div class="mt-auto w-full aspect-video bg-cany-soft rounded-2xl flex items-center justify-center font-bold text-lg text-cany-dark/60 border border-cany-border">
+            ✅ Save Receipts
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Download Section -->
+  <section id="download" class="py-20 md:py-32 border-t border-cany-border bg-white">
+    <div class="max-w-4xl mx-auto px-6 text-center flex flex-col items-center">
+      <img src="cany-logo.jpg" alt="Cany Logo" class="w-20 h-20 rounded-2xl mx-auto mb-8 shadow-md border border-cany-border">
+      <h2 class="text-3xl md:text-5xl font-extrabold tracking-tight text-cany-dark mb-6">
+        Ready to take control of your groceries?
+      </h2>
+      <p class="text-cany-muted text-lg max-w-lg mb-10 font-normal leading-relaxed">
+        Download the Cany APK directly and install it on your device. Free of ads, free of accounts, fully local.
+      </p>
+      
+      <div class="w-full max-w-sm">
+        <a href="#" class="w-full inline-block bg-cany-dark text-white px-10 py-4.5 rounded-full font-bold text-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md">
+          Download APK for Android
+        </a>
+        <p class="text-xs text-cany-muted mt-4">Requires Android 8.0 or later.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="py-12 border-t border-cany-border bg-[#F7F7F4]">
+    <div class="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6 text-sm text-cany-muted">
+      <div class="flex items-center gap-2">
+        <img src="cany-logo.jpg" alt="Cany" class="w-6 h-6 rounded-md opacity-80">
+        <span class="font-bold text-cany-dark tracking-tight">Cany</span>
+      </div>
+      <p>© 2026 Cany. All rights reserved.</p>
+    </div>
+  </footer>
+
+</body>
+</html>

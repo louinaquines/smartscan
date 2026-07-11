@@ -4,10 +4,13 @@ import { Stack } from 'expo-router';
 import { useCartStore } from '../store/useCartStore';
 import { colors } from '../lib/theme';
 import { ToastProvider } from '../context/ToastContext';
+import Onboarding from '../components/Onboarding';
+import { storage, StorageKeys } from '../lib/storage';
 
 export default function RootLayout() {
   const loadState = useCartStore((s) => s.loadState);
   const [ready, setReady] = useState(false);
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const logoScale = useRef(new Animated.Value(0)).current;
   const textOpacity = useRef(new Animated.Value(0)).current;
   const textTranslateY = useRef(new Animated.Value(20)).current;
@@ -41,8 +44,11 @@ export default function RootLayout() {
 
     Promise.all([
       loadState(),
+      storage.getString(StorageKeys.ONBOARDING_COMPLETE),
       new Promise((resolve) => setTimeout(resolve, 1800)),
-    ]).finally(() => {
+    ]).then(([, savedOnboarding]) => {
+      if (mounted) setOnboardingComplete(savedOnboarding === 'true');
+    }).finally(() => {
       if (mounted) setReady(true);
     });
 
@@ -51,7 +57,7 @@ export default function RootLayout() {
     };
   }, [loadState]);
 
-  if (!ready) {
+  if (!ready || onboardingComplete === null) {
     return (
       <View style={styles.loadingScreen}>
         <Animated.View style={[styles.brandBlock, { transform: [{ scale: logoScale }] }]}>
@@ -63,6 +69,15 @@ export default function RootLayout() {
         </Animated.View>
       </View>
     );
+  }
+
+  const finishOnboarding = async () => {
+    await storage.set(StorageKeys.ONBOARDING_COMPLETE, 'true');
+    setOnboardingComplete(true);
+  };
+
+  if (!onboardingComplete) {
+    return <Onboarding onDone={finishOnboarding} />;
   }
 
   return (
@@ -97,8 +112,6 @@ const styles = StyleSheet.create({
     height: 132,
     borderRadius: 32,
     marginBottom: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   logoTitle: {
     color: colors.text,
@@ -113,3 +126,4 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 });
+

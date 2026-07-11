@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     content: {},
     header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
     brandRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-    brandLogo: { width: 48, height: 48, borderRadius: 16, borderColor: colors.glassBorder, borderWidth: 1 },
+    brandLogo: { width: 48, height: 48, borderRadius: 14 },
     kicker: { fontSize: 13, color: colors.primary, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
     title: { fontSize: 30, color: colors.text, fontWeight: '900', marginTop: 2 },
     headerPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.primarySoft, borderRadius: 99, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: colors.glassBorder },
