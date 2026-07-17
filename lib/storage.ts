@@ -2,7 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const StorageKeys = {
     BUDGET: 'budget',
+    CATEGORY_BUDGETS: 'categoryBudgets',
     CART_ITEMS: 'cartItems',
+    SHOPPING_LIST: 'shoppingList',
     SESSIONS: 'sessions',
     CURRENCY: 'currency',
     ONBOARDING_COMPLETE: 'onboardingComplete',
@@ -30,4 +32,3 @@ export const storage = {
         }
     },
 };
-

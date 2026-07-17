@@ -13,10 +13,11 @@ import {
   Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { BUDGET_CATEGORIES, BudgetCategoryId, DEFAULT_CATEGORY, getCategoryLabel } from '../lib/budgetCategories';
 import { colors } from '../lib/theme';
 import { OcrChoice, OcrPriceChoice } from '../lib/ocrParser';
-import { useToast } from '../context/ToastContext';
 import { formatMoney } from '../lib/format';
+import { PreviousPrice, PriceComparison } from '../lib/priceHistory';
 
 interface VerifySheetProps {
   open: boolean;
@@ -24,9 +25,11 @@ interface VerifySheetProps {
   price: number;
   barcode?: string;
   brand?: string;
+  initialCategory?: BudgetCategoryId;
+  previousPrice?: PreviousPrice | null;
   nameChoices?: OcrChoice[];
   priceChoices?: OcrPriceChoice[];
-  onConfirm: (name: string, price: number, quantity: number) => void;
+  onConfirm: (name: string, price: number, quantity: number, category: BudgetCategoryId) => void;
   onCancel: () => void;
 }
 
@@ -36,6 +39,8 @@ export default function VerifySheet({
   price,
   barcode,
   brand,
+  initialCategory = DEFAULT_CATEGORY,
+  previousPrice,
   nameChoices = [],
   priceChoices = [],
   onConfirm,
@@ -44,6 +49,7 @@ export default function VerifySheet({
   const [editName, setEditName] = useState(name);
   const [editPrice, setEditPrice] = useState(price.toFixed(2));
   const [quantity, setQuantity] = useState(1);
+  const [category, setCategory] = useState<BudgetCategoryId>(initialCategory);
   const [showSuccess, setShowSuccess] = useState(false);
   const [confirmedPrice, setConfirmedPrice] = useState(0);
   const scaleAnim = useRef(new Animated.Value(0));
@@ -52,7 +58,6 @@ export default function VerifySheet({
   const successOpacity = useRef(new Animated.Value(0));
   const checkScale = useRef(new Animated.Value(0));
   const textOpacity = useRef(new Animated.Value(0));
-  const { showToast } = useToast();
 
   // Sync internal state when the modal opens or props change
   useEffect(() => {
@@ -60,8 +65,9 @@ export default function VerifySheet({
       setEditName(name);
       setEditPrice(price.toFixed(2));
       setQuantity(1);
+      setCategory(initialCategory);
     }
-  }, [open, name, price]);
+  }, [open, name, price, initialCategory]);
   useEffect(() => {
     if (open) {
       Animated.timing(scaleAnim.current, {
@@ -134,7 +140,7 @@ export default function VerifySheet({
       // Auto-dismiss after 1.5 seconds
       setTimeout(() => {
         setShowSuccess(false);
-        onConfirm(editName || 'Product', updatedPrice, quantity);
+        onConfirm(editName || 'Product', updatedPrice, quantity, category);
       }, 1500);
     });
   };
@@ -142,6 +148,16 @@ export default function VerifySheet({
   const incrementQuantity = () => setQuantity((q) => q + 1);
   const decrementQuantity = () => setQuantity((q) => Math.max(1, q - 1));
   const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
+  const livePrice = parseFloat(editPrice.replace(',', '.') || '0') || 0;
+  const priceComparison: PriceComparison | null = previousPrice && livePrice > 0
+    ? {
+      previousPrice: previousPrice.previousPrice,
+      previousDate: previousPrice.previousDate,
+      currentPrice: livePrice,
+      difference: livePrice - previousPrice.previousPrice,
+      direction: livePrice - previousPrice.previousPrice > 0 ? 'higher' : livePrice - previousPrice.previousPrice < 0 ? 'lower' : 'same',
+    }
+    : null;
 
   return (
     <Modal
@@ -179,6 +195,27 @@ export default function VerifySheet({
                   <Text style={styles.barcodeTitle} numberOfLines={1}>{brand || 'Barcode match'}</Text>
                   <Text style={styles.barcodeText} numberOfLines={1}>{barcode}</Text>
                 </View>
+              </View>
+            )}
+
+            {priceComparison && (
+              <View style={[
+                styles.priceAlert,
+                priceComparison.direction === 'higher' && styles.priceAlertWarn,
+                priceComparison.direction === 'lower' && styles.priceAlertGood,
+              ]}>
+                <Ionicons
+                  name={priceComparison.direction === 'higher' ? 'trending-up-outline' : priceComparison.direction === 'lower' ? 'trending-down-outline' : 'remove-outline'}
+                  size={18}
+                  color={colors.text}
+                />
+                <Text style={styles.priceAlertText}>
+                  {priceComparison.direction === 'higher'
+                    ? `Last time ${formatMoney(priceComparison.previousPrice)}. Now ${formatMoney(priceComparison.currentPrice)}.`
+                    : priceComparison.direction === 'lower'
+                      ? `Cheaper than last time: ${formatMoney(priceComparison.previousPrice)} before.`
+                      : `Same as last time: ${formatMoney(priceComparison.previousPrice)}.`}
+                </Text>
               </View>
             )}
 
@@ -265,6 +302,24 @@ export default function VerifySheet({
                   <Ionicons name="add" size={20} color={colors.text} />
                 </TouchableOpacity>
               </View>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Category</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
+                {BUDGET_CATEGORIES.map((option) => {
+                  const selected = category === option.id;
+                  return (
+                    <TouchableOpacity
+                      key={option.id}
+                      activeOpacity={0.78}
+                      style={[styles.choiceChip, selected && styles.choiceChipActive]}
+                      onPress={() => setCategory(option.id)}>
+                      <Text style={[styles.choiceText, selected && styles.choiceTextActive]}>{getCategoryLabel(option.id)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
             </View>
 
             <View style={styles.totalContainer}>
@@ -388,6 +443,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     marginTop: 3,
+  },
+  priceAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    backgroundColor: colors.surfaceBlue,
+  },
+  priceAlertWarn: {
+    backgroundColor: colors.warningSoft,
+  },
+  priceAlertGood: {
+    backgroundColor: colors.successSoft,
+  },
+  priceAlertText: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 18,
   },
   smartPickHeader: {
     flexDirection: 'row',

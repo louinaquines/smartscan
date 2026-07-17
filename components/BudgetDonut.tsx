@@ -6,9 +6,12 @@ import { colors } from '../lib/theme';
 type BudgetDonutProps = {
     spent: number;
     budget: number;
+    categories?: { id: string; spent: number; budget: number }[];
 };
 
-export default function BudgetDonut({ spent, budget }: BudgetDonutProps) {
+const segmentColors = ['#080808', '#343434', '#5A5A5A', '#777777', '#989898', '#B8B8B8'];
+
+export default function BudgetDonut({ spent, budget, categories = [] }: BudgetDonutProps) {
     const size = 132;
     const stroke = 13;
     const radius = (size - stroke) / 2;
@@ -18,6 +21,8 @@ export default function BudgetDonut({ spent, budget }: BudgetDonutProps) {
     const isOver = budget > 0 && spent > budget;
     const color = isOver ? colors.danger : pct > 0.85 ? colors.warning : colors.success;
     const label = budget <= 0 ? 'set budget' : isOver ? 'over' : pct > 0.85 ? 'caution' : 'on track';
+    const visibleSegments = categories.filter((category) => category.spent > 0 && spent > 0);
+    let segmentOffset = 0;
 
     return (
         <View style={styles.wrap}>
@@ -30,19 +35,41 @@ export default function BudgetDonut({ spent, budget }: BudgetDonutProps) {
                     strokeWidth={stroke}
                     fill="transparent"
                 />
-                <Circle
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    stroke={color}
-                    strokeWidth={stroke}
-                    fill="transparent"
-                    strokeDasharray={`${circumference} ${circumference}`}
-                    strokeDashoffset={remainingStroke}
-                    strokeLinecap="round"
-                    rotation="-90"
-                    origin={`${size / 2}, ${size / 2}`}
-                />
+                {visibleSegments.length > 0 ? visibleSegments.map((category, index) => {
+                    const segmentLength = Math.min(category.spent / Math.max(budget, spent), 1) * circumference;
+                    const dashOffset = circumference - segmentOffset;
+                    segmentOffset += segmentLength;
+                    return (
+                        <Circle
+                            key={category.id}
+                            cx={size / 2}
+                            cy={size / 2}
+                            r={radius}
+                            stroke={segmentColors[index % segmentColors.length]}
+                            strokeWidth={stroke}
+                            fill="transparent"
+                            strokeDasharray={`${segmentLength} ${circumference}`}
+                            strokeDashoffset={dashOffset}
+                            strokeLinecap="round"
+                            rotation="-90"
+                            origin={`${size / 2}, ${size / 2}`}
+                        />
+                    );
+                }) : (
+                    <Circle
+                        cx={size / 2}
+                        cy={size / 2}
+                        r={radius}
+                        stroke={color}
+                        strokeWidth={stroke}
+                        fill="transparent"
+                        strokeDasharray={`${circumference} ${circumference}`}
+                        strokeDashoffset={remainingStroke}
+                        strokeLinecap="round"
+                        rotation="-90"
+                        origin={`${size / 2}, ${size / 2}`}
+                    />
+                )}
             </Svg>
             <View style={styles.center}>
                 <Text style={[styles.percent, { color }]}>{budget > 0 ? `${Math.round(pct * 100)}%` : '0%'}</Text>

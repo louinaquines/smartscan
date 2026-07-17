@@ -1,23 +1,24 @@
 import { useState, useEffect, useRef } from 'react';
-import { Animated, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Animated, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AppDialog from '../../components/AppDialog';
 import BudgetDonut from '../../components/BudgetDonut';
 import Mascot from '../../components/Mascot';
+import { BUDGET_CATEGORIES, BudgetCategoryId, DEFAULT_CATEGORY, getCategoryLabel } from '../../lib/budgetCategories';
 import { formatMoney } from '../../lib/format';
 import { colors, shadow } from '../../lib/theme';
 import { useScreenPadding } from '../../lib/useScreenPadding';
 import { useCartStore } from '../../store/useCartStore';
 
 export default function Dashboard() {
-    const { items, budget, sessions, setBudget, total, remaining, isHydrated } = useCartStore();
+    const { items, budget, categoryBudgets, sessions, setBudget, setCategoryBudget, total, remaining, isHydrated } = useCartStore();
     const [budgetInput, setBudgetInput] = useState(budget > 0 ? String(budget) : '');
+    const [categoryInputs, setCategoryInputs] = useState<Record<string, string>>({});
     const [dialogOpen, setDialogOpen] = useState(false);
     const [budgetSavedDialogOpen, setBudgetSavedDialogOpen] = useState(false);
-    const [recentPage, setRecentPage] = useState(0);
+    const [activeCategory, setActiveCategory] = useState<BudgetCategoryId | null>(null);
     const screenPadding = useScreenPadding();
-    const { width } = useWindowDimensions();
 
     const spent = total();
     const rem = remaining();
@@ -29,9 +30,14 @@ export default function Dashboard() {
     const statusText = budget <= 0 ? 'Set your budget' : rem < 0 ? 'Over budget' : progress > 85 ? 'Almost full' : 'On track';
 
     const progressAnim = useRef(new Animated.Value(0));
-    const recentFade = useRef(new Animated.Value(1));
-    const itemPages = Array.from({ length: Math.ceil(items.length / 5) }, (_, index) => items.slice(index * 5, index * 5 + 5));
-    const pageWidth = Math.max(280, width - screenPadding.paddingHorizontal * 2);
+    const recentItems = items.slice(-5).reverse();
+    const categorySpend = BUDGET_CATEGORIES.map((category) => {
+        const spent = items
+            .filter((item) => (item.category ?? DEFAULT_CATEGORY) === category.id)
+            .reduce((sum, item) => sum + item.price * item.quantity, 0);
+        const categoryBudget = categoryBudgets[category.id] ?? 0;
+        return { ...category, spent, budget: categoryBudget, remaining: categoryBudget - spent };
+    });
 
     useEffect(() => {
         Animated.spring(progressAnim.current, {
@@ -42,20 +48,9 @@ export default function Dashboard() {
         }).start();
     }, [progress, progressAnim]);
 
-    useEffect(() => {
-        Animated.sequence([
-            Animated.timing(recentFade.current, {
-                toValue: 0.35,
-                duration: 110,
-                useNativeDriver: true,
-            }),
-            Animated.timing(recentFade.current, {
-                toValue: 1,
-                duration: 180,
-                useNativeDriver: true,
-            }),
-        ]).start();
-    }, [recentFade, recentPage]);
+    const activeCategoryData = activeCategory
+        ? categorySpend.find((c) => c.id === activeCategory) ?? null
+        : null;
 
     const handleBudgetSave = async () => {
         const value = Number(budgetInput.replace(/,/g, ''));
@@ -64,6 +59,18 @@ export default function Dashboard() {
             return;
         }
         await setBudget(value);
+        setBudgetSavedDialogOpen(true);
+    };
+
+    const handleCategoryBudgetSave = async (category: BudgetCategoryId) => {
+        const raw = categoryInputs[category] ?? String(categoryBudgets[category] || '');
+        const value = Number(raw.replace(/,/g, ''));
+        if (!Number.isFinite(value) || value < 0) {
+            setDialogOpen(true);
+            return;
+        }
+        await setCategoryBudget(category, value);
+        setCategoryInputs((current) => ({ ...current, [category]: '' }));
         setBudgetSavedDialogOpen(true);
     };
 
@@ -126,7 +133,7 @@ export default function Dashboard() {
                                 <Text style={styles.budgetMessage}>No budget set</Text>
                             )}
                         </View>
-                        <BudgetDonut spent={spent} budget={budget} />
+                        <BudgetDonut spent={spent} budget={budget} categories={categorySpend.map((category) => ({ id: category.id, spent: category.spent, budget: category.budget }))} />
                     </View>
 
                     {/* Animated Progress Track */}
@@ -159,6 +166,94 @@ export default function Dashboard() {
                         </TouchableOpacity>
                     </View>
                 </View>
+
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Categories</Text>
+                    <Text style={styles.sectionMeta}>{formatMoney(budget)} total</Text>
+                </View>
+
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={[styles.chipScrollWrapper, { marginHorizontal: -screenPadding.paddingHorizontal }]}
+                    contentContainerStyle={[styles.chipScroll, { paddingHorizontal: screenPadding.paddingHorizontal }]}>
+                    {categorySpend.map((category) => {
+                        const isActive = activeCategory === category.id;
+                        const over = category.budget > 0 && category.remaining < 0;
+                        return (
+                            <TouchableOpacity
+                                key={category.id}
+                                activeOpacity={0.7}
+                                onPress={() => setActiveCategory(isActive ? null : category.id)}
+                                style={[styles.categoryChip, isActive && styles.categoryChipActive]}>
+                                <View style={[styles.chipIcon, isActive && styles.chipIconActive]}>
+                                    <Ionicons name={category.icon as keyof typeof Ionicons.glyphMap} size={15} color={isActive ? '#FFF' : colors.primary} />
+                                </View>
+                                <View style={styles.chipText}>
+                                    <Text style={[styles.chipLabel, isActive && styles.chipLabelActive]} numberOfLines={1}>{getCategoryLabel(category.id)}</Text>
+                                    <Text style={[styles.chipAmount, isActive && styles.chipAmountActive, over && styles.chipAmountOver]} numberOfLines={1}>{formatMoney(category.spent)}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+
+                {activeCategoryData && (() => {
+                    const pct = activeCategoryData.budget > 0 ? Math.min(activeCategoryData.spent / activeCategoryData.budget, 1) : 0;
+                    const over = activeCategoryData.budget > 0 && activeCategoryData.remaining < 0;
+                    return (
+                        <View style={styles.categoryDetail}>
+                            <View style={styles.detailHeader}>
+                                <View style={styles.detailIconWrap}>
+                                    <Ionicons name={activeCategoryData.icon as keyof typeof Ionicons.glyphMap} size={20} color={colors.primary} />
+                                </View>
+                                <View style={styles.detailTitleBlock}>
+                                    <Text style={styles.detailName}>{getCategoryLabel(activeCategoryData.id)}</Text>
+                                    <Text style={[styles.detailStatus, over && styles.detailStatusOver]}>
+                                        {activeCategoryData.budget > 0
+                                            ? over
+                                                ? `${formatMoney(Math.abs(activeCategoryData.remaining))} over budget`
+                                                : `${formatMoney(activeCategoryData.remaining)} remaining`
+                                            : 'No budget set'}
+                                    </Text>
+                                </View>
+                                <TouchableOpacity onPress={() => setActiveCategory(null)} hitSlop={12}>
+                                    <Ionicons name="close" size={20} color={colors.muted} />
+                                </TouchableOpacity>
+                            </View>
+
+                            <View style={styles.detailStats}>
+                                <View style={styles.detailStat}>
+                                    <Text style={styles.detailStatValue}>{formatMoney(activeCategoryData.spent)}</Text>
+                                    <Text style={styles.detailStatLabel}>Spent</Text>
+                                </View>
+                                <View style={styles.detailDivider} />
+                                <View style={styles.detailStat}>
+                                    <Text style={styles.detailStatValue}>{formatMoney(activeCategoryData.budget)}</Text>
+                                    <Text style={styles.detailStatLabel}>Budget</Text>
+                                </View>
+                            </View>
+
+                            <View style={styles.categoryTrack}>
+                                <View style={[styles.categoryFill, { width: `${pct * 100}%`, backgroundColor: over ? colors.danger : colors.primary }]} />
+                            </View>
+
+                            <View style={styles.categoryInputRow}>
+                                <TextInput
+                                    style={styles.categoryInput}
+                                    value={categoryInputs[activeCategoryData.id] ?? ''}
+                                    onChangeText={(value) => setCategoryInputs((current) => ({ ...current, [activeCategoryData.id]: value }))}
+                                    keyboardType="decimal-pad"
+                                    placeholder={activeCategoryData.budget > 0 ? `Budget: ₱${activeCategoryData.budget}` : 'Set budget...'}
+                                    placeholderTextColor={colors.soft}
+                                />
+                                <TouchableOpacity style={styles.categorySave} onPress={() => handleCategoryBudgetSave(activeCategoryData.id)}>
+                                    <Ionicons name="checkmark" size={16} color="#FFF" />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    );
+                })()}
 
                 {/* Metric Pills (Scrollable) */}
                 <ScrollView
@@ -211,42 +306,26 @@ export default function Dashboard() {
                         <Text style={styles.emptyText}>Tap the scanner below to begin!</Text>
                     </View>
                 ) : (
-                    <>
-                        <Animated.View style={{ opacity: recentFade.current }}>
-                            <ScrollView
-                                horizontal
-                                pagingEnabled
-                                showsHorizontalScrollIndicator={false}
-                                onMomentumScrollEnd={(event) => {
-                                    const nextPage = Math.round(event.nativeEvent.contentOffset.x / pageWidth);
-                                    setRecentPage(nextPage);
-                                }}>
-                                {itemPages.map((pageItems, pageIndex) => (
-                                    <View key={`page-${pageIndex}`} style={[styles.itemPage, { width: pageWidth }]}>
-                                        {pageItems.map((item) => (
-                                            <View key={item.id} style={styles.itemRow}>
-                                                <View style={[styles.itemIcon, item.isScanned ? styles.scannedIcon : styles.manualIcon]}>
-                                                    <Ionicons name={item.isScanned ? 'scan' : 'create-outline'} size={16} color={item.isScanned ? colors.accent : colors.primary} />
-                                                </View>
-                                                <View style={styles.itemInfo}>
-                                                    <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-                                                    <Text style={styles.itemMeta}>{item.quantity} x {formatMoney(item.price)}</Text>
-                                                </View>
-                                                <Text style={styles.itemPrice}>{formatMoney(item.price * item.quantity)}</Text>
-                                            </View>
-                                        ))}
-                                    </View>
-                                ))}
-                            </ScrollView>
-                        </Animated.View>
-                        {itemPages.length > 1 && (
-                            <View style={styles.pageDots}>
-                                {itemPages.map((_, index) => (
-                                    <View key={index} style={[styles.pageDot, index === recentPage && styles.pageDotActive]} />
-                                ))}
+                    <View style={styles.recentList}>
+                        {recentItems.map((item, index) => (
+                            <View key={item.id} style={[styles.recentItem, index === 0 && styles.recentItemFirst]}>
+                                <View style={[styles.itemIcon, item.isScanned ? styles.scannedIcon : styles.manualIcon]}>
+                                    <Ionicons name={item.isScanned ? 'scan' : 'create-outline'} size={16} color={item.isScanned ? colors.accent : colors.primary} />
+                                </View>
+                                <View style={styles.itemInfo}>
+                                    <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
+                                    <Text style={styles.itemMeta}>{item.quantity} × {formatMoney(item.price)}</Text>
+                                </View>
+                                <Text style={styles.itemPrice}>{formatMoney(item.price * item.quantity)}</Text>
                             </View>
+                        ))}
+                        {items.length > 5 && (
+                            <TouchableOpacity style={styles.viewAllButton} onPress={() => router.push('/cart')}>
+                                <Text style={styles.viewAllText}>View all {items.length} items</Text>
+                                <Ionicons name="arrow-forward" size={16} color={colors.primary} />
+                            </TouchableOpacity>
                         )}
-                    </>
+                    </View>
                 )}
                 
                 {/* Spacer for floating FAB */}
@@ -325,14 +404,107 @@ const styles = StyleSheet.create({
     sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
     sectionTitle: { fontSize: 18, color: colors.text, fontWeight: '900' },
     sectionAction: { color: colors.primary, fontWeight: '800' },
-    
+    sectionMeta: { color: colors.muted, fontSize: 13, fontWeight: '800' },
+    // Category chips
+    chipScrollWrapper: { marginBottom: 12 },
+    chipScroll: { flexDirection: 'row', gap: 10, paddingVertical: 4 },
+    categoryChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        backgroundColor: colors.card,
+        borderRadius: 16,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        borderWidth: 1,
+        borderColor: colors.glassBorder,
+    },
+    categoryChipActive: {
+        backgroundColor: colors.primary,
+        borderColor: colors.primary,
+    },
+    chipIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        backgroundColor: colors.primarySoft,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    chipIconActive: {
+        backgroundColor: 'rgba(255,255,255,0.2)',
+    },
+    chipText: { minWidth: 0 },
+    chipLabel: { color: colors.text, fontSize: 13, fontWeight: '900' },
+    chipLabelActive: { color: '#FFF' },
+    chipAmount: { color: colors.muted, fontSize: 11, fontWeight: '700', marginTop: 1 },
+    chipAmountActive: { color: 'rgba(255,255,255,0.7)' },
+    chipAmountOver: { color: colors.danger },
+
+    // Category detail panel
+    categoryDetail: {
+        backgroundColor: colors.card,
+        borderRadius: 20,
+        padding: 18,
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: colors.glassBorder,
+    },
+    detailHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    detailIconWrap: {
+        width: 42,
+        height: 42,
+        borderRadius: 14,
+        backgroundColor: colors.primarySoft,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: colors.glassBorder,
+    },
+    detailTitleBlock: { flex: 1, minWidth: 0 },
+    detailName: { color: colors.text, fontSize: 16, fontWeight: '900' },
+    detailStatus: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 2 },
+    detailStatusOver: { color: colors.danger },
+    detailStats: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 16,
+        marginBottom: 14,
+        gap: 0,
+    },
+    detailStat: { flex: 1, alignItems: 'center' },
+    detailStatValue: { color: colors.text, fontSize: 18, fontWeight: '900' },
+    detailStatLabel: { color: colors.muted, fontSize: 11, fontWeight: '700', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 },
+    detailDivider: { width: 1, height: 32, backgroundColor: colors.glassBorder },
+    categoryTrack: { height: 8, backgroundColor: 'rgba(0,0,0,0.08)', borderRadius: 99, overflow: 'hidden', marginTop: 8 },
+    categoryFill: { height: '100%', borderRadius: 99 },
+    categoryInputRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
+    categoryInput: { flex: 1, height: 44, backgroundColor: colors.glass, borderRadius: 14, paddingHorizontal: 14, color: colors.text, borderWidth: 1, borderColor: colors.glassBorder, fontSize: 14 },
+    categorySave: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+
+    // Empty state
     emptyState: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20, borderRadius: 24, borderWidth: 1, borderColor: colors.glassBorder, backgroundColor: colors.card, overflow: 'hidden' },
     emptyIcon: { width: 64, height: 64, borderRadius: 24, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.glassBorder },
     emptyTitle: { fontSize: 17, color: colors.text, fontWeight: '800', marginTop: 16 },
     emptyText: { color: colors.soft, marginTop: 6, textAlign: 'center', fontSize: 14 },
-    
-    itemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 20, padding: 14, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 10 },
-    itemPage: { paddingRight: 1 },
+
+    // Recent items
+    recentList: {
+        backgroundColor: colors.card,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: colors.glassBorder,
+        overflow: 'hidden',
+    },
+    recentItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        borderTopWidth: 1,
+        borderTopColor: colors.glassBorder,
+    },
+    recentItemFirst: { borderTopWidth: 0 },
     itemIcon: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
     scannedIcon: { backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.glassBorder },
     manualIcon: { backgroundColor: colors.primarySoft, borderWidth: 1, borderColor: colors.glassBorder },
@@ -340,7 +512,14 @@ const styles = StyleSheet.create({
     itemName: { color: colors.text, fontSize: 15, fontWeight: '800' },
     itemMeta: { color: colors.muted, fontSize: 12, marginTop: 4 },
     itemPrice: { color: colors.primary, fontSize: 16, fontWeight: '900' },
-    pageDots: { flexDirection: 'row', alignSelf: 'center', gap: 7, marginTop: 4 },
-    pageDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.border },
-    pageDotActive: { width: 18, backgroundColor: colors.primary },
+    viewAllButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        paddingVertical: 14,
+        borderTopWidth: 1,
+        borderTopColor: colors.glassBorder,
+    },
+    viewAllText: { color: colors.primary, fontSize: 13, fontWeight: '800' },
 });

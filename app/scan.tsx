@@ -9,6 +9,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getOcrSelectionChoices, OcrChoice, OcrPriceChoice, parsePriceTag } from '../lib/ocrParser';
 import { lookupProductByBarcode, ProductLookupResult } from '../lib/productLookup';
+import { BudgetCategoryId, DEFAULT_CATEGORY } from '../lib/budgetCategories';
+import { findPreviousBarcodePurchase } from '../lib/priceHistory';
 import { useCartStore } from '../store/useCartStore';
 import VerifySheet from '../components/VerifySheet';
 import AppDialog from '../components/AppDialog';
@@ -33,8 +35,14 @@ export default function ScanScreen() {
   const foundRef = useRef(false);
   const mountedRef = useRef(true);
   const focusedRef = useRef(false);
+  const scanModeRef = useRef<ScanMode>('priceTag');
   const lastBarcodeRef = useRef<string | null>(null);
   const addItem = useCartStore((s) => s.addItem);
+  const sessions = useCartStore((s) => s.sessions);
+
+  useEffect(() => {
+    scanModeRef.current = scanMode;
+  }, [scanMode]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -96,6 +104,7 @@ export default function ScanScreen() {
       foundRef.current ||
       !mountedRef.current ||
       !focusedRef.current ||
+      scanModeRef.current !== 'priceTag' ||
       !cameraReady ||
       !cameraRef.current
     ) return;
@@ -130,7 +139,6 @@ export default function ScanScreen() {
         if (mountedRef.current) setScanStatus('Align bold item name and peso price');
       }
     } catch (e) {
-      console.error(e);
       const message = e instanceof Error ? e.message : String(e);
       if (message.toLowerCase().includes('camera is closed')) {
         if (mountedRef.current) {
@@ -142,6 +150,7 @@ export default function ScanScreen() {
           }, 1500);
         }
       } else if (mountedRef.current) {
+        console.error(e);
         setScanStatus('Still looking...');
       }
     } finally {
@@ -151,6 +160,7 @@ export default function ScanScreen() {
   }, [cameraReady]);
 
   const resetDetection = useCallback((mode: ScanMode) => {
+    scanModeRef.current = mode;
     foundRef.current = false;
     lastBarcodeRef.current = null;
     setIsScanning(false);
@@ -161,6 +171,7 @@ export default function ScanScreen() {
   }, []);
 
   const handleModeChange = useCallback((mode: ScanMode) => {
+    scanModeRef.current = mode;
     setScanMode(mode);
     resetDetection(mode);
   }, [resetDetection]);
@@ -249,15 +260,16 @@ export default function ScanScreen() {
     };
   }, [hasPermission, cameraReady, recognizeCurrentFrame, sheetOpen, scanMode]);
 
-  const handleConfirm = useCallback((name: string, price: number, quantity: number) => {
+  const handleConfirm = useCallback((name: string, price: number, quantity: number, category: BudgetCategoryId) => {
     addItem({
       name,
       price,
       quantity,
       isScanned: true,
+      category,
       barcode: detected?.product?.barcode,
       brand: detected?.product?.brand,
-      category: detected?.product?.category,
+      productCategory: detected?.product?.category,
       productImageUrl: detected?.product?.imageUrl,
     });
     setAddedToCartDialogOpen(true);
@@ -372,6 +384,8 @@ export default function ScanScreen() {
           price={detected.price}
           barcode={detected.product?.barcode}
           brand={detected.product?.brand}
+          initialCategory={DEFAULT_CATEGORY}
+          previousPrice={detected.product?.barcode ? findPreviousBarcodePurchase(sessions, detected.product.barcode) : null}
           nameChoices={choices.names}
           priceChoices={choices.prices}
           onConfirm={handleConfirm}

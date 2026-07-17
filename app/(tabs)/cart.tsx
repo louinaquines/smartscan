@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AppDialog from '../../components/AppDialog';
 import Mascot from '../../components/Mascot';
+import { BUDGET_CATEGORIES, BudgetCategoryId, DEFAULT_CATEGORY, getCategoryLabel } from '../../lib/budgetCategories';
 import { formatMoney } from '../../lib/format';
 import { colors, shadow } from '../../lib/theme';
 import { useScreenPadding } from '../../lib/useScreenPadding';
@@ -14,10 +15,12 @@ export default function Cart() {
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
     const [quantity, setQuantity] = useState('1');
+    const [category, setCategory] = useState<BudgetCategoryId>(DEFAULT_CATEGORY);
     const [editingItem, setEditingItem] = useState<CartItem | null>(null);
     const [editName, setEditName] = useState('');
     const [editPrice, setEditPrice] = useState('');
     const [editQuantity, setEditQuantity] = useState('1');
+    const [editCategory, setEditCategory] = useState<BudgetCategoryId>(DEFAULT_CATEGORY);
     const [dialog, setDialog] = useState<{ title: string; message: string; icon?: keyof typeof Ionicons.glyphMap; actions?: { label: string; onPress: () => void; variant?: 'primary' | 'soft' }[] } | null>(null);
     const [showSuccess, setShowSuccess] = useState(false);
     const [addedItemPrice, setAddedItemPrice] = useState(0);
@@ -44,7 +47,7 @@ export default function Cart() {
             return;
         }
 
-        addItem({ name: cleanName, price: parsedPrice, quantity: parsedQuantity, isScanned: false });
+        addItem({ name: cleanName, price: parsedPrice, quantity: parsedQuantity, category, isScanned: false });
         const itemTotal = parsedPrice * parsedQuantity;
         setAddedItemPrice(itemTotal);
         setShowSuccess(true);
@@ -90,6 +93,7 @@ export default function Cart() {
         setName('');
         setPrice('');
         setQuantity('1');
+        setCategory(DEFAULT_CATEGORY);
     };
 
     const handleSaveSession = async () => {
@@ -119,6 +123,7 @@ export default function Cart() {
         setEditName(item.name);
         setEditPrice(item.price.toFixed(2));
         setEditQuantity(String(item.quantity));
+        setEditCategory(item.category ?? DEFAULT_CATEGORY);
     };
 
     const closeEditItem = () => {
@@ -126,6 +131,7 @@ export default function Cart() {
         setEditName('');
         setEditPrice('');
         setEditQuantity('1');
+        setEditCategory(DEFAULT_CATEGORY);
     };
 
     const handleSaveEdit = () => {
@@ -144,7 +150,7 @@ export default function Cart() {
             return;
         }
 
-        updateItem(editingItem.id, { name: cleanName, price: parsedPrice, quantity: parsedQuantity });
+        updateItem(editingItem.id, { name: cleanName, price: parsedPrice, quantity: parsedQuantity, category: editCategory });
         closeEditItem();
     };
 
@@ -224,6 +230,16 @@ export default function Cart() {
                                 <Ionicons name="add" size={24} color="#FFF" />
                             </TouchableOpacity>
                         </View>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+                            {BUDGET_CATEGORIES.map((option) => {
+                                const selected = category === option.id;
+                                return (
+                                    <TouchableOpacity key={option.id} style={[styles.categoryChip, selected && styles.categoryChipActive]} onPress={() => setCategory(option.id)}>
+                                        <Text style={[styles.categoryChipText, selected && styles.categoryChipTextActive]}>{option.label}</Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
                     </View>
 
                     <View style={styles.sectionHeader}>
@@ -252,7 +268,7 @@ export default function Cart() {
                                 <View style={styles.itemMain}>
                                     <View style={styles.itemText}>
                                         <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-                                        <Text style={styles.itemMeta}>{formatMoney(item.price)} each{item.isScanned ? ' - Scanned' : ''}</Text>
+                                        <Text style={styles.itemMeta}>{formatMoney(item.price)} each - {getCategoryLabel(item.category)}{item.isScanned ? ' - Scanned' : ''}</Text>
                                     </View>
                                     <Text style={styles.itemTotal}>{formatMoney(item.price * item.quantity)}</Text>
                                 </View>
@@ -330,6 +346,16 @@ export default function Cart() {
                                 />
                             </View>
                         </View>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+                            {BUDGET_CATEGORIES.map((option) => {
+                                const selected = editCategory === option.id;
+                                return (
+                                    <TouchableOpacity key={option.id} style={[styles.categoryChip, selected && styles.categoryChipActive]} onPress={() => setEditCategory(option.id)}>
+                                        <Text style={[styles.categoryChipText, selected && styles.categoryChipTextActive]}>{option.label}</Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
                         <View style={styles.editActions}>
                             <TouchableOpacity style={[styles.editActionButton, styles.editCancel]} onPress={closeEditItem}>
                                 <Text style={styles.editCancelText}>Cancel</Text>
@@ -377,6 +403,11 @@ const styles = StyleSheet.create({
     formHint: { color: colors.soft, fontSize: 13, marginTop: 4 },
     input: { height: 50, backgroundColor: colors.glass, borderRadius: 16, paddingHorizontal: 16, color: colors.text, borderWidth: 1, borderColor: colors.glassBorder, marginTop: 12, fontSize: 15 },
     formRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    categoryRow: { flexDirection: 'row', gap: 8, paddingTop: 12, paddingRight: 8 },
+    categoryChip: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: 99, backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.glassBorder },
+    categoryChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    categoryChipText: { color: colors.text, fontSize: 12, fontWeight: '900' },
+    categoryChipTextActive: { color: '#FFF' },
     priceInput: { flex: 1 },
     quantityInput: { width: 74 },
     addButton: { width: 50, height: 50, borderRadius: 16, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', marginTop: 12, ...shadow },
