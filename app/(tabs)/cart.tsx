@@ -1,20 +1,23 @@
 import { useMemo, useRef, useState } from 'react';
-import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AppDialog from '../../components/AppDialog';
 import Mascot from '../../components/Mascot';
 import { BUDGET_CATEGORIES, BudgetCategoryId, DEFAULT_CATEGORY, getCategoryLabel } from '../../lib/budgetCategories';
+import { buildCartShareText } from '../../lib/cartShare';
 import { formatMoney } from '../../lib/format';
 import { colors, shadow } from '../../lib/theme';
 import { useScreenPadding } from '../../lib/useScreenPadding';
 import { CartItem, useCartStore } from '../../store/useCartStore';
 
 export default function Cart() {
-    const { items, budget, addItem, removeItem, updateItem, updateQuantity, saveSession, clearCart, total } = useCartStore();
+    const { items, budget, householdMembers, activeMemberId, addHouseholdMember, setActiveMember, addItem, removeItem, updateItem, updateQuantity, toggleRecurringItem, addRecurringItemsToCart, saveSession, clearCart, total } = useCartStore();
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
     const [quantity, setQuantity] = useState('1');
+    const [storeName, setStoreName] = useState('');
+    const [memberName, setMemberName] = useState('');
     const [category, setCategory] = useState<BudgetCategoryId>(DEFAULT_CATEGORY);
     const [editingItem, setEditingItem] = useState<CartItem | null>(null);
     const [editName, setEditName] = useState('');
@@ -32,6 +35,29 @@ export default function Cart() {
 
     const cartTotal = total();
     const itemCount = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
+    const getMemberName = (id?: string) => householdMembers.find((member) => member.id === id)?.name;
+
+    const handleAddMember = () => {
+        addHouseholdMember(memberName);
+        setMemberName('');
+    };
+
+    const handleShare = async () => {
+        if (items.length === 0) {
+            setDialog({ title: 'Empty cart', message: 'Add items before sharing your cart.', icon: 'share-outline' });
+            return;
+        }
+        await Share.share({ message: buildCartShareText(items, cartTotal) });
+    };
+
+    const handleAddRecurring = () => {
+        const added = addRecurringItemsToCart();
+        setDialog({
+            title: added > 0 ? 'Recurring items added' : 'No recurring items yet',
+            message: added > 0 ? `${added} recurring item${added === 1 ? '' : 's'} added to your cart.` : 'Mark items as recurring after adding them, then they can be suggested next time.',
+            icon: 'repeat-outline',
+        });
+    };
 
     const handleAdd = () => {
         const cleanName = name.trim();
@@ -97,11 +123,12 @@ export default function Cart() {
     };
 
     const handleSaveSession = async () => {
-        const saved = await saveSession();
+        const saved = await saveSession(storeName);
         if (!saved) {
             setDialog({ title: 'Empty cart', message: 'Add at least one item before saving this shopping session.', icon: 'cart-outline' });
             return;
         }
+        setStoreName('');
         setDialog({ title: 'Session saved', message: 'Your cart was moved to history.', icon: 'checkmark-done-outline' });
     };
 
@@ -188,9 +215,14 @@ export default function Cart() {
                         <Text style={styles.kicker}>Current shop</Text>
                         <Text style={styles.title}>Cart</Text>
                     </View>
-                    <View style={styles.headerTotalBox}>
-                        <Text style={styles.headerTotalLabel}>Total</Text>
-                        <Text style={styles.headerTotalValue}>{formatMoney(cartTotal)}</Text>
+                    <View style={styles.headerRight}>
+                        <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
+                            <Ionicons name="share-outline" size={18} color={colors.text} />
+                        </TouchableOpacity>
+                        <View style={styles.headerTotalBox}>
+                            <Text style={styles.headerTotalLabel}>Total</Text>
+                            <Text style={styles.headerTotalValue}>{formatMoney(cartTotal)}</Text>
+                        </View>
                     </View>
                 </View>
             </View>
@@ -198,6 +230,40 @@ export default function Cart() {
             <ScrollView contentContainerStyle={[styles.content, { paddingTop: (screenPadding.paddingTop || 40) + 100, paddingBottom: 120 }]} keyboardShouldPersistTaps="handled">
                 <View style={{ paddingHorizontal: screenPadding.paddingHorizontal }}>
                     <Mascot message={mascotMessage} type={mascotType} />
+
+                    <View style={styles.householdBox}>
+                        <View style={styles.householdHeader}>
+                            <View>
+                                <Text style={styles.sectionTitle}>Household</Text>
+                                <Text style={styles.formHint}>Choose who is adding items.</Text>
+                            </View>
+                            <Ionicons name="people-outline" size={22} color={colors.primary} />
+                        </View>
+                        <View style={styles.memberInputRow}>
+                            <TextInput
+                                style={[styles.input, styles.memberInput]}
+                                value={memberName}
+                                onChangeText={setMemberName}
+                                placeholder="Add member"
+                                placeholderTextColor={colors.soft}
+                            />
+                            <TouchableOpacity style={styles.memberAddButton} onPress={handleAddMember}>
+                                <Ionicons name="add" size={22} color="#FFF" />
+                            </TouchableOpacity>
+                        </View>
+                        {householdMembers.length > 0 && (
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+                                {householdMembers.map((member) => {
+                                    const selected = activeMemberId === member.id;
+                                    return (
+                                        <TouchableOpacity key={member.id} style={[styles.categoryChip, selected && styles.categoryChipActive]} onPress={() => setActiveMember(member.id)}>
+                                            <Text style={[styles.categoryChipText, selected && styles.categoryChipTextActive]}>{member.name}</Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+                        )}
+                    </View>
 
                     <View style={styles.form}>
                         <Text style={styles.sectionTitle}>Manual item</Text>
@@ -260,6 +326,10 @@ export default function Cart() {
                                 <Ionicons name="scan" size={18} color="#FFF" />
                                 <Text style={styles.emptyActionText}>Scan item</Text>
                             </TouchableOpacity>
+                            <TouchableOpacity style={styles.recurringAction} onPress={handleAddRecurring}>
+                                <Ionicons name="repeat-outline" size={17} color={colors.text} />
+                                <Text style={styles.recurringActionText}>Add recurring</Text>
+                            </TouchableOpacity>
                         </View>
                     ) : (
                         items.map((item) => (
@@ -268,7 +338,7 @@ export default function Cart() {
                                 <View style={styles.itemMain}>
                                     <View style={styles.itemText}>
                                         <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-                                        <Text style={styles.itemMeta}>{formatMoney(item.price)} each - {getCategoryLabel(item.category)}{item.isScanned ? ' - Scanned' : ''}</Text>
+                                        <Text style={styles.itemMeta}>{formatMoney(item.price)} each - {getCategoryLabel(item.category)}{getMemberName(item.addedByMemberId) ? ` - ${getMemberName(item.addedByMemberId)}` : ''}{item.isScanned ? ' - Scanned' : ''}</Text>
                                     </View>
                                     <Text style={styles.itemTotal}>{formatMoney(item.price * item.quantity)}</Text>
                                 </View>
@@ -285,6 +355,9 @@ export default function Cart() {
                                     <TouchableOpacity style={styles.editButton} onPress={() => openEditItem(item)}>
                                         <Ionicons name="create-outline" size={18} color={colors.text} />
                                     </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.editButton, item.isRecurring && styles.recurringButtonActive]} onPress={() => toggleRecurringItem(item.id)}>
+                                        <Ionicons name="repeat-outline" size={18} color={item.isRecurring ? '#FFF' : colors.text} />
+                                    </TouchableOpacity>
                                     <TouchableOpacity style={styles.deleteButton} onPress={() => removeItem(item.id)}>
                                         <Ionicons name="trash-outline" size={18} color={colors.text} />
                                     </TouchableOpacity>
@@ -292,6 +365,17 @@ export default function Cart() {
                             </View>
                         ))
                     )}
+
+                    <View style={styles.storeBox}>
+                        <Text style={styles.storeLabel}>Store</Text>
+                        <TextInput
+                            style={styles.storeInput}
+                            value={storeName}
+                            onChangeText={setStoreName}
+                            placeholder="SM, Robinsons, Puregold..."
+                            placeholderTextColor={colors.soft}
+                        />
+                    </View>
 
                     <TouchableOpacity style={[styles.checkoutButton, items.length === 0 && styles.disabled]} onPress={handleSaveSession} disabled={items.length === 0}>
                         <View style={styles.checkoutFill} />
@@ -394,11 +478,18 @@ const styles = StyleSheet.create({
     kicker: { color: colors.primary, fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
     title: { color: colors.text, fontSize: 28, fontWeight: '900', marginTop: 2 },
     headerTotalBox: { alignItems: 'flex-end' },
+    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    shareButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.surfaceBlue, borderWidth: 1, borderColor: colors.glassBorder, alignItems: 'center', justifyContent: 'center' },
     headerTotalLabel: { color: colors.soft, fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
     headerTotalValue: { color: colors.text, fontSize: 24, fontWeight: '900', marginTop: 2 },
     
     content: {},
     form: { backgroundColor: colors.card, borderRadius: 24, padding: 18, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 20, overflow: 'hidden' },
+    householdBox: { backgroundColor: colors.card, borderRadius: 24, padding: 18, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 20, overflow: 'hidden' },
+    householdHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    memberInputRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    memberInput: { flex: 1 },
+    memberAddButton: { width: 50, height: 50, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
     sectionTitle: { color: colors.text, fontSize: 18, fontWeight: '900' },
     formHint: { color: colors.soft, fontSize: 13, marginTop: 4 },
     input: { height: 50, backgroundColor: colors.glass, borderRadius: 16, paddingHorizontal: 16, color: colors.text, borderWidth: 1, borderColor: colors.glassBorder, marginTop: 12, fontSize: 15 },
@@ -421,6 +512,8 @@ const styles = StyleSheet.create({
     emptyText: { color: colors.soft, marginTop: 6, textAlign: 'center', fontSize: 14 },
     emptyAction: { marginTop: 18, height: 46, paddingHorizontal: 20, borderRadius: 16, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', gap: 8, ...shadow },
     emptyActionText: { color: '#FFF', fontWeight: '800', fontSize: 15 },
+    recurringAction: { marginTop: 10, height: 42, paddingHorizontal: 18, borderRadius: 15, backgroundColor: colors.surfaceBlue, borderWidth: 1, borderColor: colors.glassBorder, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    recurringActionText: { color: colors.text, fontWeight: '800', fontSize: 14 },
     
     itemRow: { backgroundColor: colors.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 12, overflow: 'hidden' },
     itemAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, opacity: 0.9 },
@@ -434,8 +527,13 @@ const styles = StyleSheet.create({
     qtyButton: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.glass, alignItems: 'center', justifyContent: 'center' },
     qtyText: { minWidth: 24, textAlign: 'center', color: colors.text, fontSize: 16, fontWeight: '900' },
     editButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.surfaceBlue, borderWidth: 1, borderColor: colors.glassBorder, alignItems: 'center', justifyContent: 'center' },
+    recurringButtonActive: { backgroundColor: colors.primary, borderColor: colors.primary },
     deleteButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.dangerSoft, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
     
+    storeBox: { backgroundColor: colors.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.glassBorder, marginTop: 8 },
+    storeLabel: { color: colors.muted, fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
+    storeInput: { height: 48, backgroundColor: colors.glass, borderRadius: 15, paddingHorizontal: 14, color: colors.text, borderWidth: 1, borderColor: colors.glassBorder, marginTop: 10, fontSize: 15 },
+
     checkoutButton: { marginTop: 12, height: 56, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, ...shadow, overflow: 'hidden' },
     checkoutFill: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.success },
     checkoutText: { color: '#FFF', fontSize: 17, fontWeight: '900' },

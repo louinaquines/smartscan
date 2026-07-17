@@ -4,17 +4,32 @@ import { Ionicons } from '@expo/vector-icons';
 import AppDialog from '../../components/AppDialog';
 import Mascot from '../../components/Mascot';
 import { formatMoney, formatShortDate } from '../../lib/format';
+import { getProductHistory, getProductHistorySummary } from '../../lib/productHistory';
 import { colors, shadow } from '../../lib/theme';
 import { useScreenPadding } from '../../lib/useScreenPadding';
 import { ShoppingSession, useCartStore } from '../../store/useCartStore';
 
 type SessionCardProps = {
     session: ShoppingSession;
+    sessions: ShoppingSession[];
     onOpen: (session: ShoppingSession) => void;
     onDelete: (id: string) => void;
 };
 
-function SessionCard({ session, onOpen, onDelete }: SessionCardProps) {
+function getComparablePrices(sessions: ShoppingSession[], itemName: string, barcode?: string) {
+    const keyName = itemName.toLowerCase();
+    return sessions
+        .flatMap((session) => session.items.map((item) => ({ item, session })))
+        .filter(({ item }) => barcode ? item.barcode === barcode : item.name.toLowerCase() === keyName)
+        .filter(({ session }) => session.storeName)
+        .reduce<Record<string, number[]>>((stores, { item, session }) => {
+            const store = session.storeName ?? 'Unknown';
+            stores[store] = [...(stores[store] ?? []), item.price];
+            return stores;
+        }, {});
+}
+
+function SessionCard({ session, sessions, onOpen, onDelete }: SessionCardProps) {
     const translateX = useRef(new Animated.Value(0));
     const [confirmOpen, setConfirmOpen] = useState(false);
     const unitCount = session.items.reduce((sum, item) => sum + item.quantity, 0);
@@ -66,7 +81,7 @@ function SessionCard({ session, onOpen, onDelete }: SessionCardProps) {
                         </View>
                         <View style={styles.sessionTitleBlock}>
                             <Text style={styles.sessionDate}>{formatShortDate(session.date)}</Text>
-                            <Text style={styles.sessionMeta}>{unitCount} unit{unitCount === 1 ? '' : 's'} in {session.items.length} item{session.items.length === 1 ? '' : 's'}</Text>
+                            <Text style={styles.sessionMeta}>{session.storeName ? `${session.storeName} - ` : ''}{unitCount} unit{unitCount === 1 ? '' : 's'} in {session.items.length} item{session.items.length === 1 ? '' : 's'}</Text>
                         </View>
                         <Text style={styles.sessionTotal}>{formatMoney(session.total)}</Text>
                     </View>
@@ -81,7 +96,7 @@ function SessionCard({ session, onOpen, onDelete }: SessionCardProps) {
                         {session.items.slice(0, 4).map((item) => (
                             <View key={item.id} style={styles.historyItem}>
                                 <Text style={styles.historyItemName} numberOfLines={1}>{item.name}</Text>
-                                <Text style={styles.historyItemPrice}>{item.quantity} x {formatMoney(item.price)}</Text>
+                                <Text style={styles.historyItemPrice}>{item.isRecurring ? 'Repeat - ' : ''}{item.quantity} x {formatMoney(item.price)}</Text>
                             </View>
                         ))}
                         {session.items.length > 4 && (
@@ -156,6 +171,7 @@ export default function History() {
                     <SessionCard
                         key={session.id}
                         session={session}
+                        sessions={sessions}
                         onOpen={setSelectedSession}
                         onDelete={deleteSession}
                     />
@@ -184,7 +200,7 @@ export default function History() {
                             <View style={styles.detailSummary}>
                                 <Text style={styles.detailTotal}>{formatMoney(selectedSession.total)}</Text>
                                 <Text style={styles.detailMeta}>
-                                    {selectedSession.items.reduce((sum, item) => sum + item.quantity, 0)} units in {selectedSession.items.length} items
+                                    {selectedSession.storeName ? `${selectedSession.storeName} - ` : ''}{selectedSession.items.reduce((sum, item) => sum + item.quantity, 0)} units in {selectedSession.items.length} items
                                 </Text>
                             </View>
 
@@ -193,7 +209,42 @@ export default function History() {
                                     <View key={item.id} style={styles.detailItem}>
                                         <View style={styles.detailItemText}>
                                             <Text style={styles.detailItemName}>{item.name}</Text>
-                                            <Text style={styles.detailItemMeta}>{item.quantity} x {formatMoney(item.price)}</Text>
+                                            <Text style={styles.detailItemMeta}>{item.quantity} x {formatMoney(item.price)}{item.isRecurring ? ' - recurring' : ''}</Text>
+                                            {(() => {
+                                                const history = getProductHistory(sessions, item);
+                                                const summary = getProductHistorySummary(history);
+                                                if (!summary || history.length <= 1) return null;
+                                                return (
+                                                    <View style={styles.priceHistoryBox}>
+                                                        <Text style={styles.priceHistoryTitle}>Price history</Text>
+                                                        <Text style={styles.priceHistoryText}>
+                                                            Low {formatMoney(summary.min)} - High {formatMoney(summary.max)} - Latest {formatMoney(summary.latest.price)}
+                                                        </Text>
+                                                        <View style={styles.priceDots}>
+                                                            {history.slice(-6).map((point) => (
+                                                                <View key={`${point.date}-${point.price}`} style={styles.priceDotWrap}>
+                                                                    <View style={[styles.priceDot, point.price === summary.max && styles.priceDotHigh, point.price === summary.min && styles.priceDotLow]} />
+                                                                </View>
+                                                            ))}
+                                                        </View>
+                                                    </View>
+                                                );
+                                            })()}
+                                            {(() => {
+                                                const stores = getComparablePrices(sessions, item.name, item.barcode);
+                                                const entries = Object.entries(stores)
+                                                    .map(([store, prices]) => ({ store, avg: prices.reduce((sum, price) => sum + price, 0) / prices.length }))
+                                                    .sort((a, b) => a.avg - b.avg)
+                                                    .slice(0, 3);
+                                                if (entries.length <= 1) return null;
+                                                return (
+                                                    <View style={styles.storeCompareRow}>
+                                                        {entries.map((entry) => (
+                                                            <Text key={entry.store} style={styles.storeComparePill}>{entry.store}: {formatMoney(entry.avg)}</Text>
+                                                        ))}
+                                                    </View>
+                                                );
+                                            })()}
                                         </View>
                                         <Text style={styles.detailItemPrice}>{formatMoney(item.price * item.quantity)}</Text>
                                     </View>
@@ -252,5 +303,15 @@ const styles = StyleSheet.create({
     detailItemText: { flex: 1 },
     detailItemName: { color: colors.text, fontSize: 15, fontWeight: '800' },
     detailItemMeta: { color: colors.muted, fontSize: 12, marginTop: 4 },
+    storeCompareRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
+    storeComparePill: { color: colors.text, fontSize: 11, fontWeight: '800', backgroundColor: colors.surfaceBlue, borderRadius: 99, paddingHorizontal: 8, paddingVertical: 5, borderWidth: 1, borderColor: colors.glassBorder },
+    priceHistoryBox: { marginTop: 8, padding: 10, borderRadius: 14, backgroundColor: colors.surfaceBlue, borderWidth: 1, borderColor: colors.glassBorder },
+    priceHistoryTitle: { color: colors.text, fontSize: 12, fontWeight: '900' },
+    priceHistoryText: { color: colors.muted, fontSize: 11, fontWeight: '700', marginTop: 3 },
+    priceDots: { flexDirection: 'row', gap: 6, marginTop: 8 },
+    priceDotWrap: { flex: 1, height: 8, borderRadius: 99, backgroundColor: 'rgba(0,0,0,0.08)', overflow: 'hidden' },
+    priceDot: { height: '100%', width: '70%', borderRadius: 99, backgroundColor: colors.muted },
+    priceDotHigh: { backgroundColor: colors.danger },
+    priceDotLow: { backgroundColor: colors.primary },
     detailItemPrice: { color: colors.text, fontSize: 15, fontWeight: '900' },
 });

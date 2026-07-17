@@ -12,7 +12,7 @@ import { useScreenPadding } from '../../lib/useScreenPadding';
 import { useCartStore } from '../../store/useCartStore';
 
 export default function Dashboard() {
-    const { items, budget, categoryBudgets, sessions, setBudget, setCategoryBudget, total, remaining, isHydrated } = useCartStore();
+    const { items, budget, categoryBudgets, sessions, shoppingList, refreshWidgetSnapshot, setBudget, setCategoryBudget, total, remaining, isHydrated } = useCartStore();
     const [budgetInput, setBudgetInput] = useState(budget > 0 ? String(budget) : '');
     const [categoryInputs, setCategoryInputs] = useState<Record<string, string>>({});
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -31,6 +31,27 @@ export default function Dashboard() {
 
     const progressAnim = useRef(new Animated.Value(0));
     const recentItems = items.slice(-5).reverse();
+    const recentSessions = sessions.slice(0, 6).reverse();
+    const now = Date.now();
+    const weekSpent = sessions
+        .filter((session) => now - new Date(session.date).getTime() <= 7 * 24 * 60 * 60 * 1000)
+        .reduce((sum, session) => sum + session.total, 0);
+    const monthSpent = sessions
+        .filter((session) => now - new Date(session.date).getTime() <= 30 * 24 * 60 * 60 * 1000)
+        .reduce((sum, session) => sum + session.total, 0);
+    const maxTrendTotal = Math.max(1, ...recentSessions.map((session) => session.total));
+    const openListCount = shoppingList.filter((item) => !item.checked).length;
+    const likelyStore = sessions[0]?.storeName;
+    const likelyStoreAverage = likelyStore
+        ? sessions
+            .filter((session) => session.storeName === likelyStore)
+            .reduce((sum, session, _, list) => sum + session.total / Math.max(1, list.length), 0)
+        : 0;
+    const smartSuggestion = likelyStore && likelyStoreAverage > 0
+        ? `You usually spend ${formatMoney(likelyStoreAverage)} at ${likelyStore}. Current cart is ${formatMoney(spent)}${openListCount > 0 ? ` with ${openListCount} list item${openListCount === 1 ? '' : 's'} left` : ''}.`
+        : openListCount > 0
+            ? `${openListCount} list item${openListCount === 1 ? '' : 's'} left before checkout.`
+            : 'Save more sessions to unlock smarter grocery suggestions.';
     const categorySpend = BUDGET_CATEGORIES.map((category) => {
         const spent = items
             .filter((item) => (item.category ?? DEFAULT_CATEGORY) === category.id)
@@ -74,6 +95,11 @@ export default function Dashboard() {
         setBudgetSavedDialogOpen(true);
     };
 
+    const handleWidgetRefresh = async () => {
+        await refreshWidgetSnapshot();
+        setBudgetSavedDialogOpen(true);
+    };
+
     let mascotMessage = "Ready to start scanning? Set a budget and let's go.";
     let mascotType: 'neutral' | 'happy' | 'alert' = 'neutral';
     if (budget > 0) {
@@ -111,6 +137,16 @@ export default function Dashboard() {
                 </View>
 
                 <Mascot message={mascotMessage} type={mascotType} />
+
+                <View style={styles.smartPanel}>
+                    <View style={styles.smartIcon}>
+                        <Ionicons name="bulb-outline" size={20} color={colors.primary} />
+                    </View>
+                    <View style={styles.smartCopy}>
+                        <Text style={styles.smartTitle}>Smart suggestion</Text>
+                        <Text style={styles.smartText}>{smartSuggestion}</Text>
+                    </View>
+                </View>
 
                 {/* Glassmorphic Budget Panel */}
                 <View style={styles.budgetGlassCard}>
@@ -291,6 +327,50 @@ export default function Dashboard() {
                 </ScrollView>
 
                 <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Trends</Text>
+                    <Text style={styles.sectionMeta}>{sessions.length} trips</Text>
+                </View>
+
+                <View style={styles.trendPanel}>
+                    <View style={styles.trendSummaryRow}>
+                        <View style={styles.trendSummaryItem}>
+                            <Text style={styles.trendValue}>{formatMoney(weekSpent)}</Text>
+                            <Text style={styles.trendLabel}>This week</Text>
+                        </View>
+                        <View style={styles.trendDivider} />
+                        <View style={styles.trendSummaryItem}>
+                            <Text style={styles.trendValue}>{formatMoney(monthSpent)}</Text>
+                            <Text style={styles.trendLabel}>30 days</Text>
+                        </View>
+                    </View>
+                    {recentSessions.length === 0 ? (
+                        <Text style={styles.trendEmpty}>Save sessions to see grocery trip trends.</Text>
+                    ) : (
+                        <View style={styles.trendBars}>
+                            {recentSessions.map((session) => (
+                                <View key={session.id} style={styles.trendBarRow}>
+                                    <Text style={styles.trendStore} numberOfLines={1}>{session.storeName || 'Store'}</Text>
+                                    <View style={styles.trendTrack}>
+                                        <View style={[styles.trendFill, { width: `${Math.max(8, (session.total / maxTrendTotal) * 100)}%` }]} />
+                                    </View>
+                                    <Text style={styles.trendAmount}>{formatMoney(session.total)}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                </View>
+
+                <View style={styles.backupPanel}>
+                    <View style={styles.backupCopy}>
+                        <Text style={styles.backupTitle}>Widget snapshot</Text>
+                        <Text style={styles.backupText}>Refresh the cart total and remaining budget snapshot used by future widgets.</Text>
+                    </View>
+                    <TouchableOpacity style={styles.backupButton} onPress={handleWidgetRefresh}>
+                        <Ionicons name="refresh-outline" size={18} color="#FFF" />
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Recent Items</Text>
                     <TouchableOpacity onPress={() => router.push('/cart')}>
                         <Text style={styles.sectionAction}>View Cart</Text>
@@ -374,6 +454,11 @@ const styles = StyleSheet.create({
         borderColor: colors.glassBorder,
         ...shadow
     },
+    smartPanel: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderRadius: 20, padding: 14, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 18 },
+    smartIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.glassBorder },
+    smartCopy: { flex: 1, minWidth: 0 },
+    smartTitle: { color: colors.text, fontSize: 14, fontWeight: '900' },
+    smartText: { color: colors.muted, fontSize: 13, fontWeight: '700', lineHeight: 18, marginTop: 3 },
     budgetTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
     budgetCopy: { flex: 1 },
     statusPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 99, marginBottom: 12 },
@@ -522,4 +607,22 @@ const styles = StyleSheet.create({
         borderTopColor: colors.glassBorder,
     },
     viewAllText: { color: colors.primary, fontSize: 13, fontWeight: '800' },
+    trendPanel: { backgroundColor: colors.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 24 },
+    trendSummaryRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+    trendSummaryItem: { flex: 1, alignItems: 'center' },
+    trendValue: { color: colors.text, fontSize: 18, fontWeight: '900' },
+    trendLabel: { color: colors.muted, fontSize: 11, fontWeight: '800', marginTop: 3, textTransform: 'uppercase' },
+    trendDivider: { width: 1, height: 34, backgroundColor: colors.glassBorder },
+    trendEmpty: { color: colors.muted, fontSize: 13, fontWeight: '700', textAlign: 'center', paddingVertical: 8 },
+    trendBars: { gap: 10 },
+    trendBarRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+    trendStore: { width: 72, color: colors.text, fontSize: 12, fontWeight: '800' },
+    trendTrack: { flex: 1, height: 10, backgroundColor: colors.surfaceBlue, borderRadius: 99, overflow: 'hidden' },
+    trendFill: { height: '100%', borderRadius: 99, backgroundColor: colors.primary },
+    trendAmount: { width: 78, color: colors.muted, fontSize: 12, fontWeight: '800', textAlign: 'right' },
+    backupPanel: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 24 },
+    backupCopy: { flex: 1, minWidth: 0 },
+    backupTitle: { color: colors.text, fontSize: 15, fontWeight: '900' },
+    backupText: { color: colors.muted, fontSize: 12, fontWeight: '700', lineHeight: 17, marginTop: 3 },
+    backupButton: { width: 46, height: 46, borderRadius: 15, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
 });

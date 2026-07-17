@@ -11,13 +11,14 @@ import { getOcrSelectionChoices, OcrChoice, OcrPriceChoice, parsePriceTag } from
 import { lookupProductByBarcode, ProductLookupResult } from '../lib/productLookup';
 import { BudgetCategoryId, DEFAULT_CATEGORY } from '../lib/budgetCategories';
 import { findPreviousBarcodePurchase } from '../lib/priceHistory';
+import { parseReceiptItems, receiptItemToCartItem } from '../lib/receiptParser';
 import { useCartStore } from '../store/useCartStore';
 import VerifySheet from '../components/VerifySheet';
 import AppDialog from '../components/AppDialog';
 import { colors } from '../lib/theme';
 
 const AUTO_SCAN_INTERVAL_MS = 1000;
-type ScanMode = 'priceTag' | 'barcode';
+type ScanMode = 'priceTag' | 'barcode' | 'receipt';
 
 export default function ScanScreen() {
   const [hasPermission, setHasPermission] = useState(Platform.OS === 'ios');
@@ -30,6 +31,7 @@ export default function ScanScreen() {
   const [choices, setChoices] = useState<{ names: OcrChoice[]; prices: OcrPriceChoice[] }>({ names: [], prices: [] });
   const [sheetOpen, setSheetOpen] = useState(false);
   const [addedToCartDialogOpen, setAddedToCartDialogOpen] = useState(false);
+  const [receiptImportCount, setReceiptImportCount] = useState(0);
   const cameraRef = useRef<any>(null);
   const isScanningRef = useRef(false);
   const foundRef = useRef(false);
@@ -38,6 +40,7 @@ export default function ScanScreen() {
   const scanModeRef = useRef<ScanMode>('priceTag');
   const lastBarcodeRef = useRef<string | null>(null);
   const addItem = useCartStore((s) => s.addItem);
+  const addItems = useCartStore((s) => s.addItems);
   const sessions = useCartStore((s) => s.sessions);
 
   useEffect(() => {
@@ -104,7 +107,7 @@ export default function ScanScreen() {
       foundRef.current ||
       !mountedRef.current ||
       !focusedRef.current ||
-      scanModeRef.current !== 'priceTag' ||
+      scanModeRef.current === 'barcode' ||
       !cameraReady ||
       !cameraRef.current
     ) return;
@@ -112,7 +115,7 @@ export default function ScanScreen() {
     isScanningRef.current = true;
     if (mountedRef.current) {
       setIsScanning(true);
-      setScanStatus('Reading shelf tag...');
+      setScanStatus(scanModeRef.current === 'receipt' ? 'Reading receipt...' : 'Reading shelf tag...');
     }
 
     try {
@@ -125,6 +128,20 @@ export default function ScanScreen() {
       }
 
       const result = await TextRecognition.recognize(photo.uri);
+      if (scanModeRef.current === 'receipt') {
+        const receiptItems = parseReceiptItems(result);
+        if (receiptItems.length > 0) {
+          foundRef.current = true;
+          addItems(receiptItems.map(receiptItemToCartItem));
+          if (!mountedRef.current) return;
+          setReceiptImportCount(receiptItems.length);
+          setScanStatus('Receipt imported');
+          return;
+        }
+        if (mountedRef.current) setScanStatus('Align receipt items and totals');
+        return;
+      }
+
       const parsed = parsePriceTag(result);
       const nextChoices = getOcrSelectionChoices(result);
 
@@ -167,7 +184,7 @@ export default function ScanScreen() {
     setSheetOpen(false);
     setDetected(null);
     setChoices({ names: [], prices: [] });
-    setScanStatus(mode === 'barcode' ? 'Looking for barcode' : 'Looking for item name and price');
+    setScanStatus(mode === 'barcode' ? 'Looking for barcode' : mode === 'receipt' ? 'Looking for receipt items' : 'Looking for item name and price');
   }, []);
 
   const handleModeChange = useCallback((mode: ScanMode) => {
@@ -241,7 +258,7 @@ export default function ScanScreen() {
     const readyTimer = setTimeout(() => {
       if (mountedRef.current && focusedRef.current) {
         setCameraReady(true);
-        setScanStatus(scanMode === 'barcode' ? 'Looking for barcode' : 'Looking for item name and price');
+        setScanStatus(scanMode === 'barcode' ? 'Looking for barcode' : scanMode === 'receipt' ? 'Looking for receipt items' : 'Looking for item name and price');
       }
     }, 1000);
 
@@ -249,7 +266,7 @@ export default function ScanScreen() {
   }, [hasPermission, scanMode]);
 
   useEffect(() => {
-    if (!hasPermission || !cameraReady || sheetOpen || !focusedRef.current || scanMode !== 'priceTag') return;
+    if (!hasPermission || !cameraReady || sheetOpen || !focusedRef.current || scanMode === 'barcode') return;
 
     const timer = setInterval(recognizeCurrentFrame, AUTO_SCAN_INTERVAL_MS);
     const initialTimer = setTimeout(recognizeCurrentFrame, 500);
@@ -285,7 +302,7 @@ export default function ScanScreen() {
     setChoices({ names: [], prices: [] });
     foundRef.current = false;
     lastBarcodeRef.current = null;
-    setScanStatus(scanMode === 'barcode' ? 'Looking for barcode' : 'Looking for item name and price');
+    setScanStatus(scanMode === 'barcode' ? 'Looking for barcode' : scanMode === 'receipt' ? 'Looking for receipt items' : 'Looking for item name and price');
   }, [scanMode]);
 
   if (!permissionChecked) {
@@ -351,16 +368,22 @@ export default function ScanScreen() {
               <Ionicons name="barcode-outline" size={17} color={scanMode === 'barcode' ? colors.primary : 'white'} />
               <Text style={[styles.modeText, scanMode === 'barcode' && styles.modeTextActive]}>Barcode</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modeButton, scanMode === 'receipt' && styles.modeButtonActive]}
+              onPress={() => handleModeChange('receipt')}>
+              <Ionicons name="receipt-outline" size={17} color={scanMode === 'receipt' ? colors.primary : 'white'} />
+              <Text style={[styles.modeText, scanMode === 'receipt' && styles.modeTextActive]}>Receipt</Text>
+            </TouchableOpacity>
           </View>
           <View style={styles.topBadge}>
-            <Ionicons name={scanMode === 'barcode' ? 'barcode-outline' : 'sparkles'} size={15} color="white" />
-            <Text style={styles.hint}>{scanMode === 'barcode' ? 'Place the barcode inside the frame' : 'Place the price tag inside the frame'}</Text>
+            <Ionicons name={scanMode === 'barcode' ? 'barcode-outline' : scanMode === 'receipt' ? 'receipt-outline' : 'sparkles'} size={15} color="white" />
+            <Text style={styles.hint}>{scanMode === 'barcode' ? 'Place the barcode inside the frame' : scanMode === 'receipt' ? 'Place receipt lines inside the frame' : 'Place the price tag inside the frame'}</Text>
           </View>
         </View>
 
         <View style={styles.scanRow}>
           <View style={styles.sideMask} />
-          <View style={styles.viewfinder}>
+          <View style={[styles.viewfinder, scanMode === 'receipt' && styles.receiptViewfinder]}>
             <View style={[styles.scanLine, isScanning && styles.scanLineActive]} />
           </View>
           <View style={styles.sideMask} />
@@ -368,11 +391,11 @@ export default function ScanScreen() {
 
         <View style={styles.bottomMask}>
           <View style={styles.statusPill}>
-            {isScanning ? <ActivityIndicator color="white" size="small" /> : <Ionicons name={scanMode === 'barcode' ? 'barcode-outline' : 'text'} size={17} color="white" />}
+            {isScanning ? <ActivityIndicator color="white" size="small" /> : <Ionicons name={scanMode === 'barcode' ? 'barcode-outline' : scanMode === 'receipt' ? 'receipt-outline' : 'text'} size={17} color="white" />}
             <Text style={styles.statusText}>{scanStatus}</Text>
           </View>
           <Text style={styles.scanHelp}>
-            {scanMode === 'barcode' ? 'Cany can fill the product name. You still enter the store price.' : 'Keep the product name and peso price inside the box.'}
+            {scanMode === 'barcode' ? 'Cany can fill the product name. You still enter the store price.' : scanMode === 'receipt' ? 'Cany will import readable receipt items into your cart.' : 'Keep the product name and peso price inside the box.'}
           </Text>
         </View>
       </View>
@@ -400,6 +423,14 @@ export default function ScanScreen() {
         onDismiss={() => setAddedToCartDialogOpen(false)}
         actions={[{ label: 'OK', onPress: () => setAddedToCartDialogOpen(false) }]}
       />
+      <AppDialog
+        visible={receiptImportCount > 0}
+        title="Receipt imported"
+        message={`${receiptImportCount} item${receiptImportCount === 1 ? '' : 's'} added to cart.`}
+        icon="receipt-outline"
+        onDismiss={() => { setReceiptImportCount(0); router.dismiss(); }}
+        actions={[{ label: 'OK', onPress: () => { setReceiptImportCount(0); router.dismiss(); } }]}
+      />
     </View>
   );
 }
@@ -417,7 +448,7 @@ const styles = StyleSheet.create({
   closeBtn: { position: 'absolute', top: 52, right: 20, zIndex: 3, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 20, padding: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.36)' },
   topMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 24, paddingTop: 66 },
   modeToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.52)', borderRadius: 18, padding: 5, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
-  modeButton: { minWidth: 112, minHeight: 42, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 12 },
+  modeButton: { minWidth: 92, minHeight: 42, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 10 },
   modeButtonActive: { backgroundColor: 'white' },
   modeText: { color: 'white', fontSize: 13, fontWeight: '900' },
   modeTextActive: { color: colors.primary },
@@ -426,6 +457,7 @@ const styles = StyleSheet.create({
   scanRow: { flexDirection: 'row', alignItems: 'stretch', justifyContent: 'center' },
   sideMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.78)' },
   viewfinder: { width: 322, height: 190, position: 'relative', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#FFF', borderRadius: 10, backgroundColor: 'transparent' },
+  receiptViewfinder: { width: 220, height: 430, borderRadius: 16 },
   scanLine: { width: '86%', height: 2, backgroundColor: 'rgba(255,255,255,0.55)', borderRadius: 1 },
   scanLineActive: { height: 3, backgroundColor: '#FFF', shadowColor: '#000', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 8, elevation: 6 },
   bottomMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', alignItems: 'center', paddingTop: 24, paddingBottom: 52, paddingHorizontal: 22 },

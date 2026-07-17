@@ -6,6 +6,9 @@ export const StorageKeys = {
     CART_ITEMS: 'cartItems',
     SHOPPING_LIST: 'shoppingList',
     SESSIONS: 'sessions',
+    HOUSEHOLD_MEMBERS: 'householdMembers',
+    ACTIVE_MEMBER_ID: 'activeMemberId',
+    WIDGET_SNAPSHOT: 'widgetSnapshot',
     CURRENCY: 'currency',
     ONBOARDING_COMPLETE: 'onboardingComplete',
 } as const;
