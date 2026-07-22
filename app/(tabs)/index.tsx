@@ -12,7 +12,7 @@ import { useScreenPadding } from '../../lib/useScreenPadding';
 import { useCartStore } from '../../store/useCartStore';
 
 export default function Dashboard() {
-    const { items, budget, categoryBudgets, sessions, shoppingList, refreshWidgetSnapshot, setBudget, setCategoryBudget, total, remaining, isHydrated } = useCartStore();
+    const { items, budget, categoryBudgets, sessions, shoppingList, setBudget, setCategoryBudget, total, remaining, isHydrated } = useCartStore();
     const [budgetInput, setBudgetInput] = useState(budget > 0 ? String(budget) : '');
     const [categoryInputs, setCategoryInputs] = useState<Record<string, string>>({});
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -41,17 +41,28 @@ export default function Dashboard() {
         .reduce((sum, session) => sum + session.total, 0);
     const maxTrendTotal = Math.max(1, ...recentSessions.map((session) => session.total));
     const openListCount = shoppingList.filter((item) => !item.checked).length;
-    const likelyStore = sessions[0]?.storeName;
-    const likelyStoreAverage = likelyStore
-        ? sessions
-            .filter((session) => session.storeName === likelyStore)
-            .reduce((sum, session, _, list) => sum + session.total / Math.max(1, list.length), 0)
+    const storeVisits = sessions.reduce<Record<string, number>>((acc, s) => {
+        if (s.storeName) acc[s.storeName] = (acc[s.storeName] || 0) + 1;
+        return acc;
+    }, {});
+    const topStoreEntry = Object.entries(storeVisits).sort((a, b) => b[1] - a[1])[0];
+    const topStoreName = topStoreEntry?.[0];
+    const topStoreSessions = topStoreName
+        ? sessions.filter((s) => s.storeName === topStoreName)
+        : [];
+    const topStoreAverage = topStoreSessions.length > 0
+        ? topStoreSessions.reduce((sum, s) => sum + s.total, 0) / topStoreSessions.length
         : 0;
-    const smartSuggestion = likelyStore && likelyStoreAverage > 0
-        ? `You usually spend ${formatMoney(likelyStoreAverage)} at ${likelyStore}. Current cart is ${formatMoney(spent)}${openListCount > 0 ? ` with ${openListCount} list item${openListCount === 1 ? '' : 's'} left` : ''}.`
+    const cartVsAverage = topStoreAverage > 0 ? spent - topStoreAverage : 0;
+    const smartSuggestion = topStoreName && topStoreAverage > 0
+        ? cartVsAverage > 0
+            ? `Your cart (${formatMoney(spent)}) is ${formatMoney(Math.round(cartVsAverage))} above your usual ${formatMoney(Math.round(topStoreAverage))} at ${topStoreName}. ${rem < 0 ? 'You\'re over budget.' : openListCount > 0 ? `You still have ${openListCount} item${openListCount === 1 ? '' : 's'} on your list.` : 'Consider trimming before checkout.'}`
+            : `Your cart (${formatMoney(spent)}) is ${formatMoney(Math.round(Math.abs(cartVsAverage)))} below your usual ${formatMoney(Math.round(topStoreAverage))} at ${topStoreName}. ${openListCount > 0 ? `You have ${openListCount} item${openListCount === 1 ? '' : 's'} left to grab.` : 'You\'re in good shape.'}`
         : openListCount > 0
-            ? `${openListCount} list item${openListCount === 1 ? '' : 's'} left before checkout.`
-            : 'Save more sessions to unlock smarter grocery suggestions.';
+            ? `${openListCount} shopping list item${openListCount === 1 ? '' : 's'} still to pick up.`
+            : budget > 0
+                ? `Budget is ${formatMoney(budget)} — you've spent ${formatMoney(spent)} so far.`
+                : 'Set a budget and save a few sessions to get personalized suggestions.';
     const categorySpend = BUDGET_CATEGORIES.map((category) => {
         const spent = items
             .filter((item) => (item.category ?? DEFAULT_CATEGORY) === category.id)
@@ -92,11 +103,6 @@ export default function Dashboard() {
         }
         await setCategoryBudget(category, value);
         setCategoryInputs((current) => ({ ...current, [category]: '' }));
-        setBudgetSavedDialogOpen(true);
-    };
-
-    const handleWidgetRefresh = async () => {
-        await refreshWidgetSnapshot();
         setBudgetSavedDialogOpen(true);
     };
 
@@ -360,16 +366,6 @@ export default function Dashboard() {
                     )}
                 </View>
 
-                <View style={styles.backupPanel}>
-                    <View style={styles.backupCopy}>
-                        <Text style={styles.backupTitle}>Widget snapshot</Text>
-                        <Text style={styles.backupText}>Refresh the cart total and remaining budget snapshot used by future widgets.</Text>
-                    </View>
-                    <TouchableOpacity style={styles.backupButton} onPress={handleWidgetRefresh}>
-                        <Ionicons name="refresh-outline" size={18} color="#FFF" />
-                    </TouchableOpacity>
-                </View>
-
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Recent Items</Text>
                     <TouchableOpacity onPress={() => router.push('/cart')}>
@@ -620,9 +616,4 @@ const styles = StyleSheet.create({
     trendTrack: { flex: 1, height: 10, backgroundColor: colors.surfaceBlue, borderRadius: 99, overflow: 'hidden' },
     trendFill: { height: '100%', borderRadius: 99, backgroundColor: colors.primary },
     trendAmount: { width: 78, color: colors.muted, fontSize: 12, fontWeight: '800', textAlign: 'right' },
-    backupPanel: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 24 },
-    backupCopy: { flex: 1, minWidth: 0 },
-    backupTitle: { color: colors.text, fontSize: 15, fontWeight: '900' },
-    backupText: { color: colors.muted, fontSize: 12, fontWeight: '700', lineHeight: 17, marginTop: 3 },
-    backupButton: { width: 46, height: 46, borderRadius: 15, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
 });

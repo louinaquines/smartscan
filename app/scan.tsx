@@ -11,14 +11,24 @@ import { getOcrSelectionChoices, OcrChoice, OcrPriceChoice, parsePriceTag } from
 import { lookupProductByBarcode, ProductLookupResult } from '../lib/productLookup';
 import { BudgetCategoryId, DEFAULT_CATEGORY } from '../lib/budgetCategories';
 import { findPreviousBarcodePurchase } from '../lib/priceHistory';
-import { parseReceiptItems, receiptItemToCartItem } from '../lib/receiptParser';
+import { parseReceiptItemsLenient, parseReceiptTotal, receiptItemToCartItem, ReceiptParsedItem, getRawOcrLines, getReceiptOcrSuggestions, OcrTextChoice } from '../lib/receiptParser';
 import { useCartStore } from '../store/useCartStore';
 import VerifySheet from '../components/VerifySheet';
+import ReceiptReviewSheet from '../components/ReceiptReviewSheet';
 import AppDialog from '../components/AppDialog';
 import { colors } from '../lib/theme';
 
-const AUTO_SCAN_INTERVAL_MS = 1000;
 type ScanMode = 'priceTag' | 'barcode' | 'receipt';
+
+const dedupeReceiptItems = (items: ReceiptParsedItem[]) => {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = `${item.name.toLowerCase()}|${item.price.toFixed(2)}|${item.quantity}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
 
 export default function ScanScreen() {
   const [hasPermission, setHasPermission] = useState(Platform.OS === 'ios');
@@ -26,12 +36,19 @@ export default function ScanScreen() {
   const [isScanning, setIsScanning] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [scanMode, setScanMode] = useState<ScanMode>('priceTag');
-  const [scanStatus, setScanStatus] = useState('Looking for item name and price');
+  const [scanStatus, setScanStatus] = useState('Tap Scan to capture');
   const [detected, setDetected] = useState<{ name: string; price: number; product?: ProductLookupResult } | null>(null);
   const [choices, setChoices] = useState<{ names: OcrChoice[]; prices: OcrPriceChoice[] }>({ names: [], prices: [] });
+  const [receiptItems, setReceiptItems] = useState<ReceiptParsedItem[]>([]);
+  const [accumulatedReceiptItems, setAccumulatedReceiptItems] = useState<ReceiptParsedItem[]>([]);
+  const [receiptTotal, setReceiptTotal] = useState<number | null>(null);
+  const [receiptSheetOpen, setReceiptSheetOpen] = useState(false);
+  const [receiptNameSuggestions, setReceiptNameSuggestions] = useState<OcrTextChoice[]>([]);
+  const [receiptScanPass, setReceiptScanPass] = useState(0);
+  const [receiptComplete, setReceiptComplete] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [addedToCartDialogOpen, setAddedToCartDialogOpen] = useState(false);
-  const [receiptImportCount, setReceiptImportCount] = useState(0);
+  const [addedDialog, setAddedDialog] = useState<{ title: string; message: string }>({ title: 'Item added', message: 'Product added to cart.' });
   const cameraRef = useRef<any>(null);
   const isScanningRef = useRef(false);
   const foundRef = useRef(false);
@@ -101,22 +118,12 @@ export default function ScanScreen() {
     };
   }, []);
 
-  const recognizeCurrentFrame = useCallback(async () => {
-    if (
-      isScanningRef.current ||
-      foundRef.current ||
-      !mountedRef.current ||
-      !focusedRef.current ||
-      scanModeRef.current === 'barcode' ||
-      !cameraReady ||
-      !cameraRef.current
-    ) return;
+  const handleCapture = useCallback(async () => {
+    if (isScanningRef.current || !cameraReady || !cameraRef.current || !mountedRef.current) return;
 
     isScanningRef.current = true;
-    if (mountedRef.current) {
-      setIsScanning(true);
-      setScanStatus(scanModeRef.current === 'receipt' ? 'Reading receipt...' : 'Reading shelf tag...');
-    }
+    setIsScanning(true);
+    setScanStatus(scanModeRef.current === 'receipt' ? 'Reading receipt...' : 'Reading shelf tag...');
 
     try {
       const photo = await cameraRef.current.capture();
@@ -129,16 +136,23 @@ export default function ScanScreen() {
 
       const result = await TextRecognition.recognize(photo.uri);
       if (scanModeRef.current === 'receipt') {
-        const receiptItems = parseReceiptItems(result);
-        if (receiptItems.length > 0) {
-          foundRef.current = true;
-          addItems(receiptItems.map(receiptItemToCartItem));
-          if (!mountedRef.current) return;
-          setReceiptImportCount(receiptItems.length);
-          setScanStatus('Receipt imported');
-          return;
-        }
-        if (mountedRef.current) setScanStatus('Align receipt items and totals');
+        const newItems = parseReceiptItemsLenient(result);
+        const total = parseReceiptTotal(result);
+        const rawLines = getRawOcrLines(result);
+        const suggestions = getReceiptOcrSuggestions(result);
+        const totalDetected = rawLines.some((line) => /^\s*total\b/i.test(line));
+
+        setAccumulatedReceiptItems((prev) => dedupeReceiptItems([...prev, ...newItems]));
+        setReceiptItems(newItems);
+        setReceiptTotal(total);
+        setReceiptNameSuggestions(suggestions.names);
+        if (totalDetected) setReceiptComplete(true);
+        setReceiptScanPass((prev) => prev + 1);
+
+        foundRef.current = true;
+        if (!mountedRef.current) return;
+        setReceiptSheetOpen(true);
+        setScanStatus(totalDetected ? 'Receipt complete — review items' : 'Review receipt items');
         return;
       }
 
@@ -153,7 +167,7 @@ export default function ScanScreen() {
         setSheetOpen(true);
         setScanStatus('Item found');
       } else {
-        if (mountedRef.current) setScanStatus('Align bold item name and peso price');
+        setScanStatus('No item detected — try again');
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
@@ -168,7 +182,7 @@ export default function ScanScreen() {
         }
       } else if (mountedRef.current) {
         console.error(e);
-        setScanStatus('Still looking...');
+        setScanStatus('Capture failed — try again');
       }
     } finally {
       isScanningRef.current = false;
@@ -182,9 +196,18 @@ export default function ScanScreen() {
     lastBarcodeRef.current = null;
     setIsScanning(false);
     setSheetOpen(false);
+    setReceiptSheetOpen(false);
+    setReceiptItems([]);
+    setAccumulatedReceiptItems([]);
+    setReceiptTotal(null);
+
+    setReceiptNameSuggestions([]);
+
+    setReceiptScanPass(0);
+    setReceiptComplete(false);
     setDetected(null);
     setChoices({ names: [], prices: [] });
-    setScanStatus(mode === 'barcode' ? 'Looking for barcode' : mode === 'receipt' ? 'Looking for receipt items' : 'Looking for item name and price');
+    setScanStatus('Tap Scan to capture');
   }, []);
 
   const handleModeChange = useCallback((mode: ScanMode) => {
@@ -258,24 +281,12 @@ export default function ScanScreen() {
     const readyTimer = setTimeout(() => {
       if (mountedRef.current && focusedRef.current) {
         setCameraReady(true);
-        setScanStatus(scanMode === 'barcode' ? 'Looking for barcode' : scanMode === 'receipt' ? 'Looking for receipt items' : 'Looking for item name and price');
+        setScanStatus('Tap Scan to capture');
       }
     }, 1000);
 
     return () => clearTimeout(readyTimer);
-  }, [hasPermission, scanMode]);
-
-  useEffect(() => {
-    if (!hasPermission || !cameraReady || sheetOpen || !focusedRef.current || scanMode === 'barcode') return;
-
-    const timer = setInterval(recognizeCurrentFrame, AUTO_SCAN_INTERVAL_MS);
-    const initialTimer = setTimeout(recognizeCurrentFrame, 500);
-
-    return () => {
-      clearInterval(timer);
-      clearTimeout(initialTimer);
-    };
-  }, [hasPermission, cameraReady, recognizeCurrentFrame, sheetOpen, scanMode]);
+  }, [hasPermission]);
 
   const handleConfirm = useCallback((name: string, price: number, quantity: number, category: BudgetCategoryId) => {
     addItem({
@@ -289,6 +300,7 @@ export default function ScanScreen() {
       productCategory: detected?.product?.category,
       productImageUrl: detected?.product?.imageUrl,
     });
+    setAddedDialog({ title: 'Item added', message: 'Product added to cart.' });
     setAddedToCartDialogOpen(true);
     setSheetOpen(false);
     setDetected(null);
@@ -302,8 +314,54 @@ export default function ScanScreen() {
     setChoices({ names: [], prices: [] });
     foundRef.current = false;
     lastBarcodeRef.current = null;
-    setScanStatus(scanMode === 'barcode' ? 'Looking for barcode' : scanMode === 'receipt' ? 'Looking for receipt items' : 'Looking for item name and price');
+    setScanStatus('Tap Scan to capture');
   }, [scanMode]);
+
+  const handleConfirmReceipt = useCallback((items: ReceiptParsedItem[]) => {
+    addItems(items.map(receiptItemToCartItem));
+    setReceiptSheetOpen(false);
+    setReceiptItems([]);
+    setAccumulatedReceiptItems([]);
+    setReceiptTotal(null);
+
+    setReceiptNameSuggestions([]);
+
+    setReceiptScanPass(0);
+    setReceiptComplete(false);
+    setAddedDialog({
+      title: 'Receipt imported',
+      message: `${items.length} item${items.length === 1 ? '' : 's'} added to cart.`,
+    });
+    setAddedToCartDialogOpen(true);
+    router.dismiss();
+  }, [addItems]);
+
+  const handleScanMoreReceipt = useCallback((currentDraft: ReceiptParsedItem[]) => {
+    setAccumulatedReceiptItems(currentDraft);
+    setReceiptSheetOpen(false);
+    setReceiptItems([]);
+    setReceiptTotal(null);
+
+    setReceiptNameSuggestions([]);
+
+    setReceiptComplete(false);
+    foundRef.current = false;
+    setScanStatus('Tap Scan to capture next part');
+  }, [receiptScanPass]);
+
+  const handleCancelReceipt = useCallback(() => {
+    setReceiptSheetOpen(false);
+    setReceiptItems([]);
+    setAccumulatedReceiptItems([]);
+    setReceiptTotal(null);
+
+    setReceiptNameSuggestions([]);
+
+    setReceiptScanPass(0);
+    setReceiptComplete(false);
+    foundRef.current = false;
+    setScanStatus('Tap Scan to capture');
+  }, []);
 
   if (!permissionChecked) {
     return (
@@ -358,26 +416,35 @@ export default function ScanScreen() {
           <View style={styles.modeToggle}>
             <TouchableOpacity
               style={[styles.modeButton, scanMode === 'priceTag' && styles.modeButtonActive]}
-              onPress={() => handleModeChange('priceTag')}>
-              <Ionicons name="text" size={16} color={scanMode === 'priceTag' ? colors.primary : 'white'} />
-              <Text style={[styles.modeText, scanMode === 'priceTag' && styles.modeTextActive]}>Price Tag</Text>
+              onPress={() => handleModeChange('priceTag')}
+              activeOpacity={0.7}>
+              <View style={[styles.modeIconWrap, scanMode === 'priceTag' && styles.modeIconWrapActive]}>
+                <Ionicons name="pricetag-outline" size={15} color={scanMode === 'priceTag' ? '#FFF' : 'rgba(255,255,255,0.7)'} />
+              </View>
+              <Text style={[styles.modeText, scanMode === 'priceTag' && styles.modeTextActive]}>Price</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modeButton, scanMode === 'barcode' && styles.modeButtonActive]}
-              onPress={() => handleModeChange('barcode')}>
-              <Ionicons name="barcode-outline" size={17} color={scanMode === 'barcode' ? colors.primary : 'white'} />
+              onPress={() => handleModeChange('barcode')}
+              activeOpacity={0.7}>
+              <View style={[styles.modeIconWrap, scanMode === 'barcode' && styles.modeIconWrapActive]}>
+                <Ionicons name="barcode-outline" size={15} color={scanMode === 'barcode' ? '#FFF' : 'rgba(255,255,255,0.7)'} />
+              </View>
               <Text style={[styles.modeText, scanMode === 'barcode' && styles.modeTextActive]}>Barcode</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modeButton, scanMode === 'receipt' && styles.modeButtonActive]}
-              onPress={() => handleModeChange('receipt')}>
-              <Ionicons name="receipt-outline" size={17} color={scanMode === 'receipt' ? colors.primary : 'white'} />
+              onPress={() => handleModeChange('receipt')}
+              activeOpacity={0.7}>
+              <View style={[styles.modeIconWrap, scanMode === 'receipt' && styles.modeIconWrapActive]}>
+                <Ionicons name="receipt-outline" size={15} color={scanMode === 'receipt' ? '#FFF' : 'rgba(255,255,255,0.7)'} />
+              </View>
               <Text style={[styles.modeText, scanMode === 'receipt' && styles.modeTextActive]}>Receipt</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.topBadge}>
             <Ionicons name={scanMode === 'barcode' ? 'barcode-outline' : scanMode === 'receipt' ? 'receipt-outline' : 'sparkles'} size={15} color="white" />
-            <Text style={styles.hint}>{scanMode === 'barcode' ? 'Place the barcode inside the frame' : scanMode === 'receipt' ? 'Place receipt lines inside the frame' : 'Place the price tag inside the frame'}</Text>
+            <Text style={styles.hint}>{scanMode === 'barcode' ? 'Point camera at barcode, then tap Scan' : scanMode === 'receipt' ? 'Point camera at receipt, then tap Scan' : 'Point camera at price tag, then tap Scan'}</Text>
           </View>
         </View>
 
@@ -394,9 +461,18 @@ export default function ScanScreen() {
             {isScanning ? <ActivityIndicator color="white" size="small" /> : <Ionicons name={scanMode === 'barcode' ? 'barcode-outline' : scanMode === 'receipt' ? 'receipt-outline' : 'text'} size={17} color="white" />}
             <Text style={styles.statusText}>{scanStatus}</Text>
           </View>
-          <Text style={styles.scanHelp}>
-            {scanMode === 'barcode' ? 'Cany can fill the product name. You still enter the store price.' : scanMode === 'receipt' ? 'Cany will import readable receipt items into your cart.' : 'Keep the product name and peso price inside the box.'}
-          </Text>
+          <TouchableOpacity
+            style={[styles.captureButton, isScanning && styles.captureButtonDisabled]}
+            disabled={isScanning || !cameraReady}
+            onPress={handleCapture}
+            activeOpacity={0.75}>
+            <View style={styles.captureIconWrap}>
+              <Ionicons name={scanMode === 'barcode' ? 'barcode-outline' : scanMode === 'receipt' ? 'receipt-outline' : 'camera-outline'} size={24} color={colors.primary} />
+            </View>
+            <Text style={styles.captureText}>
+              {isScanning ? 'Processing…' : scanMode === 'receipt' ? 'Scan Receipt' : scanMode === 'barcode' ? 'Scan Barcode' : 'Scan Price Tag'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -415,21 +491,24 @@ export default function ScanScreen() {
           onCancel={handleCancelDetected}
         />
       )}
+      <ReceiptReviewSheet
+        open={receiptSheetOpen}
+        items={accumulatedReceiptItems.length > 0 ? accumulatedReceiptItems : receiptItems}
+        receiptTotal={receiptTotal}
+        nameSuggestions={receiptNameSuggestions}
+        scanPass={receiptScanPass}
+        totalDetected={receiptComplete}
+        onScanMore={receiptComplete ? undefined : handleScanMoreReceipt}
+        onConfirm={handleConfirmReceipt}
+        onCancel={handleCancelReceipt}
+      />
       <AppDialog
         visible={addedToCartDialogOpen}
-        title="Item added"
-        message="Product added to cart."
+        title={addedDialog.title}
+        message={addedDialog.message}
         icon="checkmark-done-outline"
         onDismiss={() => setAddedToCartDialogOpen(false)}
         actions={[{ label: 'OK', onPress: () => setAddedToCartDialogOpen(false) }]}
-      />
-      <AppDialog
-        visible={receiptImportCount > 0}
-        title="Receipt imported"
-        message={`${receiptImportCount} item${receiptImportCount === 1 ? '' : 's'} added to cart.`}
-        icon="receipt-outline"
-        onDismiss={() => { setReceiptImportCount(0); router.dismiss(); }}
-        actions={[{ label: 'OK', onPress: () => { setReceiptImportCount(0); router.dismiss(); } }]}
       />
     </View>
   );
@@ -447,11 +526,13 @@ const styles = StyleSheet.create({
   overlay: { ...StyleSheet.absoluteFillObject },
   closeBtn: { position: 'absolute', top: 52, right: 20, zIndex: 3, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 20, padding: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.36)' },
   topMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 24, paddingTop: 66 },
-  modeToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.52)', borderRadius: 18, padding: 5, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)' },
-  modeButton: { minWidth: 92, minHeight: 42, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 10 },
-  modeButtonActive: { backgroundColor: 'white' },
-  modeText: { color: 'white', fontSize: 13, fontWeight: '900' },
-  modeTextActive: { color: colors.primary },
+  modeToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 16, padding: 4, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  modeButton: { flex: 1, minHeight: 48, borderRadius: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 8, backgroundColor: 'rgba(255,255,255,0.08)' },
+  modeButtonActive: { backgroundColor: colors.primary, shadowColor: '#FFF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
+  modeIconWrap: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.1)' },
+  modeIconWrapActive: { backgroundColor: 'rgba(255,255,255,0.2)' },
+  modeText: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '800' },
+  modeTextActive: { color: '#FFF' },
   topBadge: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 99, paddingHorizontal: 14, paddingVertical: 9, borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)' },
   hint: { color: '#FFF', fontSize: 13, fontWeight: '800' },
   scanRow: { flexDirection: 'row', alignItems: 'stretch', justifyContent: 'center' },
@@ -463,5 +544,8 @@ const styles = StyleSheet.create({
   bottomMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', alignItems: 'center', paddingTop: 24, paddingBottom: 52, paddingHorizontal: 22 },
   statusPill: { minHeight: 48, maxWidth: '88%', borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.82)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingHorizontal: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.32)' },
   statusText: { color: '#FFF', fontSize: 14, fontWeight: '700', textAlign: 'center' },
-  scanHelp: { color: 'rgba(255,255,255,0.72)', fontSize: 12, fontWeight: '700', textAlign: 'center', marginTop: 12, lineHeight: 17 },
+  captureButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, minHeight: 66, marginTop: 18, backgroundColor: '#FFF', borderRadius: 20, paddingHorizontal: 36, minWidth: 240, shadowColor: '#FFF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)' },
+  captureButtonDisabled: { opacity: 0.5 },
+  captureIconWrap: { width: 42, height: 42, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.07)', alignItems: 'center', justifyContent: 'center' },
+  captureText: { color: colors.text, fontSize: 17, fontWeight: '900', letterSpacing: 0.3 },
 });

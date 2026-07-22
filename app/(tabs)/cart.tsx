@@ -267,7 +267,7 @@ export default function Cart() {
 
                     <View style={styles.form}>
                         <Text style={styles.sectionTitle}>Manual item</Text>
-                        <Text style={styles.formHint}>Quick add anything OCR misses.</Text>
+                        <Text style={styles.formHint}>Quick add anything scanner misses.</Text>
                         <TextInput
                             style={styles.input}
                             value={name}
