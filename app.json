@@ -9,15 +9,15 @@
       "ios",
       "android"
     ],
-    "icon": "./assets/icon.jpg",
+    "icon": "./assets/icon2.png",
     "splash": {
-      "image": "./assets/splash-icon.jpg",
+      "image": "./assets/splash-icon2.png",
       "resizeMode": "contain",
       "backgroundColor": "#F6F8FA"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.jpg",
+        "foregroundImage": "./assets/adaptive-icon2.png",
         "backgroundColor": "#1B1B1B"
       },
       "package": "com.yourname.smartscan",

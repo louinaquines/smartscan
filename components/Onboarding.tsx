@@ -153,7 +153,7 @@ function Slide0({ active }: { active: boolean }) {
   return (
     <Animated.View style={[styles.illustrationWrap, { opacity, transform: [{ translateY }, { scale }] }]}>
       <Animated.View style={[styles.logoHalo, { transform: [{ scale: logoScale }] }]}>
-        <Image source={require('../assets/cany-logo.jpg')} style={styles.logo} />
+        <Image source={require('../assets/cany-logo2.png')} style={styles.logo} />
       </Animated.View>
     </Animated.View>
   );

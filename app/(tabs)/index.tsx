@@ -131,7 +131,7 @@ export default function Dashboard() {
             <ScrollView contentContainerStyle={[styles.content, screenPadding]}>
                 <View style={styles.header}>
                     <View style={styles.brandRow}>
-                        <Image source={require('../../assets/cany-logo.jpg')} style={styles.brandLogo} />
+                        <Image source={require('../../assets/cany-logo2.png')} style={styles.brandLogo} />
                         <View>
                             <Text style={styles.title}>Cany</Text>
                         </View>

@@ -61,7 +61,7 @@ export default function RootLayout() {
     return (
       <View style={styles.loadingScreen}>
         <Animated.View style={[styles.brandBlock, { transform: [{ scale: logoScale }] }]}>
-          <Image source={require('../assets/cany-logo.jpg')} style={styles.logo} />
+          <Image source={require('../assets/cany-logo2.png')} style={styles.logo} />
         </Animated.View>
         <Animated.View style={{ opacity: textOpacity, transform: [{ translateY: textTranslateY }], alignItems: 'center' }}>
           <Text style={styles.logoTitle}>Cany</Text>
