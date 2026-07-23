@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet,
   TouchableOpacity, ActivityIndicator,
   PermissionsAndroid, Platform, Linking, NativeModules,
+  Animated, Easing,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
@@ -59,6 +60,33 @@ export default function ScanScreen() {
   const addItem = useCartStore((s) => s.addItem);
   const addItems = useCartStore((s) => s.addItems);
   const sessions = useCartStore((s) => s.sessions);
+  const scanAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(scanAnim, {
+          toValue: 1,
+          duration: isScanning ? 700 : 1600,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(scanAnim, {
+          toValue: 0,
+          duration: isScanning ? 700 : 1600,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [scanAnim, isScanning]);
+
+  const scanTranslateY = scanAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [10, scanMode === 'receipt' ? 390 : scanMode === 'barcode' ? 100 : 155],
+  });
 
   useEffect(() => {
     scanModeRef.current = scanMode;
@@ -417,57 +445,103 @@ export default function ScanScreen() {
             <TouchableOpacity
               style={[styles.modeButton, scanMode === 'priceTag' && styles.modeButtonActive]}
               onPress={() => handleModeChange('priceTag')}
-              activeOpacity={0.7}>
+              activeOpacity={0.8}>
               <View style={[styles.modeIconWrap, scanMode === 'priceTag' && styles.modeIconWrapActive]}>
-                <Ionicons name="pricetag-outline" size={15} color={scanMode === 'priceTag' ? '#FFF' : 'rgba(255,255,255,0.7)'} />
+                <Ionicons name="pricetag-outline" size={16} color={scanMode === 'priceTag' ? '#FFF' : 'rgba(255,255,255,0.7)'} />
               </View>
-              <Text style={[styles.modeText, scanMode === 'priceTag' && styles.modeTextActive]}>Price</Text>
+              <Text style={[styles.modeText, scanMode === 'priceTag' && styles.modeTextActive]}>Price Tag</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modeButton, scanMode === 'barcode' && styles.modeButtonActive]}
               onPress={() => handleModeChange('barcode')}
-              activeOpacity={0.7}>
+              activeOpacity={0.8}>
               <View style={[styles.modeIconWrap, scanMode === 'barcode' && styles.modeIconWrapActive]}>
-                <Ionicons name="barcode-outline" size={15} color={scanMode === 'barcode' ? '#FFF' : 'rgba(255,255,255,0.7)'} />
+                <Ionicons name="barcode-outline" size={16} color={scanMode === 'barcode' ? '#FFF' : 'rgba(255,255,255,0.7)'} />
               </View>
               <Text style={[styles.modeText, scanMode === 'barcode' && styles.modeTextActive]}>Barcode</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modeButton, scanMode === 'receipt' && styles.modeButtonActive]}
               onPress={() => handleModeChange('receipt')}
-              activeOpacity={0.7}>
+              activeOpacity={0.8}>
               <View style={[styles.modeIconWrap, scanMode === 'receipt' && styles.modeIconWrapActive]}>
-                <Ionicons name="receipt-outline" size={15} color={scanMode === 'receipt' ? '#FFF' : 'rgba(255,255,255,0.7)'} />
+                <Ionicons name="receipt-outline" size={16} color={scanMode === 'receipt' ? '#FFF' : 'rgba(255,255,255,0.7)'} />
               </View>
               <Text style={[styles.modeText, scanMode === 'receipt' && styles.modeTextActive]}>Receipt</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.topBadge}>
-            <Ionicons name={scanMode === 'barcode' ? 'barcode-outline' : scanMode === 'receipt' ? 'receipt-outline' : 'sparkles'} size={15} color="white" />
-            <Text style={styles.hint}>{scanMode === 'barcode' ? 'Point camera at barcode, then tap Scan' : scanMode === 'receipt' ? 'Point camera at receipt, then tap Scan' : 'Point camera at price tag, then tap Scan'}</Text>
+            <View style={styles.topBadgeIconWrap}>
+              <Ionicons
+                name={scanMode === 'barcode' ? 'barcode-outline' : scanMode === 'receipt' ? 'receipt-outline' : 'pricetag-outline'}
+                size={15}
+                color="#FFFFFF"
+              />
+            </View>
+            <Text style={styles.hint}>
+              {scanMode === 'barcode'
+                ? 'Center barcode within slot for instant scan'
+                : scanMode === 'receipt'
+                ? 'Align receipt top-to-bottom & tap Scan'
+                : 'Position price tag inside frame & tap Scan'}
+            </Text>
           </View>
         </View>
 
         <View style={styles.scanRow}>
           <View style={styles.sideMask} />
-          <View style={[styles.viewfinder, scanMode === 'receipt' && styles.receiptViewfinder]}>
-            <View style={[styles.scanLine, isScanning && styles.scanLineActive]} />
+          <View
+            style={[
+              styles.viewfinder,
+              scanMode === 'receipt' && styles.receiptViewfinder,
+              scanMode === 'barcode' && styles.barcodeViewfinder,
+            ]}>
+            <View style={[styles.corner, styles.topLeft]} />
+            <View style={[styles.corner, styles.topRight]} />
+            <View style={[styles.corner, styles.bottomLeft]} />
+            <View style={[styles.corner, styles.bottomRight]} />
+            <Animated.View
+              style={[
+                styles.scanLineGlow,
+                { transform: [{ translateY: scanTranslateY }] },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.scanLine,
+                isScanning && styles.scanLineActive,
+                { transform: [{ translateY: scanTranslateY }] },
+              ]}
+            />
+            {scanMode === 'barcode' && <View style={styles.barcodeLaser} />}
           </View>
           <View style={styles.sideMask} />
         </View>
 
         <View style={styles.bottomMask}>
           <View style={styles.statusPill}>
-            {isScanning ? <ActivityIndicator color="white" size="small" /> : <Ionicons name={scanMode === 'barcode' ? 'barcode-outline' : scanMode === 'receipt' ? 'receipt-outline' : 'text'} size={17} color="white" />}
+            {isScanning ? (
+              <ActivityIndicator color="#FFF" size="small" />
+            ) : (
+              <Ionicons
+                name={scanMode === 'barcode' ? 'barcode-outline' : scanMode === 'receipt' ? 'receipt-outline' : 'pricetag-outline'}
+                size={17}
+                color="#FFF"
+              />
+            )}
             <Text style={styles.statusText}>{scanStatus}</Text>
           </View>
           <TouchableOpacity
             style={[styles.captureButton, isScanning && styles.captureButtonDisabled]}
             disabled={isScanning || !cameraReady}
             onPress={handleCapture}
-            activeOpacity={0.75}>
+            activeOpacity={0.8}>
             <View style={styles.captureIconWrap}>
-              <Ionicons name={scanMode === 'barcode' ? 'barcode-outline' : scanMode === 'receipt' ? 'receipt-outline' : 'camera-outline'} size={24} color={colors.primary} />
+              <Ionicons
+                name={scanMode === 'barcode' ? 'barcode-outline' : scanMode === 'receipt' ? 'receipt-outline' : 'camera'}
+                size={22}
+                color="#FFF"
+              />
             </View>
             <Text style={styles.captureText}>
               {isScanning ? 'Processing…' : scanMode === 'receipt' ? 'Scan Receipt' : scanMode === 'barcode' ? 'Scan Barcode' : 'Scan Price Tag'}
@@ -524,28 +598,135 @@ const styles = StyleSheet.create({
   cancelBtn: { paddingVertical: 10 },
   cancelText: { color: colors.soft, fontSize: 14 },
   overlay: { ...StyleSheet.absoluteFillObject },
-  closeBtn: { position: 'absolute', top: 52, right: 20, zIndex: 3, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 20, padding: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.36)' },
-  topMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 24, paddingTop: 66 },
-  modeToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 16, padding: 4, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
-  modeButton: { flex: 1, minHeight: 48, borderRadius: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 8, backgroundColor: 'rgba(255,255,255,0.08)' },
-  modeButtonActive: { backgroundColor: colors.primary, shadowColor: '#FFF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
-  modeIconWrap: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.1)' },
-  modeIconWrapActive: { backgroundColor: 'rgba(255,255,255,0.2)' },
-  modeText: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '800' },
-  modeTextActive: { color: '#FFF' },
-  topBadge: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 99, paddingHorizontal: 14, paddingVertical: 9, borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)' },
-  hint: { color: '#FFF', fontSize: 13, fontWeight: '800' },
+  closeBtn: { position: 'absolute', top: 52, right: 20, zIndex: 3, backgroundColor: 'rgba(20,20,20,0.75)', borderRadius: 20, padding: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' },
+  topMask: { flex: 1, backgroundColor: 'rgba(10,12,16,0.78)', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 22, paddingTop: 60 },
+  modeToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(15, 20, 28, 0.95)',
+    borderRadius: 24,
+    padding: 4,
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  modeButton: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    backgroundColor: 'transparent',
+  },
+  modeButtonActive: {
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  modeIconWrap: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  modeIconWrapActive: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  modeText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  modeTextActive: {
+    color: '#FFF',
+    fontWeight: '800',
+  },
+  topBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(18, 22, 32, 0.92)',
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  topBadgeIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hint: {
+    color: '#FFF',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
   scanRow: { flexDirection: 'row', alignItems: 'stretch', justifyContent: 'center' },
-  sideMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.78)' },
-  viewfinder: { width: 322, height: 190, position: 'relative', alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#FFF', borderRadius: 10, backgroundColor: 'transparent' },
-  receiptViewfinder: { width: 220, height: 430, borderRadius: 16 },
-  scanLine: { width: '86%', height: 2, backgroundColor: 'rgba(255,255,255,0.55)', borderRadius: 1 },
-  scanLineActive: { height: 3, backgroundColor: '#FFF', shadowColor: '#000', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 8, elevation: 6 },
-  bottomMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', alignItems: 'center', paddingTop: 24, paddingBottom: 52, paddingHorizontal: 22 },
-  statusPill: { minHeight: 48, maxWidth: '88%', borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.82)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9, paddingHorizontal: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.32)' },
-  statusText: { color: '#FFF', fontSize: 14, fontWeight: '700', textAlign: 'center' },
-  captureButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, minHeight: 66, marginTop: 18, backgroundColor: '#FFF', borderRadius: 20, paddingHorizontal: 36, minWidth: 240, shadowColor: '#FFF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.5)' },
-  captureButtonDisabled: { opacity: 0.5 },
-  captureIconWrap: { width: 42, height: 42, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.07)', alignItems: 'center', justifyContent: 'center' },
-  captureText: { color: colors.text, fontSize: 17, fontWeight: '900', letterSpacing: 0.3 },
+  sideMask: { flex: 1, backgroundColor: 'rgba(10,12,16,0.78)' },
+  viewfinder: { width: 320, height: 180, position: 'relative', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 16, backgroundColor: 'transparent' },
+  barcodeViewfinder: { width: 300, height: 120, borderRadius: 14 },
+  receiptViewfinder: { width: 260, height: 420, borderRadius: 20 },
+  corner: { position: 'absolute', width: 24, height: 24, borderColor: colors.primary, borderWidth: 3 },
+  topLeft: { top: -2, left: -2, borderBottomWidth: 0, borderRightWidth: 0, borderTopLeftRadius: 14 },
+  topRight: { top: -2, right: -2, borderBottomWidth: 0, borderLeftWidth: 0, borderTopRightRadius: 14 },
+  bottomLeft: { bottom: -2, left: -2, borderTopWidth: 0, borderRightWidth: 0, borderBottomLeftRadius: 14 },
+  bottomRight: { bottom: -2, right: -2, borderTopWidth: 0, borderLeftWidth: 0, borderBottomRightRadius: 14 },
+  scanLine: {
+    position: 'absolute',
+    left: '5%',
+    right: '5%',
+    height: 3,
+    backgroundColor: colors.primary,
+    borderRadius: 1.5,
+  },
+  scanLineActive: {
+    height: 4,
+    backgroundColor: '#34C759',
+    shadowColor: '#34C759',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.95,
+    shadowRadius: 14,
+    elevation: 10,
+  },
+  scanLineGlow: {
+    position: 'absolute',
+    left: '5%',
+    right: '5%',
+    height: 32,
+    backgroundColor: colors.primary,
+    opacity: 0.18,
+    borderRadius: 16,
+  },
+  barcodeLaser: { position: 'absolute', width: '84%', height: 2, backgroundColor: '#FF3B30', shadowColor: '#FF3B30', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 8, elevation: 6 },
+  bottomMask: { flex: 1, backgroundColor: 'rgba(10,12,16,0.78)', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 26, paddingBottom: 48, paddingHorizontal: 22, gap: 18 },
+  statusPill: { minHeight: 46, maxWidth: '90%', borderRadius: 20, backgroundColor: 'rgba(20,24,33,0.92)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  statusText: { color: '#FFF', fontSize: 13, fontWeight: '700', textAlign: 'center', letterSpacing: 0.2 },
+  captureButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: 60, backgroundColor: '#FFF', borderRadius: 20, paddingHorizontal: 32, minWidth: 260, shadowColor: '#FFF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.8)' },
+  captureButtonDisabled: { opacity: 0.6 },
+  captureIconWrap: { width: 38, height: 38, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  captureText: { color: colors.text, fontSize: 16, fontWeight: '800', letterSpacing: 0.4 },
 });
