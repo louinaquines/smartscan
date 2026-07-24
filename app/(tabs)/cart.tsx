@@ -7,12 +7,12 @@ import Mascot from '../../components/Mascot';
 import { BUDGET_CATEGORIES, BudgetCategoryId, DEFAULT_CATEGORY, getCategoryLabel } from '../../lib/budgetCategories';
 import { buildCartShareText } from '../../lib/cartShare';
 import { formatMoney } from '../../lib/format';
-import { colors, shadow } from '../../lib/theme';
+import { getTheme, shadow } from '../../lib/theme';
 import { useScreenPadding } from '../../lib/useScreenPadding';
 import { CartItem, useCartStore } from '../../store/useCartStore';
 
 export default function Cart() {
-    const { items, budget, householdMembers, activeMemberId, addHouseholdMember, setActiveMember, addItem, removeItem, updateItem, updateQuantity, toggleRecurringItem, addRecurringItemsToCart, saveSession, clearCart, total } = useCartStore();
+    const { items, budget, householdMembers, activeMemberId, addHouseholdMember, removeHouseholdMember, setActiveMember, addItem, removeItem, updateItem, updateQuantity, toggleRecurringItem, addRecurringItemsToCart, saveSession, clearCart, total, themeMode } = useCartStore();
     const [name, setName] = useState('');
     const [price, setPrice] = useState('');
     const [quantity, setQuantity] = useState('1');
@@ -32,6 +32,10 @@ export default function Cart() {
     const checkScale = useRef(new Animated.Value(0));
     const textOpacity = useRef(new Animated.Value(0));
     const screenPadding = useScreenPadding();
+
+    const darkMode = themeMode === 'dark';
+    const t = useMemo(() => getTheme(darkMode), [darkMode]);
+    const styles = useMemo(() => getStyles(t), [t]);
 
     const cartTotal = total();
     const itemCount = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
@@ -78,13 +82,11 @@ export default function Cart() {
         setAddedItemPrice(itemTotal);
         setShowSuccess(true);
 
-        // Reset animation values
         successScale.current.setValue(0);
         successOpacity.current.setValue(0);
         checkScale.current.setValue(0);
         textOpacity.current.setValue(0);
 
-        // Play success animation
         Animated.parallel([
             Animated.timing(successOpacity.current, {
                 toValue: 1,
@@ -113,449 +115,465 @@ export default function Cart() {
             ]).start();
         });
 
-        // Auto-dismiss after 1.5 seconds
-        setTimeout(() => setShowSuccess(false), 1500);
+        setTimeout(() => {
+            setShowSuccess(false);
+        }, 1500);
 
         setName('');
         setPrice('');
         setQuantity('1');
-        setCategory(DEFAULT_CATEGORY);
     };
 
     const handleSaveSession = async () => {
-        const saved = await saveSession(storeName);
-        if (!saved) {
-            setDialog({ title: 'Empty cart', message: 'Add at least one item before saving this shopping session.', icon: 'cart-outline' });
+        if (items.length === 0) {
+            setDialog({ title: 'Empty cart', message: 'Add items before saving a shopping session.', icon: 'bag-outline' });
             return;
         }
-        setStoreName('');
-        setDialog({ title: 'Session saved', message: 'Your cart was moved to history.', icon: 'checkmark-done-outline' });
+        const success = await saveSession(storeName.trim() || undefined);
+        if (success) {
+            setDialog({
+                title: 'Session saved',
+                message: 'Your shopping trip has been saved to history and price trends have been updated.',
+                icon: 'checkmark-circle-outline',
+            });
+            setStoreName('');
+        }
     };
 
-    const confirmClear = () => {
-        if (items.length === 0) return;
-        setDialog({
-            title: 'Clear cart?',
-            message: 'This removes all current items.',
-            icon: 'trash-outline',
-            actions: [
-                { label: 'Cancel', variant: 'soft', onPress: () => setDialog(null) },
-                { label: 'Clear', onPress: () => { clearCart(); setDialog(null); } },
-            ],
-        });
-    };
-
-    const openEditItem = (item: CartItem) => {
+    const openEditModal = (item: CartItem) => {
         setEditingItem(item);
         setEditName(item.name);
-        setEditPrice(item.price.toFixed(2));
+        setEditPrice(String(item.price));
         setEditQuantity(String(item.quantity));
         setEditCategory(item.category ?? DEFAULT_CATEGORY);
     };
 
-    const closeEditItem = () => {
-        setEditingItem(null);
-        setEditName('');
-        setEditPrice('');
-        setEditQuantity('1');
-        setEditCategory(DEFAULT_CATEGORY);
-    };
-
     const handleSaveEdit = () => {
         if (!editingItem) return;
-        const cleanName = editName.trim();
-        const parsedPrice = Number(editPrice.replace(',', '.'));
-        const parsedQuantity = Math.max(1, Math.floor(Number(editQuantity) || 1));
-
-        if (!cleanName) {
-            setDialog({ title: 'Missing name', message: 'Enter the item name before saving.', icon: 'create-outline' });
-            return;
-        }
-
-        if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
-            setDialog({ title: 'Invalid price', message: 'Enter a price greater than zero.', icon: 'cash-outline' });
-            return;
-        }
-
-        updateItem(editingItem.id, { name: cleanName, price: parsedPrice, quantity: parsedQuantity, category: editCategory });
-        closeEditItem();
+        const cleanName = editName.trim() || 'Product';
+        const parsedPrice = Number(editPrice.replace(',', '.')) || 0;
+        const parsedQty = Math.max(1, Math.floor(Number(editQuantity) || 1));
+        updateItem(editingItem.id, { name: cleanName, price: parsedPrice, quantity: parsedQty, category: editCategory });
+        setEditingItem(null);
     };
 
-    const spent = total();
-    let mascotMessage = "Your cart is empty. Add items manually or scan price tags to get started!";
-    let mascotType: 'neutral' | 'happy' | 'alert' = items.length === 0 ? 'alert' : 'happy';
-
-    if (items.length > 0) {
-        if (budget > 0) {
-            const progress = spent / budget;
-            if (progress > 1) {
-                mascotMessage = "Whoops! You've spent more than your budget. Time to review your cart?";
-                mascotType = 'alert';
-            } else if (progress >= 0.5) {
-                mascotMessage = "You're over halfway through your budget. Keep an eye on it!";
-                mascotType = 'alert';
-            } else {
-                mascotMessage = "You're well within your budget. Looking good!";
-                mascotType = 'happy';
-            }
-        } else {
-            mascotMessage = `You've got ${itemCount} item${itemCount > 1 ? 's' : ''} here. Set a budget to track spending!`;
-            mascotType = 'happy';
-        }
-    }
-
     return (
-        <View style={styles.screen}>
-            <View style={styles.ambientTop} />
-
-            {/* Floating Glass Header */}
-            <View style={styles.stickyHeader}>
-                <View style={[styles.headerContent, { paddingTop: screenPadding.paddingTop || 40, paddingHorizontal: screenPadding.paddingHorizontal }]}>
-                    <View>
-                        <Text style={styles.kicker}>Current shop</Text>
-                        <Text style={styles.title}>Cart</Text>
-                    </View>
-                    <View style={styles.headerRight}>
-                        <TouchableOpacity style={styles.shareButton} onPress={handleShare}>
-                            <Ionicons name="share-outline" size={18} color={colors.text} />
-                        </TouchableOpacity>
-                        <View style={styles.headerTotalBox}>
-                            <Text style={styles.headerTotalLabel}>Total</Text>
-                            <Text style={styles.headerTotalValue}>{formatMoney(cartTotal)}</Text>
-                        </View>
-                    </View>
+        <ScrollView style={styles.screen} contentContainerStyle={[styles.content, screenPadding]} keyboardShouldPersistTaps="handled">
+            <View style={styles.header}>
+                <View>
+                    <Text style={styles.kicker}>Current trip</Text>
+                    <Text style={styles.title}>Cart</Text>
+                </View>
+                <View style={styles.headerActions}>
+                    <TouchableOpacity style={styles.iconBtn} onPress={handleShare} activeOpacity={0.78}>
+                        <Ionicons name="share-outline" size={20} color={t.text} />
+                    </TouchableOpacity>
                 </View>
             </View>
 
-            <ScrollView contentContainerStyle={[styles.content, { paddingTop: (screenPadding.paddingTop || 40) + 100, paddingBottom: 120 }]} keyboardShouldPersistTaps="handled">
-                <View style={{ paddingHorizontal: screenPadding.paddingHorizontal }}>
-                    <Mascot message={mascotMessage} type={mascotType} />
-
-                    <View style={styles.householdBox}>
-                        <View style={styles.householdHeader}>
-                            <View>
-                                <Text style={styles.sectionTitle}>Household</Text>
-                                <Text style={styles.formHint}>Choose who is adding items.</Text>
-                            </View>
-                            <Ionicons name="people-outline" size={22} color={colors.primary} />
-                        </View>
-                        <View style={styles.memberInputRow}>
-                            <TextInput
-                                style={[styles.input, styles.memberInput]}
-                                value={memberName}
-                                onChangeText={setMemberName}
-                                placeholder="Add member"
-                                placeholderTextColor={colors.soft}
-                            />
-                            <TouchableOpacity style={styles.memberAddButton} onPress={handleAddMember}>
-                                <Ionicons name="add" size={22} color="#FFF" />
-                            </TouchableOpacity>
-                        </View>
-                        {householdMembers.length > 0 && (
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
-                                {householdMembers.map((member) => {
-                                    const selected = activeMemberId === member.id;
-                                    return (
-                                        <TouchableOpacity key={member.id} style={[styles.categoryChip, selected && styles.categoryChipActive]} onPress={() => setActiveMember(member.id)}>
-                                            <Text style={[styles.categoryChipText, selected && styles.categoryChipTextActive]}>{member.name}</Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </ScrollView>
-                        )}
+            <View style={styles.summaryCard}>
+                <View style={styles.summaryTop}>
+                    <View>
+                        <Text style={styles.summaryLabel}>Cart Total</Text>
+                        <Text style={styles.summaryValue}>{formatMoney(cartTotal)}</Text>
+                        <Text style={styles.summarySub}>{itemCount} item{itemCount === 1 ? '' : 's'} • {items.length} unique</Text>
                     </View>
-
-                    <View style={styles.form}>
-                        <Text style={styles.sectionTitle}>Manual item</Text>
-                        <Text style={styles.formHint}>Quick add anything scanner misses.</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={name}
-                            onChangeText={setName}
-                            placeholder="Item name"
-                            placeholderTextColor={colors.soft}
-                        />
-                        <View style={styles.formRow}>
-                            <TextInput
-                                style={[styles.input, styles.priceInput]}
-                                value={price}
-                                onChangeText={setPrice}
-                                keyboardType="decimal-pad"
-                                placeholder="Price"
-                                placeholderTextColor={colors.soft}
-                            />
-                            <TextInput
-                                style={[styles.input, styles.quantityInput]}
-                                value={quantity}
-                                onChangeText={setQuantity}
-                                keyboardType="number-pad"
-                                placeholder="Qty"
-                                placeholderTextColor={colors.soft}
-                            />
-                            <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
-                                <Ionicons name="add" size={24} color="#FFF" />
-                            </TouchableOpacity>
+                    <View style={styles.badgeWrap}>
+                        <View style={styles.badge}>
+                            <Ionicons name="cart" size={16} color={t.text} />
+                            <Text style={styles.badgeText}>{itemCount}</Text>
                         </View>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
-                            {BUDGET_CATEGORIES.map((option) => {
-                                const selected = category === option.id;
-                                return (
-                                    <TouchableOpacity key={option.id} style={[styles.categoryChip, selected && styles.categoryChipActive]} onPress={() => setCategory(option.id)}>
-                                        <Text style={[styles.categoryChipText, selected && styles.categoryChipTextActive]}>{option.label}</Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </ScrollView>
                     </View>
+                </View>
 
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Items ({itemCount})</Text>
-                        <TouchableOpacity onPress={confirmClear}>
-                            <Text style={styles.clearText}>Clear Cart</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {items.length === 0 ? (
-                        <View style={styles.emptyState}>
-                            <View style={styles.emptyIcon}>
-                                <Ionicons name="cart-outline" size={32} color={colors.accent} />
-                            </View>
-                            <Text style={styles.emptyTitle}>Cart is empty</Text>
-                            <Text style={styles.emptyText}>Add an item manually or scan a price tag.</Text>
-                            <TouchableOpacity style={styles.emptyAction} onPress={() => router.push('/scan')}>
-                                <Ionicons name="scan" size={18} color="#FFF" />
-                                <Text style={styles.emptyActionText}>Scan item</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.recurringAction} onPress={handleAddRecurring}>
-                                <Ionicons name="repeat-outline" size={17} color={colors.text} />
-                                <Text style={styles.recurringActionText}>Add recurring</Text>
-                            </TouchableOpacity>
-                        </View>
-                    ) : (
-                        items.map((item) => (
-                            <View key={item.id} style={styles.itemRow}>
-                                <View style={[styles.itemAccent, { backgroundColor: item.isScanned ? colors.accent : colors.primary }]} />
-                                <View style={styles.itemMain}>
-                                    <View style={styles.itemText}>
-                                        <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
-                                        <Text style={styles.itemMeta}>{formatMoney(item.price)} each - {getCategoryLabel(item.category)}{getMemberName(item.addedByMemberId) ? ` - ${getMemberName(item.addedByMemberId)}` : ''}{item.isScanned ? ' - Scanned' : ''}</Text>
-                                    </View>
-                                    <Text style={styles.itemTotal}>{formatMoney(item.price * item.quantity)}</Text>
-                                </View>
-                                <View style={styles.itemControls}>
-                                    <View style={styles.qtyControls}>
-                                        <TouchableOpacity style={styles.qtyButton} onPress={() => updateQuantity(item.id, item.quantity - 1)}>
-                                            <Ionicons name="remove" size={18} color={colors.text} />
-                                        </TouchableOpacity>
-                                        <Text style={styles.qtyText}>{item.quantity}</Text>
-                                        <TouchableOpacity style={styles.qtyButton} onPress={() => updateQuantity(item.id, item.quantity + 1)}>
-                                            <Ionicons name="add" size={18} color={colors.text} />
-                                        </TouchableOpacity>
-                                    </View>
-                                    <TouchableOpacity style={styles.editButton} onPress={() => openEditItem(item)}>
-                                        <Ionicons name="create-outline" size={18} color={colors.text} />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.editButton, item.isRecurring && styles.recurringButtonActive]} onPress={() => toggleRecurringItem(item.id)}>
-                                        <Ionicons name="repeat-outline" size={18} color={item.isRecurring ? '#FFF' : colors.text} />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={styles.deleteButton} onPress={() => removeItem(item.id)}>
-                                        <Ionicons name="trash-outline" size={18} color={colors.text} />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        ))
-                    )}
-
-                    <View style={styles.storeBox}>
-                        <Text style={styles.storeLabel}>Store</Text>
-                        <TextInput
-                            style={styles.storeInput}
-                            value={storeName}
-                            onChangeText={setStoreName}
-                            placeholder="SM, Robinsons, Puregold..."
-                            placeholderTextColor={colors.soft}
-                        />
-                    </View>
-
-                    <TouchableOpacity style={[styles.checkoutButton, items.length === 0 && styles.disabled]} onPress={handleSaveSession} disabled={items.length === 0}>
-                        <View style={styles.checkoutFill} />
-                        <Ionicons name="checkmark-done" size={22} color="#FFF" />
-                        <Text style={styles.checkoutText}>Save Session</Text>
+                <View style={styles.quickActionsRow}>
+                    <TouchableOpacity style={styles.quickActionBtn} onPress={handleAddRecurring} activeOpacity={0.78}>
+                        <Ionicons name="repeat-outline" size={16} color={t.text} />
+                        <Text style={styles.quickActionText}>Add Recurring</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.quickActionBtn} onPress={handleShare} activeOpacity={0.78}>
+                        <Ionicons name="paper-plane-outline" size={16} color={t.text} />
+                        <Text style={styles.quickActionText}>Share Cart</Text>
                     </TouchableOpacity>
                 </View>
-            </ScrollView>
-            <AppDialog
-                visible={Boolean(dialog)}
-                title={dialog?.title ?? ''}
-                message={dialog?.message ?? ''}
-                icon={dialog?.icon}
-                onDismiss={() => setDialog(null)}
-                actions={dialog?.actions ?? [{ label: 'OK', onPress: () => setDialog(null) }]}
-            />
-            <Modal visible={Boolean(editingItem)} transparent animationType="slide" onRequestClose={closeEditItem}>
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.editModalRoot}>
-                    <Pressable style={StyleSheet.absoluteFill} onPress={closeEditItem} />
+            </View>
+
+            {/* Household / Shared Budget Members */}
+            <View style={styles.householdPanel}>
+                <View style={styles.householdHeader}>
+                    <Ionicons name="people-outline" size={18} color={t.text} />
+                    <Text style={styles.householdTitle}>Household / Shopping Buddies</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.memberRail}>
+                    <TouchableOpacity
+                        style={[styles.memberChip, activeMemberId === null && styles.memberChipActive]}
+                        onPress={() => setActiveMember(null)}
+                        activeOpacity={0.78}>
+                        <Text style={[styles.memberText, activeMemberId === null && styles.memberTextActive]}>Everyone</Text>
+                    </TouchableOpacity>
+                    {householdMembers.map((member) => {
+                        const selected = activeMemberId === member.id;
+                        return (
+                            <TouchableOpacity
+                                key={member.id}
+                                style={[styles.memberChip, selected && styles.memberChipActive]}
+                                onPress={() => setActiveMember(member.id)}
+                                activeOpacity={0.78}>
+                                <Text style={[styles.memberText, selected && styles.memberTextActive]}>{member.name}</Text>
+                                <TouchableOpacity
+                                    onPress={(e) => {
+                                        e.stopPropagation();
+                                        removeHouseholdMember(member.id);
+                                    }}
+                                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                    style={styles.memberDeleteBtn}
+                                    accessibilityLabel={`Remove ${member.name}`}
+                                >
+                                    <Ionicons name="close-circle" size={16} color={selected ? (darkMode ? '#111' : '#FFF') : t.muted} />
+                                </TouchableOpacity>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+                <View style={styles.memberAddRow}>
+                    <TextInput
+                        style={styles.memberInput}
+                        placeholder="Add family member..."
+                        placeholderTextColor={t.soft}
+                        value={memberName}
+                        onChangeText={setMemberName}
+                    />
+                    <TouchableOpacity style={styles.memberAddBtn} onPress={handleAddMember} activeOpacity={0.8}>
+                        <Ionicons name="add" size={18} color={darkMode ? '#111' : '#FFF'} />
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {/* Manual item entry form */}
+            <View style={styles.formCard}>
+                <Text style={styles.sectionTitle}>Add item manually</Text>
+                <TextInput
+                    style={styles.input}
+                    placeholder="Product name"
+                    placeholderTextColor={t.soft}
+                    value={name}
+                    onChangeText={setName}
+                />
+                <View style={styles.formGrid}>
+                    <TextInput
+                        style={[styles.input, styles.priceInput]}
+                        placeholder="Price"
+                        placeholderTextColor={t.soft}
+                        value={price}
+                        onChangeText={setPrice}
+                        keyboardType="decimal-pad"
+                    />
+                    <TextInput
+                        style={[styles.input, styles.quantityInput]}
+                        placeholder="Qty"
+                        placeholderTextColor={t.soft}
+                        value={quantity}
+                        onChangeText={setQuantity}
+                        keyboardType="number-pad"
+                    />
+                </View>
+
+                {/* Category selector */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+                    {BUDGET_CATEGORIES.map((cat) => {
+                        const selected = category === cat.id;
+                        return (
+                            <TouchableOpacity
+                                key={cat.id}
+                                style={[styles.categoryChip, selected && styles.categoryChipActive]}
+                                onPress={() => setCategory(cat.id)}
+                                activeOpacity={0.78}>
+                                <Ionicons name={cat.icon as any} size={15} color={selected ? (darkMode ? '#111' : '#FFF') : t.text} />
+                                <Text style={[styles.categoryChipText, selected && styles.categoryChipTextActive]}>{cat.label}</Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </ScrollView>
+
+                <TouchableOpacity style={styles.addButton} onPress={handleAdd} activeOpacity={0.82}>
+                    <Ionicons name="add" size={20} color={darkMode ? '#111' : '#FFF'} />
+                    <Text style={{ color: darkMode ? '#111' : '#FFF', fontWeight: '900', fontSize: 16 }}>Add to Cart</Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Cart Items List */}
+            <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Cart Items ({items.length})</Text>
+                {items.length > 0 && (
+                    <TouchableOpacity onPress={clearCart}>
+                        <Text style={styles.clearText}>Clear all</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
+
+            {items.length === 0 ? (
+                <View style={styles.emptyState}>
+                    <View style={styles.emptyIcon}>
+                        <Ionicons name="cart-outline" size={30} color={t.text} />
+                    </View>
+                    <Text style={styles.emptyTitle}>Your cart is empty</Text>
+                    <Text style={styles.emptyText}>Scan price tags or add items manually to track your spending instantly.</Text>
+                    <TouchableOpacity style={styles.emptyAction} onPress={() => router.push('/scan')} activeOpacity={0.82}>
+                        <Ionicons name="scan" size={18} color={darkMode ? '#111' : '#FFF'} />
+                        <Text style={styles.emptyActionText}>Start Scanning</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.recurringAction} onPress={handleAddRecurring} activeOpacity={0.82}>
+                        <Ionicons name="repeat-outline" size={16} color={t.text} />
+                        <Text style={styles.recurringActionText}>Add Recurring Items</Text>
+                    </TouchableOpacity>
+                </View>
+            ) : (
+                items.map((item) => {
+                    const memberName = getMemberName(item.addedByMemberId);
+                    return (
+                        <View key={item.id} style={styles.itemRow}>
+                            <View style={[styles.itemAccent, { backgroundColor: item.isScanned ? t.text : t.muted }]} />
+                            <View style={styles.itemMain}>
+                                <View style={styles.itemText}>
+                                    <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
+                                    <Text style={styles.itemMeta}>
+                                        {getCategoryLabel(item.category)} • {item.isScanned ? 'Scanned' : 'Manual'}
+                                        {memberName ? ` • ${memberName}` : ''}
+                                    </Text>
+                                </View>
+                                <Text style={styles.itemTotal}>{formatMoney(item.price * item.quantity)}</Text>
+                            </View>
+
+                            <View style={styles.itemControls}>
+                                <View style={styles.qtyControls}>
+                                    <TouchableOpacity style={styles.qtyButton} onPress={() => updateQuantity(item.id, item.quantity - 1)}>
+                                        <Ionicons name="remove" size={15} color={t.text} />
+                                    </TouchableOpacity>
+                                    <Text style={styles.qtyText}>{item.quantity}</Text>
+                                    <TouchableOpacity style={styles.qtyButton} onPress={() => updateQuantity(item.id, item.quantity + 1)}>
+                                        <Ionicons name="add" size={15} color={t.text} />
+                                    </TouchableOpacity>
+                                </View>
+
+                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                    <TouchableOpacity
+                                        style={[styles.editButton, item.isRecurring && styles.recurringButtonActive]}
+                                        onPress={() => toggleRecurringItem(item.id)}
+                                        accessibilityLabel="Toggle recurring">
+                                        <Ionicons name="repeat" size={17} color={item.isRecurring ? (darkMode ? '#111' : '#FFF') : t.text} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.editButton} onPress={() => openEditModal(item)} accessibilityLabel="Edit item">
+                                        <Ionicons name="create-outline" size={17} color={t.text} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.deleteButton} onPress={() => removeItem(item.id)} accessibilityLabel="Remove item">
+                                        <Ionicons name="trash-outline" size={17} color={t.danger} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </View>
+                    );
+                })
+            )}
+
+            {/* Store & Checkout Section */}
+            {items.length > 0 && (
+                <View style={styles.storeBox}>
+                    <Text style={styles.storeLabel}>Store Name (optional)</Text>
+                    <TextInput
+                        style={styles.storeInput}
+                        placeholder="e.g. Supermarket, Grocery, Mall..."
+                        placeholderTextColor={t.soft}
+                        value={storeName}
+                        onChangeText={setStoreName}
+                    />
+                    <TouchableOpacity style={styles.checkoutButton} onPress={handleSaveSession} activeOpacity={0.88}>
+                        <View style={styles.checkoutFill} />
+                        <Ionicons name="checkmark-done-circle-outline" size={20} color={darkMode ? '#111' : '#FFF'} />
+                        <Text style={[styles.checkoutText, { color: darkMode ? '#111' : '#FFF' }]}>Complete & Save Session</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            <View style={{ height: 100 }} />
+
+            {/* Edit Item Modal */}
+            <Modal visible={editingItem !== null} transparent animationType="slide" onRequestClose={() => setEditingItem(null)}>
+                <View style={styles.editModalRoot}>
+                    <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditingItem(null)} />
                     <View style={styles.editSheet}>
                         <View style={styles.editHandle} />
-                        <Text style={styles.editTitle}>Edit item</Text>
-                        <Text style={styles.editLabel}>Product name</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={editName}
-                            onChangeText={setEditName}
-                            placeholder="Item name"
-                            placeholderTextColor={colors.soft}
-                        />
+                        <Text style={styles.editTitle}>Edit Item</Text>
+
+                        <Text style={styles.editLabel}>Name</Text>
+                        <TextInput style={styles.input} value={editName} onChangeText={setEditName} placeholder="Product name" placeholderTextColor={t.soft} />
+
                         <View style={styles.editGrid}>
                             <View style={styles.editGridItem}>
                                 <Text style={styles.editLabel}>Price</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    value={editPrice}
-                                    onChangeText={setEditPrice}
-                                    keyboardType="decimal-pad"
-                                    placeholder="Price"
-                                    placeholderTextColor={colors.soft}
-                                />
+                                <TextInput style={styles.input} value={editPrice} onChangeText={setEditPrice} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={t.soft} />
                             </View>
                             <View style={styles.editGridQty}>
                                 <Text style={styles.editLabel}>Qty</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    value={editQuantity}
-                                    onChangeText={setEditQuantity}
-                                    keyboardType="number-pad"
-                                    placeholder="Qty"
-                                    placeholderTextColor={colors.soft}
-                                />
+                                <TextInput style={styles.input} value={editQuantity} onChangeText={setEditQuantity} keyboardType="number-pad" placeholder="1" placeholderTextColor={t.soft} />
                             </View>
                         </View>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
-                            {BUDGET_CATEGORIES.map((option) => {
-                                const selected = editCategory === option.id;
+
+                        <Text style={styles.editLabel}>Category</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
+                            {BUDGET_CATEGORIES.map((cat) => {
+                                const selected = editCategory === cat.id;
                                 return (
-                                    <TouchableOpacity key={option.id} style={[styles.categoryChip, selected && styles.categoryChipActive]} onPress={() => setEditCategory(option.id)}>
-                                        <Text style={[styles.categoryChipText, selected && styles.categoryChipTextActive]}>{option.label}</Text>
+                                    <TouchableOpacity
+                                        key={cat.id}
+                                        style={[styles.categoryChip, selected && styles.categoryChipActive]}
+                                        onPress={() => setEditCategory(cat.id)}
+                                        activeOpacity={0.78}>
+                                        <Ionicons name={cat.icon as any} size={15} color={selected ? (darkMode ? '#111' : '#FFF') : t.text} />
+                                        <Text style={[styles.categoryChipText, selected && styles.categoryChipTextActive]}>{cat.label}</Text>
                                     </TouchableOpacity>
                                 );
                             })}
                         </ScrollView>
+
                         <View style={styles.editActions}>
-                            <TouchableOpacity style={[styles.editActionButton, styles.editCancel]} onPress={closeEditItem}>
+                            <TouchableOpacity style={[styles.editActionButton, styles.editCancel]} onPress={() => setEditingItem(null)}>
                                 <Text style={styles.editCancelText}>Cancel</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={[styles.editActionButton, styles.editSave]} onPress={handleSaveEdit}>
-                                <Text style={styles.editSaveText}>Save</Text>
+                                <Text style={styles.editSaveText}>Save Changes</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
-                </KeyboardAvoidingView>
+                </View>
             </Modal>
+
+            {/* Dialog */}
+            <AppDialog
+                visible={dialog !== null}
+                title={dialog?.title ?? ''}
+                message={dialog?.message ?? ''}
+                icon={dialog?.icon ?? 'alert-circle-outline'}
+                onDismiss={() => setDialog(null)}
+                actions={dialog?.actions ?? [{ label: 'OK', onPress: () => setDialog(null) }]}
+            />
 
             {/* Success Overlay */}
             {showSuccess && (
                 <Animated.View style={[styles.successOverlay, { opacity: successOpacity.current }]}>
                     <Animated.View style={[styles.successContent, { transform: [{ scale: successScale.current }] }]}>
                         <Animated.View style={[styles.successCheckCircle, { transform: [{ scale: checkScale.current }] }]}>
-                            <Ionicons name="checkmark" size={38} color="#FFF" />
+                            <Ionicons name="checkmark" size={38} color={darkMode ? '#111' : '#FFF'} />
                         </Animated.View>
                         <Animated.View style={{ opacity: textOpacity.current }}>
-                            <Text style={styles.successTitle}>You've successfully added an item</Text>
+                            <Text style={styles.successTitle}>Added to cart</Text>
                             <Text style={styles.successPrice}>{formatMoney(addedItemPrice)}</Text>
                         </Animated.View>
                     </Animated.View>
                 </Animated.View>
             )}
-        </View>
+        </ScrollView>
     );
 }
 
-const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: colors.bg },
-    ambientTop: { ...StyleSheet.absoluteFillObject, height: 320, backgroundColor: '#FFFFFF' },
-    stickyHeader: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 100, borderBottomWidth: 1, borderBottomColor: colors.glassBorder, backgroundColor: 'rgba(255,255,255,0.9)' },
-    headerContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 16 },
-    kicker: { color: colors.primary, fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
-    title: { color: colors.text, fontSize: 28, fontWeight: '900', marginTop: 2 },
-    headerTotalBox: { alignItems: 'flex-end' },
-    headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    shareButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.surfaceBlue, borderWidth: 1, borderColor: colors.glassBorder, alignItems: 'center', justifyContent: 'center' },
-    headerTotalLabel: { color: colors.soft, fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
-    headerTotalValue: { color: colors.text, fontSize: 24, fontWeight: '900', marginTop: 2 },
-    
+const getStyles = (t: ReturnType<typeof getTheme>) => StyleSheet.create({
+    screen: { flex: 1, backgroundColor: t.bg },
     content: {},
-    form: { backgroundColor: colors.card, borderRadius: 24, padding: 18, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 20, overflow: 'hidden' },
-    householdBox: { backgroundColor: colors.card, borderRadius: 24, padding: 18, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 20, overflow: 'hidden' },
-    householdHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-    memberInputRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    memberInput: { flex: 1 },
-    memberAddButton: { width: 50, height: 50, borderRadius: 16, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
-    sectionTitle: { color: colors.text, fontSize: 18, fontWeight: '900' },
-    formHint: { color: colors.soft, fontSize: 13, marginTop: 4 },
-    input: { height: 50, backgroundColor: colors.glass, borderRadius: 16, paddingHorizontal: 16, color: colors.text, borderWidth: 1, borderColor: colors.glassBorder, marginTop: 12, fontSize: 15 },
-    formRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    categoryRow: { flexDirection: 'row', gap: 8, paddingTop: 12, paddingRight: 8 },
-    categoryChip: { paddingHorizontal: 12, paddingVertical: 9, borderRadius: 99, backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.glassBorder },
-    categoryChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    categoryChipText: { color: colors.text, fontSize: 12, fontWeight: '900' },
-    categoryChipTextActive: { color: '#FFF' },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+    kicker: { color: t.text, fontSize: 13, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
+    title: { color: t.text, fontSize: 30, fontWeight: '900', marginTop: 2 },
+    headerActions: { flexDirection: 'row', gap: 10 },
+    iconBtn: { width: 44, height: 44, borderRadius: 14, backgroundColor: t.card, borderWidth: 1, borderColor: t.glassBorder, alignItems: 'center', justifyContent: 'center', ...shadow },
+
+    summaryCard: { backgroundColor: t.card, borderRadius: 24, padding: 20, marginBottom: 16, borderWidth: 1, borderColor: t.glassBorder, ...shadow },
+    summaryTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    summaryLabel: { color: t.muted, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
+    summaryValue: { color: t.text, fontSize: 32, fontWeight: '900', marginTop: 2 },
+    summarySub: { color: t.muted, fontSize: 13, fontWeight: '700', marginTop: 4 },
+    badgeWrap: {},
+    badge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: t.surfaceBlue, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 99, borderWidth: 1, borderColor: t.glassBorder },
+    badgeText: { color: t.text, fontSize: 13, fontWeight: '900' },
+    quickActionsRow: { flexDirection: 'row', gap: 10, marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: t.glassBorder },
+    quickActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 44, borderRadius: 14, backgroundColor: t.surfaceBlue, borderWidth: 1, borderColor: t.glassBorder },
+    quickActionText: { color: t.text, fontSize: 13, fontWeight: '800' },
+
+    householdPanel: { backgroundColor: t.card, borderRadius: 20, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: t.glassBorder },
+    householdHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+    householdTitle: { color: t.text, fontSize: 14, fontWeight: '900' },
+    memberRail: { flexDirection: 'row', gap: 8, paddingBottom: 6 },
+    memberChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 14, paddingRight: 10, paddingVertical: 8, borderRadius: 99, backgroundColor: t.surfaceBlue, borderWidth: 1, borderColor: t.glassBorder },
+    memberChipActive: { backgroundColor: t.primary, borderColor: t.primary },
+    memberText: { color: t.text, fontSize: 13, fontWeight: '800' },
+    memberTextActive: { color: t.bg === '#111111' ? '#111' : '#FFF' },
+    memberDeleteBtn: { alignItems: 'center', justifyContent: 'center' },
+    memberAddRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+    memberInput: { flex: 1, height: 42, backgroundColor: t.glass, borderRadius: 12, paddingHorizontal: 12, color: t.text, borderWidth: 1, borderColor: t.glassBorder, fontSize: 13 },
+    memberAddBtn: { width: 42, height: 42, borderRadius: 12, backgroundColor: t.primary, alignItems: 'center', justifyContent: 'center' },
+
+    formCard: { backgroundColor: t.card, borderRadius: 24, padding: 18, marginBottom: 20, borderWidth: 1, borderColor: t.glassBorder, ...shadow },
+    sectionTitle: { color: t.text, fontSize: 18, fontWeight: '900' },
+    input: { height: 48, backgroundColor: t.glass, borderRadius: 14, paddingHorizontal: 14, color: t.text, borderWidth: 1, borderColor: t.glassBorder, marginTop: 10, fontSize: 15 },
+    formGrid: { flexDirection: 'row', gap: 10 },
+    categoryScroll: { flexDirection: 'row', gap: 8, marginTop: 12, paddingVertical: 2 },
+    categoryChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: t.surfaceBlue, borderRadius: 99, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: t.glassBorder },
+    categoryChipActive: { backgroundColor: t.primary, borderColor: t.primary },
+    categoryChipText: { color: t.text, fontSize: 12, fontWeight: '800' },
+    categoryChipTextActive: { color: t.bg === '#111111' ? '#111' : '#FFF' },
     priceInput: { flex: 1 },
-    quantityInput: { width: 74 },
-    addButton: { width: 50, height: 50, borderRadius: 16, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', marginTop: 12, ...shadow },
-    
-    sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },
-    clearText: { color: colors.danger, fontWeight: '800' },
-    
-    emptyState: { backgroundColor: colors.card, alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20, borderRadius: 24, borderWidth: 1, borderColor: colors.glassBorder, overflow: 'hidden' },
-    emptyIcon: { width: 64, height: 64, borderRadius: 24, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.glassBorder },
-    emptyTitle: { color: colors.text, fontWeight: '800', marginTop: 16, fontSize: 17 },
-    emptyText: { color: colors.soft, marginTop: 6, textAlign: 'center', fontSize: 14 },
-    emptyAction: { marginTop: 18, height: 46, paddingHorizontal: 20, borderRadius: 16, backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', gap: 8, ...shadow },
-    emptyActionText: { color: '#FFF', fontWeight: '800', fontSize: 15 },
-    recurringAction: { marginTop: 10, height: 42, paddingHorizontal: 18, borderRadius: 15, backgroundColor: colors.surfaceBlue, borderWidth: 1, borderColor: colors.glassBorder, flexDirection: 'row', alignItems: 'center', gap: 8 },
-    recurringActionText: { color: colors.text, fontWeight: '800', fontSize: 14 },
-    
-    itemRow: { backgroundColor: colors.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 12, overflow: 'hidden' },
+    quantityInput: { width: 84 },
+    addButton: { marginTop: 14, height: 50, borderRadius: 16, backgroundColor: t.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, ...shadow },
+
+    sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+    clearText: { color: t.danger, fontWeight: '800', fontSize: 13 },
+
+    emptyState: { backgroundColor: t.card, alignItems: 'center', paddingVertical: 40, paddingHorizontal: 20, borderRadius: 24, borderWidth: 1, borderColor: t.glassBorder, overflow: 'hidden' },
+    emptyIcon: { width: 64, height: 64, borderRadius: 24, backgroundColor: t.surfaceBlue, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.glassBorder },
+    emptyTitle: { color: t.text, fontWeight: '800', marginTop: 16, fontSize: 17 },
+    emptyText: { color: t.soft, marginTop: 6, textAlign: 'center', fontSize: 14 },
+    emptyAction: { marginTop: 18, height: 46, paddingHorizontal: 20, borderRadius: 16, backgroundColor: t.primary, flexDirection: 'row', alignItems: 'center', gap: 8, ...shadow },
+    emptyActionText: { color: t.bg === '#111111' ? '#111' : '#FFF', fontWeight: '800', fontSize: 15 },
+    recurringAction: { marginTop: 10, height: 42, paddingHorizontal: 18, borderRadius: 15, backgroundColor: t.surfaceBlue, borderWidth: 1, borderColor: t.glassBorder, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    recurringActionText: { color: t.text, fontWeight: '800', fontSize: 14 },
+
+    itemRow: { backgroundColor: t.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: t.glassBorder, marginBottom: 12, overflow: 'hidden' },
     itemAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, opacity: 0.9 },
     itemMain: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginLeft: 6 },
     itemText: { flex: 1, paddingRight: 12 },
-    itemName: { color: colors.text, fontSize: 16, fontWeight: '900' },
-    itemMeta: { color: colors.muted, fontSize: 13, marginTop: 4 },
-    itemTotal: { color: colors.primary, fontSize: 18, fontWeight: '900' },
+    itemName: { color: t.text, fontSize: 16, fontWeight: '900' },
+    itemMeta: { color: t.muted, fontSize: 13, marginTop: 4 },
+    itemTotal: { color: t.text, fontSize: 18, fontWeight: '900' },
     itemControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginLeft: 6 },
-    qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.glass, borderRadius: 14, padding: 4, borderWidth: 1, borderColor: colors.glassBorder },
-    qtyButton: { width: 34, height: 34, borderRadius: 10, backgroundColor: colors.glass, alignItems: 'center', justifyContent: 'center' },
-    qtyText: { minWidth: 24, textAlign: 'center', color: colors.text, fontSize: 16, fontWeight: '900' },
-    editButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.surfaceBlue, borderWidth: 1, borderColor: colors.glassBorder, alignItems: 'center', justifyContent: 'center' },
-    recurringButtonActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-    deleteButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.dangerSoft, borderWidth: 1, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
-    
-    storeBox: { backgroundColor: colors.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: colors.glassBorder, marginTop: 8 },
-    storeLabel: { color: colors.muted, fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
-    storeInput: { height: 48, backgroundColor: colors.glass, borderRadius: 15, paddingHorizontal: 14, color: colors.text, borderWidth: 1, borderColor: colors.glassBorder, marginTop: 10, fontSize: 15 },
+    qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: t.glass, borderRadius: 14, padding: 4, borderWidth: 1, borderColor: t.glassBorder },
+    qtyButton: { width: 34, height: 34, borderRadius: 10, backgroundColor: t.glass, alignItems: 'center', justifyContent: 'center' },
+    qtyText: { minWidth: 24, textAlign: 'center', color: t.text, fontSize: 16, fontWeight: '900' },
+    editButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: t.surfaceBlue, borderWidth: 1, borderColor: t.glassBorder, alignItems: 'center', justifyContent: 'center' },
+    recurringButtonActive: { backgroundColor: t.primary, borderColor: t.primary },
+    deleteButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: t.dangerSoft, borderWidth: 1, borderColor: t.danger, alignItems: 'center', justifyContent: 'center' },
+
+    storeBox: { backgroundColor: t.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: t.glassBorder, marginTop: 8 },
+    storeLabel: { color: t.muted, fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
+    storeInput: { height: 48, backgroundColor: t.glass, borderRadius: 15, paddingHorizontal: 14, color: t.text, borderWidth: 1, borderColor: t.glassBorder, marginTop: 10, fontSize: 15 },
 
     checkoutButton: { marginTop: 12, height: 56, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, ...shadow, overflow: 'hidden' },
-    checkoutFill: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.success },
-    checkoutText: { color: '#FFF', fontSize: 17, fontWeight: '900' },
-    disabled: { opacity: 0.45 },
+    checkoutFill: { ...StyleSheet.absoluteFillObject, backgroundColor: t.success },
+    checkoutText: { fontSize: 17, fontWeight: '900' },
     editModalRoot: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.34)' },
-    editSheet: { backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 38 : 22, borderWidth: 1, borderColor: colors.glassBorder },
-    editHandle: { alignSelf: 'center', width: 38, height: 4, borderRadius: 2, backgroundColor: colors.border, marginBottom: 16 },
-    editTitle: { color: colors.text, fontSize: 22, fontWeight: '900', textAlign: 'center', marginBottom: 16 },
-    editLabel: { color: colors.muted, fontSize: 12, fontWeight: '900', textTransform: 'uppercase', marginTop: 10 },
+    editSheet: { backgroundColor: t.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 38 : 22, borderWidth: 1, borderColor: t.glassBorder },
+    editHandle: { alignSelf: 'center', width: 38, height: 4, borderRadius: 2, backgroundColor: t.muted, marginBottom: 16 },
+    editTitle: { color: t.text, fontSize: 22, fontWeight: '900', textAlign: 'center', marginBottom: 16 },
+    editLabel: { color: t.muted, fontSize: 12, fontWeight: '900', textTransform: 'uppercase', marginTop: 10 },
     editGrid: { flexDirection: 'row', gap: 10 },
     editGridItem: { flex: 1 },
     editGridQty: { width: 94 },
     editActions: { flexDirection: 'row', gap: 10, marginTop: 20 },
     editActionButton: { flex: 1, minHeight: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-    editCancel: { backgroundColor: colors.surfaceBlue, borderWidth: 1, borderColor: colors.glassBorder },
-    editSave: { backgroundColor: colors.primary },
-    editCancelText: { color: colors.text, fontSize: 16, fontWeight: '900' },
-    editSaveText: { color: '#FFF', fontSize: 16, fontWeight: '900' },
+    editCancel: { backgroundColor: t.surfaceBlue, borderWidth: 1, borderColor: t.glassBorder },
+    editSave: { backgroundColor: t.primary },
+    editCancelText: { color: t.text, fontSize: 16, fontWeight: '900' },
+    editSaveText: { color: t.bg === '#111111' ? '#111' : '#FFF', fontSize: 16, fontWeight: '900' },
 
     successOverlay: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(255,255,255,0.92)',
+        backgroundColor: t.bg === '#111111' ? 'rgba(17,17,17,0.92)' : 'rgba(255,255,255,0.92)',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 200,
@@ -568,10 +586,10 @@ const styles = StyleSheet.create({
         width: 72,
         height: 72,
         borderRadius: 36,
-        backgroundColor: colors.primary,
+        backgroundColor: t.primary,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: colors.primary,
+        shadowColor: t.primary,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.35,
         shadowRadius: 14,
@@ -580,14 +598,14 @@ const styles = StyleSheet.create({
     successTitle: {
         fontSize: 17,
         fontWeight: '800',
-        color: colors.text,
+        color: t.text,
         textAlign: 'center',
         marginTop: 4,
     },
     successPrice: {
         fontSize: 22,
         fontWeight: '900',
-        color: colors.primary,
+        color: t.text,
         textAlign: 'center',
     },
 });

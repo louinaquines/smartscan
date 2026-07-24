@@ -23,7 +23,6 @@ interface VerifySheetProps {
   open: boolean;
   name: string;
   price: number;
-  barcode?: string;
   brand?: string;
   initialCategory?: BudgetCategoryId;
   previousPrice?: PreviousPrice | null;
@@ -37,7 +36,6 @@ export default function VerifySheet({
   open,
   name,
   price,
-  barcode,
   brand,
   initialCategory = DEFAULT_CATEGORY,
   previousPrice,
@@ -185,18 +183,7 @@ export default function VerifySheet({
 
           <Text style={styles.title}>Verify Product</Text>
 
-          <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetScrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            {barcode && (
-              <View style={styles.barcodePanel}>
-                <View style={styles.barcodeIcon}>
-                  <Ionicons name="barcode-outline" size={18} color={colors.primary} />
-                </View>
-                <View style={styles.barcodeCopy}>
-                  <Text style={styles.barcodeTitle} numberOfLines={1}>{brand || 'Barcode match'}</Text>
-                  <Text style={styles.barcodeText} numberOfLines={1}>{barcode}</Text>
-                </View>
-              </View>
-            )}
+<ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetScrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
             {priceComparison && (
               <View style={[
@@ -407,43 +394,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
     borderWidth: 1,
     borderColor: colors.glassBorder,
-  },
-  barcodePanel: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: colors.surfaceBlue,
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-  },
-  barcodeIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-  },
-  barcodeCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  barcodeTitle: {
-    color: colors.text,
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  barcodeText: {
-    color: colors.muted,
-    fontSize: 12,
-    fontWeight: '700',
-    marginTop: 3,
-  },
+},
   priceAlert: {
     flexDirection: 'row',
     alignItems: 'center',

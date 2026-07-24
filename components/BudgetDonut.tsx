@@ -1,7 +1,8 @@
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { formatMoney } from '../lib/format';
-import { colors } from '../lib/theme';
+import { getTheme } from '../lib/theme';
+import { useCartStore } from '../store/useCartStore';
 
 type BudgetDonutProps = {
     spent: number;
@@ -9,9 +10,11 @@ type BudgetDonutProps = {
     categories?: { id: string; spent: number; budget: number }[];
 };
 
-const segmentColors = ['#000000'];
-
 export default function BudgetDonut({ spent, budget, categories = [] }: BudgetDonutProps) {
+    const { themeMode } = useCartStore();
+    const darkMode = themeMode === 'dark';
+    const t = getTheme(darkMode);
+
     const size = 132;
     const stroke = 13;
     const radius = (size - stroke) / 2;
@@ -19,7 +22,7 @@ export default function BudgetDonut({ spent, budget, categories = [] }: BudgetDo
     const clampedPct = budget > 0 ? Math.min(spent / budget, 1) : 0;
     const filledStroke = clampedPct * circumference;
     const isOver = budget > 0 && spent > budget;
-    const color = isOver ? colors.danger : clampedPct > 0.85 ? colors.warning : colors.success;
+    const color = isOver ? t.danger : clampedPct > 0.85 ? t.warning : t.text;
     const label = budget <= 0 ? 'set budget' : isOver ? 'over' : clampedPct > 0.85 ? 'caution' : 'on track';
     const visibleSegments = categories.filter((category) => category.spent > 0 && spent > 0);
     let segmentOffset = 0;
@@ -31,7 +34,7 @@ export default function BudgetDonut({ spent, budget, categories = [] }: BudgetDo
                     cx={size / 2}
                     cy={size / 2}
                     r={radius}
-                    stroke="#F7F7F4"
+                    stroke={darkMode ? '#2c2c2c' : '#F7F7F4'}
                     strokeWidth={stroke}
                     fill="transparent"
                 />
@@ -40,7 +43,7 @@ export default function BudgetDonut({ spent, budget, categories = [] }: BudgetDo
                         cx={size / 2}
                         cy={size / 2}
                         r={radius}
-                        stroke="#000000"
+                        stroke={t.text}
                         strokeWidth={stroke}
                         fill="transparent"
                         strokeDasharray={`${circumference} ${circumference}`}
@@ -58,7 +61,7 @@ export default function BudgetDonut({ spent, budget, categories = [] }: BudgetDo
                                 cx={size / 2}
                                 cy={size / 2}
                                 r={radius}
-                                stroke={segmentColors[index % segmentColors.length]}
+                                stroke={t.text}
                                 strokeWidth={stroke}
                                 fill="transparent"
                                 strokeDasharray={`${segmentLength} ${circumference}`}
@@ -72,7 +75,7 @@ export default function BudgetDonut({ spent, budget, categories = [] }: BudgetDo
                         cx={size / 2}
                         cy={size / 2}
                         r={radius}
-                        stroke={color}
+                        stroke={t.text}
                         strokeWidth={stroke}
                         fill="transparent"
                         strokeDasharray={`${filledStroke} ${circumference}`}
@@ -85,7 +88,7 @@ export default function BudgetDonut({ spent, budget, categories = [] }: BudgetDo
             </Svg>
             <View style={styles.center}>
                 <Text style={[styles.percent, { color }]}>{budget > 0 ? `${Math.round(clampedPct * 100)}%` : '0%'}</Text>
-                <Text style={styles.caption}>{label}</Text>
+                <Text style={[styles.caption, { color: t.muted }]}>{label}</Text>
             </View>
             <Text style={[styles.total, { color }]}>{formatMoney(spent)}</Text>
         </View>
@@ -96,6 +99,6 @@ const styles = StyleSheet.create({
     wrap: { alignItems: 'center', justifyContent: 'center', position: 'relative' },
     center: { position: 'absolute', top: 48, alignItems: 'center' },
     percent: { fontSize: 24, fontWeight: '900' },
-    caption: { fontSize: 10, color: colors.muted, marginTop: 1, fontWeight: '800', textTransform: 'uppercase' },
+    caption: { fontSize: 10, marginTop: 1, fontWeight: '800', textTransform: 'uppercase' },
     total: { marginTop: 8, fontSize: 12, fontWeight: '800' },
 });

@@ -1,567 +1,366 @@
-import { useEffect, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  Animated,
-  Easing,
   Image,
-  PermissionsAndroid,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { CURRENCIES, CurrencyId, CurrencyOption, getCurrency } from '../lib/currencies';
 import { colors, shadow } from '../lib/theme';
 
-type OnboardingProps = {
-  onDone: () => void;
+type OnboardingPayload = {
+  name: string;
+  country: string;
+  currencyId: CurrencyId;
 };
 
-// ─── Slide content ────────────────────────────────────────────────────────────
-const TOTAL = 3;
+type OnboardingProps = {
+  onDone: (payload: OnboardingPayload) => void | Promise<void>;
+};
 
-// ─── Per-slide animated entrance hook ────────────────────────────────────────
-function useSlideEntrance(active: boolean) {
-  const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(36)).current;
-  const scale = useRef(new Animated.Value(0.92)).current;
+const STEPS = ['Name', 'Country', 'Currency'];
 
-  useEffect(() => {
-    if (active) {
-      opacity.setValue(0);
-      translateY.setValue(36);
-      scale.setValue(0.92);
-
-      Animated.stagger(60, [
-        Animated.parallel([
-          Animated.timing(opacity, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-          Animated.spring(translateY, { toValue: 0, friction: 7, tension: 60, useNativeDriver: true }),
-          Animated.spring(scale, { toValue: 1, friction: 6, tension: 55, useNativeDriver: true }),
-        ]),
-      ]).start();
-    }
-  }, [active]);
-
-  return { opacity, translateY, scale };
-}
-
-// ─── Scan-line animation ──────────────────────────────────────────────────────
-function ScanLine() {
-  const y = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(y, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(y, { toValue: 0, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-
-  const translateY = y.interpolate({ inputRange: [0, 1], outputRange: [-40, 40] });
-
+function ProgressDots({ step }: { step: number }) {
   return (
-    <Animated.View
-      style={[
-        styles.scanLine,
-        { transform: [{ translateY }] },
-      ]}
-    />
-  );
-}
-
-// ─── Budget bar animation ─────────────────────────────────────────────────────
-function BudgetBar({ active }: { active: boolean }) {
-  const width = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (active) {
-      width.setValue(0);
-      Animated.timing(width, { toValue: 70, duration: 1100, delay: 500, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
-    }
-  }, [active]);
-
-  const widthInterp = width.interpolate({ inputRange: [0, 70], outputRange: ['0%', '70%'] });
-
-  return (
-    <View style={styles.mockTrack}>
-      <Animated.View style={[styles.mockFill, { width: widthInterp }]} />
+    <View style={styles.progressRow}>
+      {STEPS.map((label, index) => {
+        const active = index <= step;
+        return (
+          <View key={label} style={[styles.progressDot, active && styles.progressDotActive]} />
+        );
+      })}
     </View>
   );
 }
 
-// ─── Pulsing Get Started button ───────────────────────────────────────────────
-function PulseButton({ onPress }: { onPress: () => void }) {
-  const scale = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(scale, { toValue: 1.035, duration: 700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(scale, { toValue: 1, duration: 700, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
-
+function CurrencyCard({ currency }: { currency: CurrencyOption }) {
   return (
-    <Animated.View style={{ transform: [{ scale }], width: '100%', maxWidth: 350, marginTop: 26 }}>
-      <Pressable
-        style={({ pressed }) => [styles.primaryButton, pressed && { opacity: 0.82 }]}
-        onPress={onPress}
-      >
-        <Text style={styles.primaryButtonText}>Get Started</Text>
-        <Ionicons name="arrow-forward" size={18} color="#FFF" style={{ marginLeft: 8 }} />
-      </Pressable>
-    </Animated.View>
-  );
-}
-
-// ─── Dot indicator ────────────────────────────────────────────────────────────
-function Dot({ active }: { active: boolean }) {
-  const width = useRef(new Animated.Value(active ? 24 : 8)).current;
-  const opacity = useRef(new Animated.Value(active ? 1 : 0.35)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(width, { toValue: active ? 24 : 8, friction: 6, tension: 60, useNativeDriver: false }),
-      Animated.timing(opacity, { toValue: active ? 1 : 0.35, duration: 200, useNativeDriver: false }),
-    ]).start();
-  }, [active]);
-
-  return (
-    <Animated.View style={[styles.dot, { width, opacity, backgroundColor: colors.primary }]} />
-  );
-}
-
-// ─── Slide 0 — Illustration ───────────────────────────────────────────────────
-function Slide0({ active }: { active: boolean }) {
-  const { opacity, translateY, scale } = useSlideEntrance(active);
-  const logoScale = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    if (active) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(logoScale, { toValue: 1.06, duration: 1800, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-          Animated.timing(logoScale, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        ])
-      ).start();
-    }
-  }, [active]);
-
-  return (
-    <Animated.View style={[styles.illustrationWrap, { opacity, transform: [{ translateY }, { scale }] }]}>
-      <Animated.View style={[styles.logoHalo, { transform: [{ scale: logoScale }] }]}>
-        <Image source={require('../assets/cany-logo2.png')} style={styles.logo} />
-      </Animated.View>
-    </Animated.View>
-  );
-}
-
-// ─── Slide 1 — Scanner mockup ─────────────────────────────────────────────────
-function Slide1({ active }: { active: boolean }) {
-  const { opacity, translateY, scale } = useSlideEntrance(active);
-
-  return (
-    <Animated.View style={[styles.illustrationWrap, { opacity, transform: [{ translateY }, { scale }] }]}>
-      <View style={styles.scannerMockup}>
-        <View style={styles.mockMaskTop} />
-        <View style={styles.mockScanRow}>
-          <View style={styles.mockSideMask} />
-          <View style={styles.mockFrame}>
-            {active && <ScanLine />}
-            <View style={styles.priceTag}>
-              <Text style={styles.tagName}>JIN RAMEN BOWL</Text>
-              <Text style={styles.tagSub}>Spicy noodle soup 110g</Text>
-              <View style={styles.tagPriceRow}>
-                <Text style={styles.tagPrice}>56</Text>
-                <Text style={styles.tagCents}>00</Text>
-              </View>
-              <View style={styles.barcode} />
-            </View>
-          </View>
-          <View style={styles.mockSideMask} />
-        </View>
-        <View style={styles.mockMaskBottom} />
-        {/* Corner brackets */}
-        <View style={[styles.corner, styles.cornerTL]} />
-        <View style={[styles.corner, styles.cornerTR]} />
-        <View style={[styles.corner, styles.cornerBL]} />
-        <View style={[styles.corner, styles.cornerBR]} />
+    <View style={styles.selectedCurrencyCard}>
+      <Text style={styles.currencyFlag}>{currency.flag}</Text>
+      <View style={styles.currencyCopy}>
+        <Text style={styles.currencyName}>{currency.name}</Text>
+        <Text style={styles.currencyMeta}>{currency.symbol} · {currency.id}</Text>
       </View>
-    </Animated.View>
-  );
-}
-
-// ─── Slide 2 — Budget mockup ──────────────────────────────────────────────────
-function Slide2({ active }: { active: boolean }) {
-  const { opacity, translateY, scale } = useSlideEntrance(active);
-
-  return (
-    <Animated.View style={[styles.illustrationWrap, { opacity, transform: [{ translateY }, { scale }] }]}>
-      <View style={styles.budgetMockup}>
-        <View>
-          <Text style={styles.mockLabel}>Total spent</Text>
-          <Text style={styles.mockAmount}>PHP 348.50</Text>
-          <Text style={styles.mockLeft}>PHP 151.50 left</Text>
-        </View>
-        <BudgetBar active={active} />
-      </View>
-    </Animated.View>
-  );
-}
-
-// ─── Slide text block w/ stagger ──────────────────────────────────────────────
-function SlideText({ active, headline, copy }: { active: boolean; headline: string; copy: string }) {
-  const headlineAnim = useRef({ opacity: new Animated.Value(0), y: new Animated.Value(22) }).current;
-  const copyAnim = useRef({ opacity: new Animated.Value(0), y: new Animated.Value(22) }).current;
-
-  useEffect(() => {
-    if (active) {
-      headlineAnim.opacity.setValue(0);
-      headlineAnim.y.setValue(22);
-      copyAnim.opacity.setValue(0);
-      copyAnim.y.setValue(22);
-
-      Animated.stagger(120, [
-        Animated.parallel([
-          Animated.timing(headlineAnim.opacity, { toValue: 1, duration: 380, useNativeDriver: true }),
-          Animated.spring(headlineAnim.y, { toValue: 0, friction: 7, tension: 60, useNativeDriver: true }),
-        ]),
-        Animated.parallel([
-          Animated.timing(copyAnim.opacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-          Animated.spring(copyAnim.y, { toValue: 0, friction: 7, tension: 55, useNativeDriver: true }),
-        ]),
-      ]).start();
-    }
-  }, [active]);
-
-  return (
-    <View style={{ alignItems: 'center' }}>
-      <Animated.Text style={[styles.headline, { opacity: headlineAnim.opacity, transform: [{ translateY: headlineAnim.y }] }]}>
-        {headline}
-      </Animated.Text>
-      <Animated.Text style={[styles.copy, { opacity: copyAnim.opacity, transform: [{ translateY: copyAnim.y }] }]}>
-        {copy}
-      </Animated.Text>
+      <Ionicons name="checkmark-circle" size={24} color={colors.success} />
     </View>
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
 export default function Onboarding({ onDone }: OnboardingProps) {
-  const { width } = useWindowDimensions();
-  const [page, setPage] = useState(0);
-  const [cameraStatus, setCameraStatus] = useState<'idle' | 'granted' | 'denied'>('idle');
-  const scrollX = useRef(new Animated.Value(0)).current;
-  const scrollRef = useRef<any>(null);
+  const [started, setStarted] = useState(false);
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState('');
+  const [countryQuery, setCountryQuery] = useState('');
+  const [selectedCountry, setSelectedCountry] = useState(CURRENCIES[0].country);
+  const [currencyId, setCurrencyId] = useState<CurrencyId>(CURRENCIES[0].id);
 
-  const skipOpacity = useRef(new Animated.Value(0)).current;
+  const selectedCurrency = getCurrency(currencyId);
+  const cleanName = name.trim();
 
-  useEffect(() => {
-    Animated.timing(skipOpacity, { toValue: 1, duration: 500, delay: 600, useNativeDriver: true }).start();
-  }, []);
+  const countryOptions = useMemo(() => {
+    const query = countryQuery.trim().toLowerCase();
+    if (!query) return CURRENCIES;
+    return CURRENCIES.filter((currency) =>
+      `${currency.country} ${currency.name} ${currency.id}`.toLowerCase().includes(query)
+    );
+  }, [countryQuery]);
+
+  const selectCountry = (currency: CurrencyOption) => {
+    setSelectedCountry(currency.country);
+    setCountryQuery(currency.country);
+    setCurrencyId(currency.id);
+  };
+
+  const canContinue =
+    step === 0 ? cleanName.length > 0 :
+    step === 1 ? selectedCountry.length > 0 :
+    true;
 
   const goNext = () => {
-    if (page < TOTAL - 1) {
-      scrollRef.current?.scrollTo({ x: (page + 1) * width, animated: true });
-      setPage(page + 1);
-    }
-  };
-
-  const requestCamera = async () => {
-    if (Platform.OS !== 'android') {
-      setCameraStatus('granted');
+    if (!canContinue) return;
+    if (step < STEPS.length - 1) {
+      setStep((current) => current + 1);
       return;
     }
-    const result = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA, {
-      title: 'Camera Access',
-      message: 'Cany uses your camera to scan grocery price tags.',
-      buttonPositive: 'Allow',
-      buttonNegative: 'Not now',
-    });
-    setCameraStatus(result === PermissionsAndroid.RESULTS.GRANTED ? 'granted' : 'denied');
+    onDone({ name: cleanName, country: selectedCountry, currencyId });
   };
 
-  return (
-    <View style={styles.root}>
-      {/* Skip button */}
-      {page < TOTAL - 1 && (
-        <Animated.View style={[styles.skipWrap, { opacity: skipOpacity }]}>
-          <Pressable onPress={onDone} style={({ pressed }) => [styles.skipBtn, pressed && { opacity: 0.6 }]}>
-            <Text style={styles.skipText}>Skip</Text>
-          </Pressable>
-        </Animated.View>
-      )}
+  if (!started) {
+    return (
+      <View style={styles.introScreen}>
+        <View style={styles.logoGlow}>
+          <Image source={require('../assets/cow.png')} style={styles.mascot} resizeMode="contain" />
+        </View>
+        <View style={styles.introTextBlock}>
+          <Text style={styles.brand}>Cany</Text>
+          <Text style={styles.introCopy}>Smart, real-time grocery budget tracking right at the shelf.</Text>
+        </View>
+        <Pressable style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]} onPress={() => setStarted(true)}>
+          <Text style={styles.primaryButtonText}>Get Started</Text>
+          <Ionicons name="arrow-forward" size={18} color="#FFF" />
+        </Pressable>
+      </View>
+    );
+  }
 
-      {/* Slides */}
-      <Animated.ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / width))}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-          { useNativeDriver: false }
-        )}
-      >
-        {/* Slide 0 */}
-        <View style={[styles.screen, { width }]}>
-          <Slide0 active={page === 0} />
-          <SlideText
-            active={page === 0}
-            headline="Meet Cany"
-            copy="Your ultimate smart grocery companion. No accounts, no sign-ups, no passwords. Just open and start shopping."
-          />
+  return (
+    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.setupContent} keyboardShouldPersistTaps="handled">
+        <ProgressDots step={step} />
+
+        <View style={styles.setupHeader}>
+          <Image source={require('../assets/cany-logo2.png')} style={styles.smallLogo} />
+          <Text style={styles.setupTitle}>Quick Setup</Text>
+          <Text style={styles.setupSubtitle}>{STEPS[step]} · {step + 1} of {STEPS.length}</Text>
         </View>
 
-        {/* Slide 1 */}
-        <View style={[styles.screen, { width }]}>
-          <Slide1 active={page === 1} />
-          <SlideText
-            active={page === 1}
-            headline="Point & Scan"
-            copy="Stop guessing totals. Our smart camera parser extracts product names and prices from shelf labels instantly."
-          />
-          <Pressable
-            style={({ pressed }) => [styles.secondaryButton, pressed && { opacity: 0.78 }]}
-            onPress={requestCamera}
-          >
-            <Ionicons
-              name={cameraStatus === 'granted' ? 'checkmark-circle' : 'camera-outline'}
-              size={20}
-              color={colors.text}
-            />
-            <Text style={styles.secondaryButtonText}>
-              {cameraStatus === 'granted' ? 'Camera Access Enabled' : 'Enable Camera Access'}
-            </Text>
-          </Pressable>
-          {cameraStatus === 'denied' && (
-            <Text style={styles.permissionHint}>You can enable camera access later in settings.</Text>
+        <View style={styles.panel}>
+          {step === 0 && (
+            <View>
+              <Text style={styles.question}>What's your name?</Text>
+              <TextInput
+                style={styles.input}
+                value={name}
+                onChangeText={setName}
+                placeholder="Your name"
+                placeholderTextColor={colors.soft}
+                autoCapitalize="words"
+                returnKeyType="next"
+                onSubmitEditing={goNext}
+              />
+            </View>
+          )}
+
+          {step === 1 && (
+            <View>
+              <Text style={styles.question}>Where are you shopping?</Text>
+              <TextInput
+                style={styles.input}
+                value={countryQuery}
+                onChangeText={setCountryQuery}
+                placeholder="Search country"
+                placeholderTextColor={colors.soft}
+              />
+              <View style={styles.countryList}>
+                {countryOptions.map((currency) => {
+                  const selected = currency.country === selectedCountry;
+                  return (
+                    <Pressable
+                      key={currency.id}
+                      style={[styles.countryRow, selected && styles.countryRowSelected]}
+                      onPress={() => selectCountry(currency)}
+                    >
+                      <Text style={styles.countryFlag}>{currency.flag}</Text>
+                      <View style={styles.countryCopy}>
+                        <Text style={styles.countryName}>{currency.country}</Text>
+                        <Text style={styles.countryCurrency}>{currency.name}</Text>
+                      </View>
+                      {selected && <Ionicons name="checkmark" size={20} color={colors.primary} />}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {step === 2 && (
+            <View>
+              <Text style={styles.question}>Preferred currency</Text>
+              <Text style={styles.helper}>Suggested from {selectedCountry || 'your country'}.</Text>
+              <CurrencyCard currency={selectedCurrency} />
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.currencyRail}>
+                {CURRENCIES.map((currency) => {
+                  const selected = currency.id === currencyId;
+                  return (
+                    <Pressable
+                      key={currency.id}
+                      style={[styles.currencyChip, selected && styles.currencyChipSelected]}
+                      onPress={() => setCurrencyId(currency.id)}
+                    >
+                      <Text style={styles.currencyChipFlag}>{currency.flag}</Text>
+                      <Text style={[styles.currencyChipText, selected && styles.currencyChipTextSelected]}>{currency.id}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
           )}
         </View>
 
-        {/* Slide 2 */}
-        <View style={[styles.screen, { width }]}>
-          <Slide2 active={page === 2} />
-          <SlideText
-            active={page === 2}
-            headline="Never Overspend"
-            copy="Set your budget before you grab a cart. Cany calculates your exact remaining balance in real time with every scan."
-          />
-          <PulseButton onPress={onDone} />
-        </View>
-      </Animated.ScrollView>
-
-      {/* Bottom bar: dots + Next */}
-      <View style={styles.bottomBar}>
-        <View style={styles.dots}>
-          {[0, 1, 2].map((i) => <Dot key={i} active={i === page} />)}
-        </View>
-        {page < TOTAL - 1 && (
+        <View style={styles.actionRow}>
+          {step > 0 ? (
+            <Pressable style={styles.backButton} onPress={() => setStep((current) => current - 1)}>
+              <Ionicons name="arrow-back" size={18} color={colors.text} />
+            </Pressable>
+          ) : (
+            <View style={styles.backButtonPlaceholder} />
+          )}
           <Pressable
-            style={({ pressed }) => [styles.nextBtn, pressed && { opacity: 0.78 }]}
+            style={({ pressed }) => [styles.finishButton, !canContinue && styles.disabledButton, pressed && canContinue && styles.pressed]}
             onPress={goNext}
           >
-            <Ionicons name="arrow-forward" size={20} color="#FFF" />
+            <Text style={styles.finishButtonText}>{step === STEPS.length - 1 ? 'Finish & Start Shopping' : 'Continue'}</Text>
+            <Ionicons name={step === STEPS.length - 1 ? 'checkmark' : 'arrow-forward'} size={18} color="#FFF" />
           </Pressable>
-        )}
-      </View>
-    </View>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-
-  screen: {
+  introScreen: {
     flex: 1,
-    paddingHorizontal: 26,
-    paddingTop: 100,
-    paddingBottom: 110,
+    backgroundColor: colors.bg,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 0,
+    paddingHorizontal: 28,
+    paddingBottom: 32,
   },
-
-  illustrationWrap: { marginBottom: 32, alignItems: 'center' },
-
-  // ── Slide 0 ──
-  logoHalo: {
-    width: 192,
-    height: 192,
-    borderRadius: 48,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.22,
-    shadowRadius: 30,
-    elevation: 10,
-  },
-  logo: { width: 192, height: 192, borderRadius: 48 },
-
-  // ── Slide 1 — scanner ──
-  scannerMockup: {
-    width: 340,
-    height: 240,
-    borderRadius: 24,
-    overflow: 'hidden',
-    backgroundColor: '#0d0d0d',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    ...shadow,
-  },
-  mockMaskTop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)' },
-  mockScanRow: { height: 106, flexDirection: 'row' },
-  mockSideMask: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)' },
-  mockFrame: {
+  logoGlow: {
     width: 232,
-    borderWidth: 2.5,
-    borderColor: '#FFFFFF',
-    borderRadius: 10,
+    height: 232,
+    borderRadius: 58,
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  mockMaskBottom: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)' },
-
-  scanLine: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: 'rgba(100, 220, 120, 0.85)',
-    shadowColor: '#64DC78',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-
-  priceTag: {
-    width: 186,
-    height: 80,
-    backgroundColor: '#F5C83A',
-    borderRadius: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  tagName: { color: '#111', fontSize: 13, fontWeight: '900' },
-  tagSub: { color: '#333', fontSize: 9, fontWeight: '700', marginTop: 1 },
-  tagPriceRow: { flexDirection: 'row', alignItems: 'flex-start', alignSelf: 'flex-end', marginTop: -2 },
-  tagPrice: { color: '#111', fontSize: 40, fontWeight: '900', lineHeight: 41 },
-  tagCents: { color: '#111', fontSize: 17, fontWeight: '900', marginTop: 5 },
-  barcode: { height: 7, width: 88, backgroundColor: '#111', opacity: 0.22, marginTop: 1 },
-
-  // corner brackets
-  corner: { position: 'absolute', width: 18, height: 18, borderColor: '#00FF88', borderWidth: 3 },
-  cornerTL: { top: 6, left: 6, borderRightWidth: 0, borderBottomWidth: 0, borderRadius: 3 },
-  cornerTR: { top: 6, right: 6, borderLeftWidth: 0, borderBottomWidth: 0, borderRadius: 3 },
-  cornerBL: { bottom: 6, left: 6, borderRightWidth: 0, borderTopWidth: 0, borderRadius: 3 },
-  cornerBR: { bottom: 6, right: 6, borderLeftWidth: 0, borderTopWidth: 0, borderRadius: 3 },
-
-  // ── Slide 2 — budget ──
-  budgetMockup: {
-    width: '100%',
-    maxWidth: 350,
-    backgroundColor: colors.card,
-    borderRadius: 28,
-    padding: 22,
     borderWidth: 1,
     borderColor: colors.glassBorder,
     ...shadow,
   },
-  mockLabel: { color: colors.muted, fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8 },
-  mockAmount: { color: colors.text, fontSize: 32, fontWeight: '900', marginTop: 6 },
-  mockLeft: { color: colors.text, fontSize: 15, fontWeight: '700', marginTop: 6, opacity: 0.7 },
-
-  mockTrack: { height: 10, borderRadius: 99, backgroundColor: colors.surfaceMuted, marginTop: 28, overflow: 'hidden' },
-  mockFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 99 },
-
-  // ── Typography ──
-  headline: {
-    color: colors.text,
-    fontSize: 32,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginTop: 8,
-    letterSpacing: -0.5,
-  },
-  copy: {
+  mascot: { width: 190, height: 190 },
+  introTextBlock: { alignItems: 'center', marginTop: 34, marginBottom: 30 },
+  brand: { color: colors.text, fontSize: 42, fontWeight: '900' },
+  introCopy: {
     color: colors.muted,
-    fontSize: 15.5,
-    lineHeight: 23,
+    fontSize: 18,
+    lineHeight: 27,
+    fontWeight: '700',
     textAlign: 'center',
     marginTop: 12,
-    maxWidth: 320,
+    maxWidth: 330,
   },
-
-  // ── Buttons ──
-  secondaryButton: {
-    marginTop: 22,
-    minHeight: 52,
-    paddingHorizontal: 22,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-    backgroundColor: colors.card,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    ...shadow,
-  },
-  secondaryButtonText: { color: colors.text, fontSize: 14.5, fontWeight: '900' },
-  permissionHint: { color: colors.muted, fontSize: 12, fontWeight: '700', textAlign: 'center', marginTop: 10 },
-
   primaryButton: {
     width: '100%',
+    maxWidth: 360,
     minHeight: 58,
     borderRadius: 18,
     backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 9,
     ...shadow,
   },
   primaryButtonText: { color: '#FFF', fontSize: 17, fontWeight: '900' },
-
-  // ── Bottom bar ──
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 90,
+  setupContent: { flexGrow: 1, paddingHorizontal: 22, paddingTop: 58, paddingBottom: 28 },
+  progressRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 30 },
+  progressDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.surfaceMuted },
+  progressDotActive: { width: 26, backgroundColor: colors.primary },
+  setupHeader: { alignItems: 'center', marginBottom: 24 },
+  smallLogo: { width: 74, height: 74, borderRadius: 20, marginBottom: 12 },
+  setupTitle: { color: colors.text, fontSize: 30, fontWeight: '900' },
+  setupSubtitle: { color: colors.muted, fontSize: 13, fontWeight: '800', marginTop: 5, textTransform: 'uppercase' },
+  panel: {
+    backgroundColor: colors.card,
+    borderRadius: 24,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    ...shadow,
+  },
+  question: { color: colors.text, fontSize: 24, fontWeight: '900', marginBottom: 14 },
+  helper: { color: colors.muted, fontSize: 14, fontWeight: '700', marginTop: -6, marginBottom: 14 },
+  input: {
+    minHeight: 54,
+    borderRadius: 16,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    paddingHorizontal: 16,
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  countryList: { marginTop: 12, gap: 8 },
+  countryRow: {
+    minHeight: 58,
+    borderRadius: 16,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  countryRowSelected: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  countryFlag: { fontSize: 22 },
+  countryCopy: { flex: 1, minWidth: 0 },
+  countryName: { color: colors.text, fontSize: 15, fontWeight: '900' },
+  countryCurrency: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  selectedCurrencyCard: {
+    minHeight: 78,
+    borderRadius: 18,
+    backgroundColor: colors.primarySoft,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  currencyFlag: { fontSize: 30 },
+  currencyCopy: { flex: 1, minWidth: 0 },
+  currencyName: { color: colors.text, fontSize: 16, fontWeight: '900' },
+  currencyMeta: { color: colors.muted, fontSize: 13, fontWeight: '800', marginTop: 3 },
+  currencyRail: { flexDirection: 'row', gap: 8, paddingTop: 14, paddingRight: 8 },
+  currencyChip: {
+    minHeight: 42,
+    borderRadius: 14,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  currencyChipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+  currencyChipFlag: { fontSize: 16 },
+  currencyChipText: { color: colors.text, fontSize: 12, fontWeight: '900' },
+  currencyChipTextSelected: { color: '#FFF' },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 18 },
+  backButton: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  backButtonPlaceholder: { width: 52 },
+  finishButton: {
+    flex: 1,
+    minHeight: 56,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingBottom: 20,
-  },
-  dots: { flexDirection: 'row', gap: 7, flex: 1, justifyContent: 'center' },
-  dot: { height: 8, borderRadius: 4 },
-
-  nextBtn: {
-    position: 'absolute',
-    right: 28,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
     ...shadow,
   },
-
-  // ── Skip ──
-  skipWrap: { position: 'absolute', top: 56, right: 24, zIndex: 10 },
-  skipBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: colors.surfaceMuted },
-  skipText: { color: colors.muted, fontSize: 13, fontWeight: '800' },
+  finishButtonText: { color: '#FFF', fontSize: 16, fontWeight: '900' },
+  disabledButton: { opacity: 0.45 },
+  pressed: { opacity: 0.82 },
 });

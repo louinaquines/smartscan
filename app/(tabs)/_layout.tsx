@@ -2,12 +2,17 @@ import { Tabs, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, TouchableOpacity, View, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useEffect, useRef } from 'react';
-import { colors } from '../../lib/theme';
+import { useEffect, useRef, useMemo } from 'react';
+import { getTheme } from '../../lib/theme';
+import { useCartStore } from '../../store/useCartStore';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const pulseAnim = useRef(new Animated.Value(1));
+  const { themeMode } = useCartStore();
+  const darkMode = themeMode === 'dark';
+  const t = useMemo(() => getTheme(darkMode), [darkMode]);
+  const styles = useMemo(() => getStyles(t, darkMode), [t, darkMode]);
 
   useEffect(() => {
     Animated.loop(
@@ -23,8 +28,8 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: colors.primary,
-          tabBarInactiveTintColor: colors.soft,
+          tabBarActiveTintColor: t.text,
+          tabBarInactiveTintColor: t.muted,
           tabBarStyle: {
             position: 'absolute',
             borderTopWidth: 0,
@@ -78,7 +83,7 @@ export default function TabLayout() {
             accessibilityLabel="Scan price tag"
             style={styles.scanFab}
             onPress={() => router.push('/scan')}>
-            <Ionicons name="scan" size={27} color="#FFF" />
+            <Ionicons name="scan" size={27} color={darkMode ? '#111' : '#FFF'} />
           </TouchableOpacity>
         </View>
       </View>
@@ -86,12 +91,12 @@ export default function TabLayout() {
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { flex: 1 },
+const getStyles = (t: ReturnType<typeof getTheme>, darkMode: boolean) => StyleSheet.create({
+  wrap: { flex: 1, backgroundColor: t.bg },
   tabBarGlass: {
-    backgroundColor: 'rgba(255,255,255,0.88)',
+    backgroundColor: darkMode ? 'rgba(17,17,17,0.92)' : 'rgba(255,255,255,0.88)',
     borderTopWidth: 1,
-    borderTopColor: colors.glassBorder,
+    borderTopColor: t.glassBorder,
   },
   scanContainer: {
     position: 'absolute',
@@ -110,7 +115,7 @@ const styles = StyleSheet.create({
     width: 62,
     height: 62,
     borderRadius: 31,
-    backgroundColor: colors.primary,
+    backgroundColor: t.text,
     opacity: 0.18,
   },
   scanFab: {
@@ -120,12 +125,12 @@ const styles = StyleSheet.create({
     borderRadius: 31,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary,
+    backgroundColor: t.text,
     borderWidth: 3,
-    borderColor: 'rgba(255,255,255,0.75)',
-    shadowColor: colors.primary,
+    borderColor: darkMode ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.75)',
+    shadowColor: t.text,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.6,
+    shadowOpacity: 0.3,
     shadowRadius: 18,
     elevation: 8,
   },

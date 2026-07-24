@@ -9,6 +9,7 @@ import { storage, StorageKeys } from '../lib/storage';
 
 export default function RootLayout() {
   const loadState = useCartStore((s) => s.loadState);
+  const setCurrency = useCartStore((s) => s.setCurrency);
   const [ready, setReady] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
   const logoScale = useRef(new Animated.Value(0)).current;
@@ -71,7 +72,12 @@ export default function RootLayout() {
     );
   }
 
-  const finishOnboarding = async () => {
+  const finishOnboarding = async (setup: { name: string; country: string; currencyId: Parameters<typeof setCurrency>[0] }) => {
+    await Promise.all([
+      storage.set(StorageKeys.USER_NAME, setup.name),
+      storage.set(StorageKeys.COUNTRY, setup.country),
+      setCurrency(setup.currencyId),
+    ]);
     await storage.set(StorageKeys.ONBOARDING_COMPLETE, 'true');
     setOnboardingComplete(true);
   };
@@ -126,4 +132,3 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
 });
-

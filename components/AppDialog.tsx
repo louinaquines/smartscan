@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, shadow } from '../lib/theme';
+import { getTheme, shadow } from '../lib/theme';
+import { useCartStore } from '../store/useCartStore';
 
 export type AppDialogAction = {
   label: string;
@@ -28,6 +29,10 @@ export default function AppDialog({
   actions,
   onDismiss,
 }: AppDialogProps) {
+  const { themeMode } = useCartStore();
+  const darkMode = themeMode === 'dark';
+  const t = getTheme(darkMode);
+
   const entrance = useRef(new Animated.Value(0));
 
   useEffect(() => {
@@ -78,22 +83,23 @@ export default function AppDialog({
           <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
         </Animated.View>
         
-        <Animated.View style={[styles.card, cardStyle]}>
+        <Animated.View style={[styles.card, { backgroundColor: t.card, borderColor: t.glassBorder, borderWidth: 1 }, cardStyle]}>
           <View style={[
             styles.iconWrap,
-            isSuccess && styles.iconWrapSuccess,
-            isDanger && styles.iconWrapDanger,
-            isWarning && styles.iconWrapWarning,
+            { backgroundColor: darkMode ? 'rgba(255,255,255,0.1)' : '#F0EEEA' },
+            isSuccess && { backgroundColor: darkMode ? 'rgba(122,158,126,0.2)' : '#EFF3EF' },
+            isDanger && { backgroundColor: darkMode ? 'rgba(255,107,107,0.2)' : '#F5EBE8' },
+            isWarning && { backgroundColor: darkMode ? 'rgba(255,180,100,0.2)' : '#F5EDE6' },
           ]}>
             <Ionicons
               name={icon}
               size={28}
-              color={isSuccess ? '#7A9E7E' : colors.text}
+              color={isSuccess ? (darkMode ? '#A3C1A5' : '#7A9E7E') : t.text}
             />
           </View>
 
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.message}>{message}</Text>
+          <Text style={[styles.title, { color: t.text }]}>{title}</Text>
+          <Text style={[styles.message, { color: t.muted }]}>{message}</Text>
 
           <View style={styles.actions}>
             {actions.map((action, idx) => {
@@ -106,16 +112,18 @@ export default function AppDialog({
                   activeOpacity={0.8}
                   style={[
                     styles.button,
-                    isPrimary && styles.primaryButton,
-                    isDestructive && styles.dangerButton,
+                    { backgroundColor: t.surfaceBlue, borderColor: t.glassBorder, borderWidth: 1 },
+                    isPrimary && { backgroundColor: t.primary, borderColor: t.primary },
+                    isDestructive && { backgroundColor: t.dangerSoft, borderColor: t.danger },
                   ]}
                   onPress={action.onPress}
                 >
                   <Text
                     style={[
                       styles.buttonText,
-                      isPrimary && styles.primaryText,
-                      isDestructive && styles.dangerText,
+                      { color: t.text },
+                      isPrimary && { color: darkMode ? '#111' : '#FFF' },
+                      isDestructive && { color: t.danger },
                     ]}
                   >
                     {action.label}
@@ -144,7 +152,6 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 340,
-    backgroundColor: colors.card,
     borderRadius: 28,
     paddingHorizontal: 22,
     paddingTop: 24,
@@ -156,29 +163,17 @@ const styles = StyleSheet.create({
     width: 62,
     height: 62,
     borderRadius: 31,
-    backgroundColor: '#F0EEEA',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
   },
-  iconWrapSuccess: {
-    backgroundColor: '#EFF3EF',
-  },
-  iconWrapDanger: {
-    backgroundColor: '#F5EBE8',
-  },
-  iconWrapWarning: {
-    backgroundColor: '#F5EDE6',
-  },
   title: {
-    color: colors.text,
     fontSize: 21,
     fontWeight: '900',
     textAlign: 'center',
     letterSpacing: -0.3,
   },
   message: {
-    color: colors.muted,
     fontSize: 14.5,
     lineHeight: 21,
     textAlign: 'center',
@@ -197,27 +192,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F0EEEA',
-    borderWidth: 1,
-    borderColor: '#E8E4E0',
-  },
-  primaryButton: {
-    backgroundColor: colors.text,
-    borderColor: colors.text,
-  },
-  dangerButton: {
-    backgroundColor: '#1C1C1C',
-    borderColor: '#1C1C1C',
   },
   buttonText: {
-    color: colors.text,
     fontSize: 15,
     fontWeight: '800',
-  },
-  primaryText: {
-    color: '#FFFFFF',
-  },
-  dangerText: {
-    color: '#FFFFFF',
   },
 });

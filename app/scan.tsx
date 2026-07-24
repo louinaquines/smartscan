@@ -9,9 +9,7 @@ import { router } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getOcrSelectionChoices, OcrChoice, OcrPriceChoice, parsePriceTag } from '../lib/ocrParser';
-import { lookupProductByBarcode, ProductLookupResult } from '../lib/productLookup';
 import { BudgetCategoryId, DEFAULT_CATEGORY } from '../lib/budgetCategories';
-import { findPreviousBarcodePurchase } from '../lib/priceHistory';
 import { parseReceiptItemsLenient, parseReceiptTotal, receiptItemToCartItem, ReceiptParsedItem, getRawOcrLines, getReceiptOcrSuggestions, OcrTextChoice } from '../lib/receiptParser';
 import { useCartStore } from '../store/useCartStore';
 import VerifySheet from '../components/VerifySheet';
@@ -19,7 +17,7 @@ import ReceiptReviewSheet from '../components/ReceiptReviewSheet';
 import AppDialog from '../components/AppDialog';
 import { colors } from '../lib/theme';
 
-type ScanMode = 'priceTag' | 'barcode' | 'receipt';
+type ScanMode = 'priceTag' | 'receipt';
 
 const dedupeReceiptItems = (items: ReceiptParsedItem[]) => {
   const seen = new Set<string>();
@@ -38,7 +36,7 @@ export default function ScanScreen() {
   const [cameraReady, setCameraReady] = useState(false);
   const [scanMode, setScanMode] = useState<ScanMode>('priceTag');
   const [scanStatus, setScanStatus] = useState('Tap Scan to capture');
-  const [detected, setDetected] = useState<{ name: string; price: number; product?: ProductLookupResult } | null>(null);
+  const [detected, setDetected] = useState<{ name: string; price: number } | null>(null);
   const [choices, setChoices] = useState<{ names: OcrChoice[]; prices: OcrPriceChoice[] }>({ names: [], prices: [] });
   const [receiptItems, setReceiptItems] = useState<ReceiptParsedItem[]>([]);
   const [accumulatedReceiptItems, setAccumulatedReceiptItems] = useState<ReceiptParsedItem[]>([]);
@@ -56,10 +54,8 @@ export default function ScanScreen() {
   const mountedRef = useRef(true);
   const focusedRef = useRef(false);
   const scanModeRef = useRef<ScanMode>('priceTag');
-  const lastBarcodeRef = useRef<string | null>(null);
   const addItem = useCartStore((s) => s.addItem);
   const addItems = useCartStore((s) => s.addItems);
-  const sessions = useCartStore((s) => s.sessions);
   const scanAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -85,7 +81,7 @@ export default function ScanScreen() {
 
   const scanTranslateY = scanAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [10, scanMode === 'receipt' ? 390 : scanMode === 'barcode' ? 100 : 155],
+    outputRange: [10, scanMode === 'receipt' ? 390 : 155],
   });
 
   useEffect(() => {
@@ -221,7 +217,6 @@ export default function ScanScreen() {
   const resetDetection = useCallback((mode: ScanMode) => {
     scanModeRef.current = mode;
     foundRef.current = false;
-    lastBarcodeRef.current = null;
     setIsScanning(false);
     setSheetOpen(false);
     setReceiptSheetOpen(false);
@@ -244,64 +239,6 @@ export default function ScanScreen() {
     resetDetection(mode);
   }, [resetDetection]);
 
-  const readBarcodeFromEvent = (event: any) => {
-    const native = event?.nativeEvent ?? event;
-    return String(
-      native?.codeStringValue ??
-      native?.code ??
-      native?.data ??
-      native?.value ??
-      ''
-    ).trim();
-  };
-
-  const handleReadCode = useCallback(async (event: any) => {
-    if (
-      scanMode !== 'barcode' ||
-      foundRef.current ||
-      isScanningRef.current ||
-      !mountedRef.current ||
-      !focusedRef.current
-    ) return;
-
-    const barcode = readBarcodeFromEvent(event);
-    if (!barcode || barcode === lastBarcodeRef.current) return;
-
-    lastBarcodeRef.current = barcode;
-    isScanningRef.current = true;
-    setIsScanning(true);
-    setScanStatus('Checking product...');
-
-    try {
-      const product = await lookupProductByBarcode(barcode);
-      foundRef.current = true;
-      if (!mountedRef.current) return;
-
-      const fallbackProduct: ProductLookupResult = {
-        barcode,
-        name: `Barcode ${barcode}`,
-      };
-
-      setChoices({ names: [], prices: [] });
-      setDetected({
-        name: product?.name ?? fallbackProduct.name,
-        price: 0,
-        product: product ?? fallbackProduct,
-      });
-      setSheetOpen(true);
-      setScanStatus(product ? 'Product found' : 'Barcode found');
-    } catch (e) {
-      console.error(e);
-      if (mountedRef.current) {
-        lastBarcodeRef.current = null;
-        setScanStatus('Lookup failed. Try again.');
-      }
-    } finally {
-      isScanningRef.current = false;
-      if (mountedRef.current) setIsScanning(false);
-    }
-  }, [scanMode]);
-
   useEffect(() => {
     if (!hasPermission) return;
 
@@ -323,10 +260,6 @@ export default function ScanScreen() {
       quantity,
       isScanned: true,
       category,
-      barcode: detected?.product?.barcode,
-      brand: detected?.product?.brand,
-      productCategory: detected?.product?.category,
-      productImageUrl: detected?.product?.imageUrl,
     });
     setAddedDialog({ title: 'Item added', message: 'Product added to cart.' });
     setAddedToCartDialogOpen(true);
@@ -341,9 +274,8 @@ export default function ScanScreen() {
     setDetected(null);
     setChoices({ names: [], prices: [] });
     foundRef.current = false;
-    lastBarcodeRef.current = null;
     setScanStatus('Tap Scan to capture');
-  }, [scanMode]);
+  }, []);
 
   const handleConfirmReceipt = useCallback((items: ReceiptParsedItem[]) => {
     addItems(items.map(receiptItemToCartItem));
@@ -426,8 +358,6 @@ export default function ScanScreen() {
         style={StyleSheet.absoluteFill}
         cameraType={CameraType.Back}
         flashMode="auto"
-        scanBarcode={scanMode === 'barcode'}
-        onReadCode={handleReadCode}
         onError={(e: any) => {
           console.error('Camera error:', e);
           setCameraReady(false);
@@ -452,15 +382,6 @@ export default function ScanScreen() {
               <Text style={[styles.modeText, scanMode === 'priceTag' && styles.modeTextActive]}>Price Tag</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.modeButton, scanMode === 'barcode' && styles.modeButtonActive]}
-              onPress={() => handleModeChange('barcode')}
-              activeOpacity={0.8}>
-              <View style={[styles.modeIconWrap, scanMode === 'barcode' && styles.modeIconWrapActive]}>
-                <Ionicons name="barcode-outline" size={16} color={scanMode === 'barcode' ? '#FFF' : 'rgba(255,255,255,0.7)'} />
-              </View>
-              <Text style={[styles.modeText, scanMode === 'barcode' && styles.modeTextActive]}>Barcode</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               style={[styles.modeButton, scanMode === 'receipt' && styles.modeButtonActive]}
               onPress={() => handleModeChange('receipt')}
               activeOpacity={0.8}>
@@ -473,15 +394,13 @@ export default function ScanScreen() {
           <View style={styles.topBadge}>
             <View style={styles.topBadgeIconWrap}>
               <Ionicons
-                name={scanMode === 'barcode' ? 'barcode-outline' : scanMode === 'receipt' ? 'receipt-outline' : 'pricetag-outline'}
+                name={scanMode === 'receipt' ? 'receipt-outline' : 'pricetag-outline'}
                 size={15}
                 color="#FFFFFF"
               />
             </View>
             <Text style={styles.hint}>
-              {scanMode === 'barcode'
-                ? 'Center barcode within slot for instant scan'
-                : scanMode === 'receipt'
+              {scanMode === 'receipt'
                 ? 'Align receipt top-to-bottom & tap Scan'
                 : 'Position price tag inside frame & tap Scan'}
             </Text>
@@ -491,11 +410,10 @@ export default function ScanScreen() {
         <View style={styles.scanRow}>
           <View style={styles.sideMask} />
           <View
-            style={[
-              styles.viewfinder,
-              scanMode === 'receipt' && styles.receiptViewfinder,
-              scanMode === 'barcode' && styles.barcodeViewfinder,
-            ]}>
+style={[
+                styles.viewfinder,
+                scanMode === 'receipt' && styles.receiptViewfinder,
+              ]}>
             <View style={[styles.corner, styles.topLeft]} />
             <View style={[styles.corner, styles.topRight]} />
             <View style={[styles.corner, styles.bottomLeft]} />
@@ -513,7 +431,6 @@ export default function ScanScreen() {
                 { transform: [{ translateY: scanTranslateY }] },
               ]}
             />
-            {scanMode === 'barcode' && <View style={styles.barcodeLaser} />}
           </View>
           <View style={styles.sideMask} />
         </View>
@@ -524,7 +441,7 @@ export default function ScanScreen() {
               <ActivityIndicator color="#FFF" size="small" />
             ) : (
               <Ionicons
-                name={scanMode === 'barcode' ? 'barcode-outline' : scanMode === 'receipt' ? 'receipt-outline' : 'pricetag-outline'}
+                name={scanMode === 'receipt' ? 'receipt-outline' : 'pricetag-outline'}
                 size={17}
                 color="#FFF"
               />
@@ -538,13 +455,13 @@ export default function ScanScreen() {
             activeOpacity={0.8}>
             <View style={styles.captureIconWrap}>
               <Ionicons
-                name={scanMode === 'barcode' ? 'barcode-outline' : scanMode === 'receipt' ? 'receipt-outline' : 'camera'}
+                name={scanMode === 'receipt' ? 'receipt-outline' : 'camera'}
                 size={22}
                 color="#FFF"
               />
             </View>
             <Text style={styles.captureText}>
-              {isScanning ? 'Processing…' : scanMode === 'receipt' ? 'Scan Receipt' : scanMode === 'barcode' ? 'Scan Barcode' : 'Scan Price Tag'}
+              {isScanning ? 'Processing…' : scanMode === 'receipt' ? 'Scan Receipt' : 'Scan Price Tag'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -555,10 +472,7 @@ export default function ScanScreen() {
           open={sheetOpen}
           name={detected.name}
           price={detected.price}
-          barcode={detected.product?.barcode}
-          brand={detected.product?.brand}
           initialCategory={DEFAULT_CATEGORY}
-          previousPrice={detected.product?.barcode ? findPreviousBarcodePurchase(sessions, detected.product.barcode) : null}
           nameChoices={choices.names}
           priceChoices={choices.prices}
           onConfirm={handleConfirm}
@@ -688,7 +602,6 @@ const styles = StyleSheet.create({
   scanRow: { flexDirection: 'row', alignItems: 'stretch', justifyContent: 'center' },
   sideMask: { flex: 1, backgroundColor: 'rgba(10,12,16,0.78)' },
   viewfinder: { width: 320, height: 180, position: 'relative', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.25)', borderRadius: 16, backgroundColor: 'transparent' },
-  barcodeViewfinder: { width: 300, height: 120, borderRadius: 14 },
   receiptViewfinder: { width: 260, height: 420, borderRadius: 20 },
   corner: { position: 'absolute', width: 24, height: 24, borderColor: colors.primary, borderWidth: 3 },
   topLeft: { top: -2, left: -2, borderBottomWidth: 0, borderRightWidth: 0, borderTopLeftRadius: 14 },
@@ -721,7 +634,6 @@ const styles = StyleSheet.create({
     opacity: 0.18,
     borderRadius: 16,
   },
-  barcodeLaser: { position: 'absolute', width: '84%', height: 2, backgroundColor: '#FF3B30', shadowColor: '#FF3B30', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.9, shadowRadius: 8, elevation: 6 },
   bottomMask: { flex: 1, backgroundColor: 'rgba(10,12,16,0.78)', alignItems: 'center', justifyContent: 'flex-start', paddingTop: 26, paddingBottom: 48, paddingHorizontal: 22, gap: 18 },
   statusPill: { minHeight: 46, maxWidth: '90%', borderRadius: 20, backgroundColor: 'rgba(20,24,33,0.92)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   statusText: { color: '#FFF', fontSize: 13, fontWeight: '700', textAlign: 'center', letterSpacing: 0.2 },

@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AppDialog from '../../components/AppDialog';
 import Mascot from '../../components/Mascot';
 import { formatMoney, formatShortDate } from '../../lib/format';
 import { getProductHistory, getProductHistorySummary } from '../../lib/productHistory';
-import { colors, shadow } from '../../lib/theme';
+import { getTheme, shadow } from '../../lib/theme';
 import { useScreenPadding } from '../../lib/useScreenPadding';
 import { ShoppingSession, useCartStore } from '../../store/useCartStore';
 
@@ -14,13 +14,14 @@ type SessionCardProps = {
     sessions: ShoppingSession[];
     onOpen: (session: ShoppingSession) => void;
     onDelete: (id: string) => void;
+    darkMode: boolean;
 };
 
-function getComparablePrices(sessions: ShoppingSession[], itemName: string, barcode?: string) {
+function getComparablePrices(sessions: ShoppingSession[], itemName: string) {
     const keyName = itemName.toLowerCase();
     return sessions
         .flatMap((session) => session.items.map((item) => ({ item, session })))
-        .filter(({ item }) => barcode ? item.barcode === barcode : item.name.toLowerCase() === keyName)
+        .filter(({ item }) => item.name.toLowerCase() === keyName)
         .filter(({ session }) => session.storeName)
         .reduce<Record<string, number[]>>((stores, { item, session }) => {
             const store = session.storeName ?? 'Unknown';
@@ -29,18 +30,20 @@ function getComparablePrices(sessions: ShoppingSession[], itemName: string, barc
         }, {});
 }
 
-function SessionCard({ session, sessions, onOpen, onDelete }: SessionCardProps) {
+function SessionCard({ session, sessions, onOpen, onDelete, darkMode }: SessionCardProps) {
     const [confirmOpen, setConfirmOpen] = useState(false);
     const unitCount = session.items.reduce((sum, item) => sum + item.quantity, 0);
     const budgetDiff = session.budget - session.total;
     const over = session.budget > 0 && budgetDiff < 0;
+    const t = getTheme(darkMode);
+    const styles = useMemo(() => getStyles(t), [t]);
 
     return (
         <View style={styles.cardContainer}>
             <Pressable style={styles.sessionCard} onPress={() => onOpen(session)}>
                 <View style={styles.sessionTop}>
                     <View style={styles.sessionIcon}>
-                        <Ionicons name="bag-check-outline" size={20} color={colors.primary} />
+                        <Ionicons name="bag-check-outline" size={20} color={t.text} />
                     </View>
                     <View style={styles.sessionTitleBlock}>
                         <Text style={styles.sessionDate}>{formatShortDate(session.date)}</Text>
@@ -59,7 +62,7 @@ function SessionCard({ session, sessions, onOpen, onDelete }: SessionCardProps) 
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                             accessibilityLabel="Delete session"
                         >
-                            <Ionicons name="trash-outline" size={17} color={colors.muted} />
+                            <Ionicons name="trash-outline" size={17} color={t.muted} />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -70,7 +73,7 @@ function SessionCard({ session, sessions, onOpen, onDelete }: SessionCardProps) 
                             <Ionicons
                                 name={over ? "alert-circle-outline" : "checkmark-circle-outline"}
                                 size={13}
-                                color={over ? colors.text : colors.primary}
+                                color={over ? t.danger : t.text}
                             />
                             <Text style={[styles.budgetLine, over && styles.overText]}>
                                 {over ? `${formatMoney(Math.abs(budgetDiff))} over budget` : `${formatMoney(budgetDiff)} under budget`}
@@ -99,8 +102,15 @@ function SessionCard({ session, sessions, onOpen, onDelete }: SessionCardProps) 
                 icon="trash-outline"
                 onDismiss={() => setConfirmOpen(false)}
                 actions={[
-                    { label: 'Cancel', variant: 'soft', onPress: () => setConfirmOpen(false) },
-                    { label: 'Delete', onPress: () => { setConfirmOpen(false); onDelete(session.id); } },
+                    { label: 'Cancel', onPress: () => setConfirmOpen(false), variant: 'soft' },
+                    {
+                        label: 'Delete',
+                        onPress: () => {
+                            setConfirmOpen(false);
+                            onDelete(session.id);
+                        },
+                        variant: 'danger',
+                    },
                 ]}
             />
         </View>
@@ -108,97 +118,98 @@ function SessionCard({ session, sessions, onOpen, onDelete }: SessionCardProps) 
 }
 
 export default function History() {
-    const sessions = useCartStore((state) => state.sessions);
-    const deleteSession = useCartStore((state) => state.deleteSession);
+    const { sessions, deleteSession, themeMode } = useCartStore();
     const [selectedSession, setSelectedSession] = useState<ShoppingSession | null>(null);
-    const [confirmModalDelete, setConfirmModalDelete] = useState(false);
     const screenPadding = useScreenPadding();
-    const lifetimeTotal = sessions.reduce((sum, session) => sum + session.total, 0);
-    const lifetimeItems = sessions.reduce((sum, session) => sum + session.items.reduce((count, item) => count + item.quantity, 0), 0);
+
+    const darkMode = themeMode === 'dark';
+    const t = useMemo(() => getTheme(darkMode), [darkMode]);
+    const styles = useMemo(() => getStyles(t), [t]);
+
+    const totalSpent = useMemo(() => sessions.reduce((sum, s) => sum + s.total, 0), [sessions]);
+    const totalItemsCount = useMemo(() => sessions.reduce((sum, s) => sum + s.items.reduce((isum, i) => isum + i.quantity, 0), 0), [sessions]);
 
     return (
-        <ScrollView style={styles.screen} contentContainerStyle={[styles.content, screenPadding]}>
+        <ScrollView style={styles.screen} contentContainerStyle={[styles.content, screenPadding]} keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
                 <View>
-                    <Text style={styles.kicker}>Saved trips</Text>
+                    <Text style={styles.kicker}>Log & archive</Text>
                     <Text style={styles.title}>History</Text>
                 </View>
                 <View style={styles.headerIcon}>
-                    <Ionicons name="time-outline" size={23} color={colors.primary} />
+                    <Ionicons name="time-outline" size={22} color={t.text} />
                 </View>
             </View>
 
             <View style={styles.summary}>
                 <View style={styles.summaryItem}>
                     <View style={styles.summaryHeader}>
-                        <Ionicons name="receipt-outline" size={15} color={colors.primary} />
-                        <Text style={styles.summaryLabel}>Sessions</Text>
+                        <Ionicons name="receipt-outline" size={15} color={t.text} />
+                        <Text style={styles.summaryLabel}>Trips</Text>
                     </View>
                     <Text style={styles.summaryValue}>{sessions.length}</Text>
                 </View>
                 <View style={styles.summaryItem}>
                     <View style={styles.summaryHeader}>
-                        <Ionicons name="cube-outline" size={15} color={colors.primary} />
-                        <Text style={styles.summaryLabel}>Units</Text>
+                        <Ionicons name="wallet-outline" size={15} color={t.text} />
+                        <Text style={styles.summaryLabel}>Total Spent</Text>
                     </View>
-                    <Text style={styles.summaryValue}>{lifetimeItems}</Text>
+                    <Text style={styles.summaryValue}>{formatMoney(totalSpent)}</Text>
                 </View>
                 <View style={styles.summaryItem}>
                     <View style={styles.summaryHeader}>
-                        <Ionicons name="wallet-outline" size={15} color={colors.primary} />
-                        <Text style={styles.summaryLabel}>Spent</Text>
+                        <Ionicons name="basket-outline" size={15} color={t.text} />
+                        <Text style={styles.summaryLabel}>Units</Text>
                     </View>
-                    <Text style={styles.summaryValue}>{formatMoney(lifetimeTotal)}</Text>
+                    <Text style={styles.summaryValue}>{totalItemsCount}</Text>
                 </View>
             </View>
 
             {sessions.length === 0 ? (
-                <>
-                    <View style={styles.emptyState}>
-                        <View style={styles.emptyIcon}>
-                            <Ionicons name="receipt-outline" size={32} color={colors.primary} />
-                        </View>
-                        <Text style={styles.emptyTitle}>No sessions yet</Text>
-                        <Text style={styles.emptyText}>Save a cart session when you finish shopping.</Text>
+                <View style={styles.emptyState}>
+                    <View style={styles.emptyIcon}>
+                        <Ionicons name="time-outline" size={28} color={t.text} />
                     </View>
-                    <Mascot message="Once you finish shopping and save a session, it will show up here!" type="neutral" />
-                </>
+                    <Text style={styles.emptyTitle}>No saved shopping trips</Text>
+                    <Text style={styles.emptyText}>Complete and save a cart session to archive your shopping history and track prices.</Text>
+                </View>
             ) : (
-                sessions.map((session) => (
+                sessions.slice().reverse().map((session) => (
                     <SessionCard
                         key={session.id}
                         session={session}
                         sessions={sessions}
                         onOpen={setSelectedSession}
                         onDelete={deleteSession}
+                        darkMode={darkMode}
                     />
                 ))
             )}
 
-            <Modal
-                visible={Boolean(selectedSession)}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setSelectedSession(null)}>
+            <View style={{ height: 100 }} />
+
+            {/* Session Detail Modal */}
+            <Modal visible={selectedSession !== null} transparent animationType="fade" onRequestClose={() => setSelectedSession(null)}>
                 <View style={styles.modalBackdrop}>
                     <Pressable style={StyleSheet.absoluteFill} onPress={() => setSelectedSession(null)} />
                     {selectedSession && (
                         <View style={styles.detailSheet}>
                             <View style={styles.detailHeader}>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.detailKicker}>Shopping session</Text>
-                                    <Text style={styles.detailTitle}>{formatShortDate(selectedSession.date)}</Text>
+                                <View>
+                                    <Text style={styles.detailKicker}>{formatShortDate(selectedSession.date)}</Text>
+                                    <Text style={styles.detailTitle}>{selectedSession.storeName || 'Shopping Trip'}</Text>
                                 </View>
                                 <View style={styles.detailHeaderActions}>
                                     <TouchableOpacity
                                         style={styles.deleteModalButton}
-                                        onPress={() => setConfirmModalDelete(true)}
-                                        accessibilityLabel="Delete session"
-                                    >
-                                        <Ionicons name="trash-outline" size={18} color={colors.text} />
+                                        onPress={() => {
+                                            deleteSession(selectedSession.id);
+                                            setSelectedSession(null);
+                                        }}>
+                                        <Ionicons name="trash-outline" size={18} color={t.danger} />
                                     </TouchableOpacity>
                                     <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedSession(null)}>
-                                        <Ionicons name="close" size={22} color={colors.text} />
+                                        <Ionicons name="close" size={20} color={t.text} />
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -206,77 +217,39 @@ export default function History() {
                             <View style={styles.detailSummary}>
                                 <Text style={styles.detailTotal}>{formatMoney(selectedSession.total)}</Text>
                                 <Text style={styles.detailMeta}>
-                                    {selectedSession.storeName ? `${selectedSession.storeName} • ` : ''}{selectedSession.items.reduce((sum, item) => sum + item.quantity, 0)} units in {selectedSession.items.length} items
+                                    {selectedSession.items.length} items • Budget: {selectedSession.budget > 0 ? formatMoney(selectedSession.budget) : 'None'}
                                 </Text>
                             </View>
 
                             <ScrollView style={styles.detailItems} showsVerticalScrollIndicator={false}>
-                                {selectedSession.items.map((item) => (
-                                    <View key={item.id} style={styles.detailItem}>
-                                        <View style={styles.detailItemText}>
-                                            <Text style={styles.detailItemName}>{item.name}</Text>
-                                            <Text style={styles.detailItemMeta}>{item.quantity} x {formatMoney(item.price)}{item.isRecurring ? ' - recurring' : ''}</Text>
-                                            {(() => {
-                                                const history = getProductHistory(sessions, item);
-                                                const summary = getProductHistorySummary(history);
-                                                if (!summary || history.length <= 1) return null;
-                                                return (
-                                                    <View style={styles.priceHistoryBox}>
-                                                        <Text style={styles.priceHistoryTitle}>Price history</Text>
-                                                        <Text style={styles.priceHistoryText}>
-                                                            Low {formatMoney(summary.min)} - High {formatMoney(summary.max)} - Latest {formatMoney(summary.latest.price)}
-                                                        </Text>
-                                                        <View style={styles.priceDots}>
-                                                            {history.slice(-6).map((point) => (
-                                                                <View key={`${point.date}-${point.price}`} style={styles.priceDotWrap}>
-                                                                    <View style={[styles.priceDot, point.price === summary.max && styles.priceDotHigh, point.price === summary.min && styles.priceDotLow]} />
-                                                                </View>
-                                                            ))}
-                                                        </View>
-                                                    </View>
-                                                );
-                                            })()}
-                                            {(() => {
-                                                const stores = getComparablePrices(sessions, item.name, item.barcode);
-                                                const entries = Object.entries(stores)
-                                                    .map(([store, prices]) => ({ store, avg: prices.reduce((sum, price) => sum + price, 0) / prices.length }))
-                                                    .sort((a, b) => a.avg - b.avg)
-                                                    .slice(0, 3);
-                                                if (entries.length <= 1) return null;
-                                                return (
+                                {selectedSession.items.map((item) => {
+                                    const comparable = getComparablePrices(sessions, item.name);
+                                    const stores = Object.entries(comparable);
+                                    return (
+                                        <View key={item.id} style={styles.detailItem}>
+                                            <View style={styles.detailItemText}>
+                                                <Text style={styles.detailItemName}>{item.name}</Text>
+                                                <Text style={styles.detailItemMeta}>
+                                                    {item.quantity} × {formatMoney(item.price)} {item.isRecurring ? '• Recurring' : ''}
+                                                </Text>
+                                                {stores.length > 0 && (
                                                     <View style={styles.storeCompareRow}>
-                                                        {entries.map((entry) => (
-                                                            <Text key={entry.store} style={styles.storeComparePill}>{entry.store}: {formatMoney(entry.avg)}</Text>
-                                                        ))}
+                                                        {stores.map(([store, prices]) => {
+                                                            const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+                                                            return (
+                                                                <Text key={store} style={styles.storeComparePill}>
+                                                                    {store}: {formatMoney(avg)}
+                                                                </Text>
+                                                            );
+                                                        })}
                                                     </View>
-                                                );
-                                            })()}
+                                                )}
+                                            </View>
+                                            <Text style={styles.detailItemPrice}>{formatMoney(item.price * item.quantity)}</Text>
                                         </View>
-                                        <Text style={styles.detailItemPrice}>{formatMoney(item.price * item.quantity)}</Text>
-                                    </View>
-                                ))}
+                                    );
+                                })}
                             </ScrollView>
-
-                            <AppDialog
-                                visible={confirmModalDelete}
-                                title="Delete history?"
-                                message="This removes this saved shopping session from your history."
-                                icon="trash-outline"
-                                onDismiss={() => setConfirmModalDelete(false)}
-                                actions={[
-                                    { label: 'Cancel', variant: 'soft', onPress: () => setConfirmModalDelete(false) },
-                                    {
-                                        label: 'Delete',
-                                        onPress: () => {
-                                            setConfirmModalDelete(false);
-                                            if (selectedSession) {
-                                                deleteSession(selectedSession.id);
-                                                setSelectedSession(null);
-                                            }
-                                        },
-                                    },
-                                ]}
-                            />
                         </View>
                     )}
                 </View>
@@ -285,68 +258,68 @@ export default function History() {
     );
 }
 
-const styles = StyleSheet.create({
-    screen: { flex: 1, backgroundColor: colors.bg },
+const getStyles = (t: ReturnType<typeof getTheme>) => StyleSheet.create({
+    screen: { flex: 1, backgroundColor: t.bg },
     content: { paddingBottom: 40 },
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-    kicker: { color: colors.primary, fontSize: 13, fontWeight: '800', textTransform: 'uppercase' },
-    title: { color: colors.text, fontSize: 30, fontWeight: '900' },
-    headerIcon: { width: 48, height: 48, borderRadius: 17, backgroundColor: colors.surfaceBlue, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.primarySoft },
+    kicker: { color: t.text, fontSize: 13, fontWeight: '800', textTransform: 'uppercase' },
+    title: { color: t.text, fontSize: 30, fontWeight: '900' },
+    headerIcon: { width: 48, height: 48, borderRadius: 17, backgroundColor: t.surfaceBlue, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.glassBorder },
     summary: { flexDirection: 'row', gap: 8, marginBottom: 20 },
-    summaryItem: { flex: 1, backgroundColor: colors.card, borderRadius: 18, padding: 12, borderWidth: 1, borderColor: colors.glassBorder, minHeight: 84, justifyContent: 'space-between', ...shadow },
+    summaryItem: { flex: 1, backgroundColor: t.card, borderRadius: 18, padding: 12, borderWidth: 1, borderColor: t.glassBorder, minHeight: 84, justifyContent: 'space-between', ...shadow },
     summaryHeader: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-    summaryValue: { color: colors.text, fontSize: 17, fontWeight: '900' },
-    summaryLabel: { color: colors.muted, fontSize: 12, fontWeight: '700' },
-    emptyState: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 18, backgroundColor: colors.card, borderRadius: 22, borderWidth: 1, borderColor: colors.glassBorder, marginBottom: 16 },
-    emptyIcon: { width: 58, height: 58, borderRadius: 20, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.primaryDeep },
-    emptyTitle: { color: colors.text, fontWeight: '800', marginTop: 12, fontSize: 16 },
-    emptyText: { color: colors.muted, marginTop: 4, textAlign: 'center', lineHeight: 19 },
+    summaryValue: { color: t.text, fontSize: 17, fontWeight: '900' },
+    summaryLabel: { color: t.muted, fontSize: 12, fontWeight: '700' },
+    emptyState: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 18, backgroundColor: t.card, borderRadius: 22, borderWidth: 1, borderColor: t.glassBorder, marginBottom: 16 },
+    emptyIcon: { width: 58, height: 58, borderRadius: 20, backgroundColor: t.surfaceBlue, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.glassBorder },
+    emptyTitle: { color: t.text, fontWeight: '800', marginTop: 12, fontSize: 16 },
+    emptyText: { color: t.muted, marginTop: 4, textAlign: 'center', lineHeight: 19 },
     cardContainer: { marginBottom: 12 },
-    sessionCard: { backgroundColor: colors.card, borderRadius: 22, padding: 16, borderWidth: 1, borderColor: colors.glassBorder, ...shadow },
+    sessionCard: { backgroundColor: t.card, borderRadius: 22, padding: 16, borderWidth: 1, borderColor: t.glassBorder, ...shadow },
     sessionTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    sessionIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.surfaceBlue, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.primarySoft },
+    sessionIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: t.surfaceBlue, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.glassBorder },
     sessionTitleBlock: { flex: 1 },
-    sessionDate: { color: colors.text, fontSize: 16, fontWeight: '800' },
-    sessionMeta: { color: colors.muted, fontSize: 12, marginTop: 3, fontWeight: '600' },
+    sessionDate: { color: t.text, fontSize: 16, fontWeight: '800' },
+    sessionMeta: { color: t.muted, fontSize: 12, marginTop: 3, fontWeight: '600' },
     sessionRightBlock: { alignItems: 'flex-end', gap: 6 },
-    sessionTotal: { color: colors.text, fontSize: 17, fontWeight: '900' },
-    deleteIconButton: { width: 34, height: 34, borderRadius: 12, backgroundColor: colors.surfaceBlue, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.glassBorder },
+    sessionTotal: { color: t.text, fontSize: 17, fontWeight: '900' },
+    deleteIconButton: { width: 34, height: 34, borderRadius: 12, backgroundColor: t.surfaceBlue, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.glassBorder },
     budgetBadgeWrap: { marginTop: 10, flexDirection: 'row' },
     budgetBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1 },
-    budgetBadgeUnder: { backgroundColor: colors.surfaceBlue, borderColor: colors.glassBorder },
-    budgetBadgeOver: { backgroundColor: colors.surfacePink, borderColor: colors.borderPink },
-    budgetLine: { color: colors.text, fontSize: 12, fontWeight: '700' },
-    overText: { color: colors.text, fontWeight: '800' },
-    itemList: { marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border, gap: 6 },
+    budgetBadgeUnder: { backgroundColor: t.surfaceBlue, borderColor: t.glassBorder },
+    budgetBadgeOver: { backgroundColor: t.dangerSoft, borderColor: t.danger },
+    budgetLine: { color: t.text, fontSize: 12, fontWeight: '700' },
+    overText: { color: t.danger, fontWeight: '800' },
+    itemList: { marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: t.glassBorder, gap: 6 },
     historyItem: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-    historyItemName: { flex: 1, color: colors.text, fontSize: 13, fontWeight: '600' },
-    historyItemPrice: { color: colors.muted, fontSize: 13, fontWeight: '600' },
-    moreText: { color: colors.soft, fontSize: 12, fontWeight: '800', marginTop: 2 },
+    historyItemName: { flex: 1, color: t.text, fontSize: 13, fontWeight: '600' },
+    historyItemPrice: { color: t.muted, fontSize: 13, fontWeight: '600' },
+    moreText: { color: t.soft, fontSize: 12, fontWeight: '800', marginTop: 2 },
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
-    detailSheet: { width: '100%', maxHeight: '78%', backgroundColor: colors.card, borderRadius: 24, borderWidth: 1, borderColor: colors.glassBorder, padding: 18, ...shadow },
+    detailSheet: { width: '100%', maxHeight: '78%', backgroundColor: t.card, borderRadius: 24, borderWidth: 1, borderColor: t.glassBorder, padding: 18, ...shadow },
     detailHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-    detailKicker: { color: colors.muted, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
-    detailTitle: { color: colors.text, fontSize: 22, fontWeight: '900', marginTop: 2 },
+    detailKicker: { color: t.muted, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
+    detailTitle: { color: t.text, fontSize: 22, fontWeight: '900', marginTop: 2 },
     detailHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-    deleteModalButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.surfacePink, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.borderPink },
-    closeButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: colors.surfaceBlue, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.glassBorder },
-    detailSummary: { marginTop: 16, paddingVertical: 14, paddingHorizontal: 14, borderRadius: 18, backgroundColor: colors.surfaceBlue, borderWidth: 1, borderColor: colors.glassBorder },
-    detailTotal: { color: colors.text, fontSize: 28, fontWeight: '900' },
-    detailMeta: { color: colors.muted, fontSize: 13, marginTop: 4 },
+    deleteModalButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: t.dangerSoft, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.danger },
+    closeButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: t.surfaceBlue, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: t.glassBorder },
+    detailSummary: { marginTop: 16, paddingVertical: 14, paddingHorizontal: 14, borderRadius: 18, backgroundColor: t.surfaceBlue, borderWidth: 1, borderColor: t.glassBorder },
+    detailTotal: { color: t.text, fontSize: 28, fontWeight: '900' },
+    detailMeta: { color: t.muted, fontSize: 13, marginTop: 4 },
     detailItems: { marginTop: 12 },
-    detailItem: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+    detailItem: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: t.glassBorder },
     detailItemText: { flex: 1 },
-    detailItemName: { color: colors.text, fontSize: 15, fontWeight: '800' },
-    detailItemMeta: { color: colors.muted, fontSize: 12, marginTop: 4 },
+    detailItemName: { color: t.text, fontSize: 15, fontWeight: '800' },
+    detailItemMeta: { color: t.muted, fontSize: 12, marginTop: 4 },
     storeCompareRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 },
-    storeComparePill: { color: colors.text, fontSize: 11, fontWeight: '800', backgroundColor: colors.surfaceBlue, borderRadius: 99, paddingHorizontal: 8, paddingVertical: 5, borderWidth: 1, borderColor: colors.glassBorder },
-    priceHistoryBox: { marginTop: 8, padding: 10, borderRadius: 14, backgroundColor: colors.surfaceBlue, borderWidth: 1, borderColor: colors.glassBorder },
-    priceHistoryTitle: { color: colors.text, fontSize: 12, fontWeight: '900' },
-    priceHistoryText: { color: colors.muted, fontSize: 11, fontWeight: '700', marginTop: 3 },
+    storeComparePill: { color: t.text, fontSize: 11, fontWeight: '800', backgroundColor: t.surfaceBlue, borderRadius: 99, paddingHorizontal: 8, paddingVertical: 5, borderWidth: 1, borderColor: t.glassBorder },
+    priceHistoryBox: { marginTop: 8, padding: 10, borderRadius: 14, backgroundColor: t.surfaceBlue, borderWidth: 1, borderColor: t.glassBorder },
+    priceHistoryTitle: { color: t.text, fontSize: 12, fontWeight: '900' },
+    priceHistoryText: { color: t.muted, fontSize: 11, fontWeight: '700', marginTop: 3 },
     priceDots: { flexDirection: 'row', gap: 6, marginTop: 8 },
-    priceDotWrap: { flex: 1, height: 8, borderRadius: 99, backgroundColor: 'rgba(0,0,0,0.08)', overflow: 'hidden' },
-    priceDot: { height: '100%', width: '70%', borderRadius: 99, backgroundColor: colors.muted },
-    priceDotHigh: { backgroundColor: colors.danger },
-    priceDotLow: { backgroundColor: colors.primary },
-    detailItemPrice: { color: colors.text, fontSize: 15, fontWeight: '900' },
+    priceDotWrap: { flex: 1, height: 8, borderRadius: 99, backgroundColor: t.surfaceBlue, overflow: 'hidden' },
+    priceDot: { height: '100%', width: '70%', borderRadius: 99, backgroundColor: t.muted },
+    priceDotHigh: { backgroundColor: t.danger },
+    priceDotLow: { backgroundColor: t.primary },
+    detailItemPrice: { color: t.text, fontSize: 15, fontWeight: '900' },
 });

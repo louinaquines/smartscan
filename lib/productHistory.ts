@@ -6,12 +6,12 @@ export type ProductHistoryPoint = {
   price: number;
 };
 
-export function getProductHistory(sessions: ShoppingSession[], item: Pick<CartItem, 'name' | 'barcode'>): ProductHistoryPoint[] {
+export function getProductHistory(sessions: ShoppingSession[], item: Pick<CartItem, 'name'>): ProductHistoryPoint[] {
   const keyName = item.name.toLowerCase();
   return sessions
     .flatMap((session) =>
       session.items
-        .filter((sessionItem) => item.barcode ? sessionItem.barcode === item.barcode : sessionItem.name.toLowerCase() === keyName)
+        .filter((sessionItem) => sessionItem.name.toLowerCase() === keyName)
         .map((sessionItem) => ({
           date: session.date,
           storeName: session.storeName,

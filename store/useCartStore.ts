@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { BudgetCategoryId, CategoryBudgets, DEFAULT_CATEGORY, createEmptyCategoryBudgets } from '../lib/budgetCategories';
 import { buildWidgetSnapshot } from '../lib/backup';
+import { CurrencyId, DEFAULT_CURRENCY } from '../lib/currencies';
+import { setActiveCurrency } from '../lib/format';
 import { stringSimilarity } from '../lib/stringMatch';
 import { storage, StorageKeys } from '../lib/storage';
 
@@ -9,10 +11,9 @@ export type CartItem = {
     name: string;
     price: number;
     quantity: number;
-    isScanned: boolean;
+isScanned: boolean;
     isRecurring?: boolean;
     addedByMemberId?: string;
-    barcode?: string;
     brand?: string;
     category: BudgetCategoryId;
     productCategory?: string;
@@ -31,10 +32,9 @@ export type ShoppingListItem = {
     name: string;
     estimatedPrice: number;
     quantity: number;
-    checked: boolean;
+checked: boolean;
     actualPrice?: number;
     matchedCartItemId?: string;
-    barcode?: string;
     createdAt: string;
 };
 
@@ -47,6 +47,8 @@ export type ShoppingSession = {
     storeName?: string;
 };
 
+export type ThemeMode = 'light' | 'dark';
+
 type CartStore = {
     items: CartItem[];
     sessions: ShoppingSession[];
@@ -55,14 +57,19 @@ type CartStore = {
     activeMemberId: string | null;
     budget: number;
     categoryBudgets: CategoryBudgets;
+    currencyId: CurrencyId;
+    themeMode: ThemeMode;
     sessionId: string | null;
     isHydrated: boolean;
     total: () => number;
     remaining: () => number;
     setBudget: (amount: number) => Promise<void>;
     setCategoryBudget: (category: BudgetCategoryId, amount: number) => Promise<void>;
+    setCurrency: (currencyId: CurrencyId) => Promise<void>;
+    setThemeMode: (themeMode: ThemeMode) => Promise<void>;
     setSessionId: (id: string) => void;
     addHouseholdMember: (name: string) => void;
+    removeHouseholdMember: (id: string) => void;
     setActiveMember: (id: string | null) => void;
     addItem: (item: Omit<CartItem, 'id' | 'createdAt' | 'category'> & { category?: BudgetCategoryId }) => CartItem;
     addItems: (items: Array<Omit<CartItem, 'id' | 'createdAt' | 'category'> & { category?: BudgetCategoryId }>) => CartItem[];
@@ -110,6 +117,8 @@ export const useCartStore = create<CartStore>((set, get) => ({
     activeMemberId: null,
     budget: 0,
     categoryBudgets: createEmptyCategoryBudgets(),
+    currencyId: DEFAULT_CURRENCY,
+    themeMode: 'light',
     sessionId: null,
     isHydrated: false,
 
@@ -132,6 +141,17 @@ export const useCartStore = create<CartStore>((set, get) => ({
         set({ categoryBudgets, budget });
     },
 
+    setCurrency: async (currencyId) => {
+        setActiveCurrency(currencyId);
+        await storage.set(StorageKeys.CURRENCY, currencyId);
+        set({ currencyId });
+    },
+
+    setThemeMode: async (themeMode) => {
+        await storage.set(StorageKeys.THEME_MODE, themeMode);
+        set({ themeMode });
+    },
+
     setSessionId: (id) => set({ sessionId: id }),
 
     addHouseholdMember: (name) => {
@@ -147,6 +167,18 @@ export const useCartStore = create<CartStore>((set, get) => ({
             persistHouseholdMembers(householdMembers);
             storage.set(StorageKeys.ACTIVE_MEMBER_ID, member.id);
             return { householdMembers, activeMemberId: member.id };
+        });
+    },
+
+    removeHouseholdMember: (id) => {
+        set((state) => {
+            const householdMembers = state.householdMembers.filter((m) => m.id !== id);
+            persistHouseholdMembers(householdMembers);
+            const activeMemberId = state.activeMemberId === id ? null : state.activeMemberId;
+            if (activeMemberId === null) {
+                storage.set(StorageKeys.ACTIVE_MEMBER_ID, '');
+            }
+            return { householdMembers, activeMemberId };
         });
     },
 
@@ -252,9 +284,9 @@ export const useCartStore = create<CartStore>((set, get) => ({
         set((state) => {
             const candidate = state.shoppingList
                 .filter((item) => !item.checked)
-                .map((item) => ({
+.map((item) => ({
                     item,
-                    score: item.barcode && cartItem.barcode && item.barcode === cartItem.barcode ? 1 : stringSimilarity(item.name, cartItem.name),
+                    score: stringSimilarity(item.name, cartItem.name),
                 }))
                 .sort((a, b) => b.score - a.score)[0];
 
@@ -264,10 +296,9 @@ export const useCartStore = create<CartStore>((set, get) => ({
                 item.id === candidate.item.id
                     ? {
                         ...item,
-                        checked: true,
+checked: true,
                         actualPrice: cartItem.price,
                         matchedCartItemId: cartItem.id,
-                        barcode: cartItem.barcode ?? item.barcode,
                     }
                     : item
             );
@@ -304,10 +335,9 @@ export const useCartStore = create<CartStore>((set, get) => ({
             name: item.name,
             price: item.price,
             quantity: item.quantity,
-            isScanned: false,
+isScanned: false,
             isRecurring: true,
             category: item.category,
-            barcode: item.barcode,
             brand: item.brand,
             productCategory: item.productCategory,
             productImageUrl: item.productImageUrl,
@@ -355,9 +385,11 @@ export const useCartStore = create<CartStore>((set, get) => ({
     },
 
     loadState: async () => {
-        const [savedBudget, savedCategoryBudgets, items, sessions, shoppingList, householdMembers, activeMemberId] = await Promise.all([
+        const [savedBudget, savedCategoryBudgets, savedCurrency, savedThemeMode, items, sessions, shoppingList, householdMembers, activeMemberId] = await Promise.all([
             storage.getNumber(StorageKeys.BUDGET),
             storage.getJson<Partial<CategoryBudgets> | null>(StorageKeys.CATEGORY_BUDGETS, null),
+            storage.getString(StorageKeys.CURRENCY),
+            storage.getString(StorageKeys.THEME_MODE),
             storage.getJson<CartItem[]>(StorageKeys.CART_ITEMS, []),
             storage.getJson<ShoppingSession[]>(StorageKeys.SESSIONS, []),
             storage.getJson<ShoppingListItem[]>(StorageKeys.SHOPPING_LIST, []),
@@ -369,9 +401,16 @@ export const useCartStore = create<CartStore>((set, get) => ({
         if (!savedCategoryBudgets && budget > 0) {
             categoryBudgets.others = budget;
         }
+        const currencyId = (savedCurrency && ['PHP', 'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'AED', 'JPY', 'KRW', 'SAR', 'MYR', 'THB'].includes(savedCurrency)
+            ? savedCurrency
+            : DEFAULT_CURRENCY) as CurrencyId;
+        const themeMode: ThemeMode = savedThemeMode === 'dark' ? 'dark' : 'light';
+        setActiveCurrency(currencyId);
         set({
             budget,
             categoryBudgets,
+            currencyId,
+            themeMode,
             items: items.map((item) => ({ ...item, category: item.category ?? DEFAULT_CATEGORY })),
             sessions: sessions.map((session) => ({
                 ...session,
