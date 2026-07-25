@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { getTheme } from '../lib/theme';
 import { CURRENCIES, CurrencyId, LANGUAGES, LanguageId } from '../lib/currencies';
-import { useTranslation } from '../lib/i18n';
+import { useTranslation, getNativeLanguageName } from '../lib/i18n';
 
 interface SettingsSheetProps {
   open: boolean;
@@ -123,7 +123,7 @@ export default function SettingsSheet({
                 style={[styles.langDropdown, { backgroundColor: theme.surfaceBlue, borderColor: theme.glassBorder }]}
                 onPress={() => setLangOpen(!langOpen)}
                 activeOpacity={0.7}>
-                <Text style={[styles.langDropdownText, { color: theme.text }]}>{t('lang' + languageId)}</Text>
+                <Text style={[styles.langDropdownText, { color: theme.text }]}>{getNativeLanguageName(languageId)}</Text>
                 <Ionicons name={langOpen ? 'chevron-up' : 'chevron-down'} size={18} color={theme.muted} />
               </TouchableOpacity>
               {langOpen && (
@@ -143,7 +143,7 @@ export default function SettingsSheet({
                           styles.langText,
                           { color: theme.text },
                           selected && styles.langTextActive,
-                        ]}>{t('lang' + language.id)}</Text>
+                        ]}>{getNativeLanguageName(language.id)}</Text>
                         {selected && <Ionicons name="checkmark" size={18} color={darkMode ? '#111' : '#FFF'} />}
                       </TouchableOpacity>
                     );

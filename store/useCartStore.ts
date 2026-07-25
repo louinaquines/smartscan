@@ -5,6 +5,7 @@ import { CurrencyId, DEFAULT_CURRENCY, DEFAULT_LANGUAGE, LanguageId } from '../l
 import { setActiveCurrency } from '../lib/format';
 import { stringSimilarity } from '../lib/stringMatch';
 import { storage, StorageKeys } from '../lib/storage';
+import { scheduleRoutineTriggers, sendBudgetLockedNotification, cancelAbandonedCartNotifications } from '../lib/notifications';
 
 export type CartItem = {
     id: string;
@@ -133,6 +134,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
         const categoryBudgets = { ...createEmptyCategoryBudgets(), others: amount };
         await persistCategoryBudgets(categoryBudgets);
         set({ budget: amount, categoryBudgets });
+        sendBudgetLockedNotification();
     },
 
     setCategoryBudget: async (category, amount) => {
@@ -371,6 +373,7 @@ isScanned: false,
         await persistItems([]);
         set({ sessions: nextSessions, items: [], sessionId: null });
         await get().refreshWidgetSnapshot();
+        scheduleRoutineTriggers(new Date());
         return true;
     },
 
@@ -385,6 +388,7 @@ isScanned: false,
         persistItems([]);
         set({ items: [], sessionId: null });
         get().refreshWidgetSnapshot();
+        cancelAbandonedCartNotifications();
     },
 
     refreshWidgetSnapshot: async () => {

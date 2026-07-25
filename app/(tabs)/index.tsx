@@ -483,41 +483,6 @@ export default function Dashboard() {
                     );
                 })()}
 
-                {/* Metric Pills (Scrollable) */}
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={[styles.metricsWrapper, { marginHorizontal: -screenPadding.paddingHorizontal }]}
-                    contentContainerStyle={[styles.metrics, { paddingHorizontal: screenPadding.paddingHorizontal }]}>
-                    <View style={styles.metric}>
-                        <View style={styles.metricIconBlue}>
-                            <Ionicons name="bag-handle-outline" size={18} color={colors.primary} />
-                        </View>
-                        <View>
-                            <Text style={styles.metricValue}>{items.length}</Text>
-                            <Text style={styles.metricLabel}>{t('items')}</Text>
-                        </View>
-                    </View>
-                    <View style={styles.metric}>
-                        <View style={styles.metricIconPink}>
-                            <Ionicons name="scan" size={18} color={colors.accent} />
-                        </View>
-                        <View>
-                            <Text style={styles.metricValue}>{scannedCount}</Text>
-                            <Text style={styles.metricLabel}>{t('scanned')}</Text>
-                        </View>
-                    </View>
-                    <View style={styles.metric}>
-                        <View style={styles.metricIconBlue}>
-                            <Ionicons name="receipt-outline" size={18} color={colors.primary} />
-                        </View>
-                        <View>
-                            <Text style={styles.metricValue}>{sessions.length}</Text>
-                            <Text style={styles.metricLabel}>{t('sessions')}</Text>
-                        </View>
-                    </View>
-                </ScrollView>
-
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>{t('trends')}</Text>
                     <Text style={styles.sectionMeta}>{sessions.length} {t('trips')}</Text>

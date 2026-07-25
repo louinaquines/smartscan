@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   Image,
   KeyboardAvoidingView,
@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { CURRENCIES, CurrencyId, CurrencyOption, getCurrency, LANGUAGES, LanguageId, getLanguage } from '../lib/currencies';
 import { colors, shadow } from '../lib/theme';
-import { useTranslation } from '../lib/i18n';
+import { useTranslation, getNativeLanguageName } from '../lib/i18n';
 
 type OnboardingPayload = {
   name: string;
@@ -26,7 +26,7 @@ type OnboardingProps = {
   onDone: (payload: OnboardingPayload) => void | Promise<void>;
 };
 
-const STEPS = ['Name', 'Country', 'Currency', 'Language'];
+const STEPS = ['Name', 'Country', 'Currency', 'Language', 'Ready'];
 
 function ProgressDots({ step }: { step: number }) {
   return (
@@ -59,7 +59,8 @@ export default function Onboarding({ onDone }: OnboardingProps) {
   const [started, setStarted] = useState(false);
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
-  const [countryQuery, setCountryQuery] = useState('');
+  const [countryOpen, setCountryOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState(CURRENCIES[0].country);
   const [currencyId, setCurrencyId] = useState<CurrencyId>(CURRENCIES[0].id);
   const [languageId, setLanguageId] = useState<LanguageId>(CURRENCIES[0].id);
@@ -68,19 +69,11 @@ export default function Onboarding({ onDone }: OnboardingProps) {
   const selectedLanguage = getLanguage(languageId);
   const cleanName = name.trim();
 
-  const countryOptions = useMemo(() => {
-    const query = countryQuery.trim().toLowerCase();
-    if (!query) return CURRENCIES;
-    return CURRENCIES.filter((currency) =>
-      `${currency.country} ${currency.name} ${currency.id}`.toLowerCase().includes(query)
-    );
-  }, [countryQuery]);
-
   const selectCountry = (currency: CurrencyOption) => {
     setSelectedCountry(currency.country);
-    setCountryQuery(currency.country);
     setCurrencyId(currency.id);
     setLanguageId(currency.id as LanguageId);
+    setCountryOpen(false);
   };
 
   const canContinue =
@@ -101,7 +94,7 @@ export default function Onboarding({ onDone }: OnboardingProps) {
     return (
       <View style={styles.introScreen}>
         <View style={styles.logoGlow}>
-          <Image source={require('../assets/cow.png')} style={styles.mascot} resizeMode="contain" />
+          <Image source={require('../assets/waving.jpg')} style={styles.mascot} resizeMode="contain" />
         </View>
         <View style={styles.introTextBlock}>
           <Text style={styles.brand}>Cany</Text>
@@ -117,7 +110,7 @@ export default function Onboarding({ onDone }: OnboardingProps) {
 
   return (
     <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.setupContent} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.setupContent} keyboardShouldPersistTaps="handled" nestedScrollEnabled>
         <ProgressDots step={step} />
 
         <View style={styles.setupHeader}>
@@ -146,32 +139,34 @@ export default function Onboarding({ onDone }: OnboardingProps) {
           {step === 1 && (
             <View>
               <Text style={styles.question}>{t('whereShopping')}</Text>
-              <TextInput
-                style={styles.input}
-                value={countryQuery}
-                onChangeText={setCountryQuery}
-                placeholder={t('searchCountry')}
-                placeholderTextColor={colors.soft}
-              />
-              <View style={styles.countryList}>
-                {countryOptions.map((currency) => {
-                  const selected = currency.country === selectedCountry;
-                  return (
-                    <Pressable
-                      key={currency.id}
-                      style={[styles.countryRow, selected && styles.countryRowSelected]}
-                      onPress={() => selectCountry(currency)}
-                    >
-                      <Text style={styles.countryFlag}>{currency.flag}</Text>
-                      <View style={styles.countryCopy}>
-                        <Text style={styles.countryName}>{currency.country}</Text>
-                        <Text style={styles.countryCurrency}>{currency.name}</Text>
-                      </View>
-                      {selected && <Ionicons name="checkmark" size={20} color={colors.primary} />}
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <Pressable style={styles.dropdownHeader} onPress={() => setCountryOpen((o) => !o)}>
+                <View style={styles.dropdownHeaderLeft}>
+                  <Text style={styles.countryFlag}>{selectedCurrency.flag}</Text>
+                  <Text style={styles.dropdownSelectedText}>{selectedCountry}</Text>
+                </View>
+                <Ionicons name={countryOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.muted} />
+              </Pressable>
+              {countryOpen && (
+                <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                  {CURRENCIES.map((currency) => {
+                    const selected = currency.country === selectedCountry;
+                    return (
+                      <Pressable
+                        key={currency.id}
+                        style={[styles.dropdownRow, selected && styles.dropdownRowSelected]}
+                        onPress={() => selectCountry(currency)}
+                      >
+                        <Text style={styles.countryFlag}>{currency.flag}</Text>
+                        <View style={styles.countryCopy}>
+                          <Text style={styles.countryName}>{currency.country}</Text>
+                          <Text style={styles.countryCurrency}>{currency.name}</Text>
+                        </View>
+                        {selected && <Ionicons name="checkmark" size={20} color={colors.primary} />}
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
             </View>
           )}
 
@@ -202,35 +197,49 @@ export default function Onboarding({ onDone }: OnboardingProps) {
             <View>
               <Text style={styles.question}>{t('preferredLanguage')}</Text>
               <Text style={styles.helper}>{t('selectLanguage')}</Text>
-              <View style={styles.langList}>
-                {LANGUAGES.map((language) => {
-                  const selected = language.id === languageId;
-                  return (
-                    <Pressable
-                      key={language.id}
-                      style={[styles.langRow, selected && styles.langRowSelected]}
-                      onPress={() => setLanguageId(language.id)}
-                    >
-                      <Text style={[styles.langText, selected && styles.langTextSelected]}>{t('lang' + language.id)}</Text>
-                      {selected && <Ionicons name="checkmark" size={20} color={colors.primary} />}
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <Pressable style={styles.dropdownHeader} onPress={() => setLangOpen((o) => !o)}>
+                <Text style={styles.dropdownSelectedText}>{getNativeLanguageName(languageId)}</Text>
+                <Ionicons name={langOpen ? 'chevron-up' : 'chevron-down'} size={20} color={colors.muted} />
+              </Pressable>
+              {langOpen && (
+                <ScrollView style={styles.dropdownList} nestedScrollEnabled>
+                  {LANGUAGES.map((language) => {
+                    const selected = language.id === languageId;
+                    return (
+                      <Pressable
+                        key={language.id}
+                        style={[styles.dropdownRow, selected && styles.dropdownRowSelected]}
+                        onPress={() => { setLanguageId(language.id); setLangOpen(false); }}
+                      >
+                        <Text style={[styles.langDropdownText, selected && styles.langDropdownTextSelected]}>
+                          {getNativeLanguageName(language.id)}
+                        </Text>
+                        {selected && <Ionicons name="checkmark" size={20} color={colors.primary} />}
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
+            </View>
+          )}
+
+          {step === 4 && (
+            <View style={styles.readyScreen}>
+              <Image source={require('../assets/okay.jpg')} style={styles.readyImage} resizeMode="contain" />
+              <Text style={styles.readyTitle}>You're all set!</Text>
+              <Text style={styles.readyBody}>Start scanning and tracking your grocery budget with Cany.</Text>
             </View>
           )}
         </View>
 
-        <View style={styles.actionRow}>
-          {step > 0 ? (
+        <View style={[styles.actionRow, step === 0 && styles.actionRowCentered]}>
+          {step > 0 && (
             <Pressable style={styles.backButton} onPress={() => setStep((current) => current - 1)}>
               <Ionicons name="arrow-back" size={18} color={colors.text} />
             </Pressable>
-          ) : (
-            <View style={styles.backButtonPlaceholder} />
           )}
           <Pressable
-            style={({ pressed }) => [styles.finishButton, !canContinue && styles.disabledButton, pressed && canContinue && styles.pressed]}
+            style={({ pressed }) => [styles.finishButton, step > 0 && styles.finishButtonFlex, !canContinue && styles.disabledButton, pressed && canContinue && styles.pressed]}
             onPress={goNext}
           >
             <Text style={styles.finishButtonText}>{step === STEPS.length - 1 ? t('finishShopping') : t('continue')}</Text>
@@ -317,23 +326,49 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
   },
-  countryList: { marginTop: 12, gap: 8 },
-  countryRow: {
-    minHeight: 58,
+  countryFlag: { fontSize: 22 },
+  countryCopy: { flex: 1, minWidth: 0 },
+  countryName: { color: colors.text, fontSize: 15, fontWeight: '900' },
+  countryCurrency: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  dropdownHeader: {
+    minHeight: 56,
     borderRadius: 16,
     backgroundColor: colors.glass,
     borderWidth: 1,
     borderColor: colors.glassBorder,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dropdownHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dropdownSelectedText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  dropdownList: {
+    marginTop: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    maxHeight: 260,
+  },
+  dropdownRow: {
+    minHeight: 52,
+    backgroundColor: colors.glass,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.glassBorder,
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  countryRowSelected: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
-  countryFlag: { fontSize: 22 },
-  countryCopy: { flex: 1, minWidth: 0 },
-  countryName: { color: colors.text, fontSize: 15, fontWeight: '900' },
-  countryCurrency: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  dropdownRowSelected: { backgroundColor: colors.primarySoft },
   selectedCurrencyCard: {
     minHeight: 78,
     borderRadius: 18,
@@ -349,20 +384,8 @@ const styles = StyleSheet.create({
   currencyCopy: { flex: 1, minWidth: 0 },
   currencyName: { color: colors.text, fontSize: 16, fontWeight: '900' },
   currencyMeta: { color: colors.muted, fontSize: 13, fontWeight: '800', marginTop: 3 },
-  langList: { borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: colors.glassBorder },
-  langRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 15,
-    backgroundColor: colors.glass,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.glassBorder,
-  },
-  langRowSelected: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
-  langText: { color: colors.text, fontSize: 16, fontWeight: '800' },
-  langTextSelected: { color: colors.primary, fontWeight: '900' },
+  langDropdownText: { color: colors.text, fontSize: 16, fontWeight: '800', flex: 1 },
+  langDropdownTextSelected: { color: colors.primary, fontWeight: '900' },
   currencyRail: { flexDirection: 'row', gap: 8, paddingTop: 14, paddingRight: 8 },
   currencyChip: {
     minHeight: 42,
@@ -380,6 +403,7 @@ const styles = StyleSheet.create({
   currencyChipText: { color: colors.text, fontSize: 12, fontWeight: '900' },
   currencyChipTextSelected: { color: '#FFF' },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 18 },
+  actionRowCentered: { justifyContent: 'center' },
   backButton: {
     width: 52,
     height: 52,
@@ -390,10 +414,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
-  backButtonPlaceholder: { width: 52 },
   finishButton: {
-    flex: 1,
     minHeight: 56,
+    minWidth: 200,
     borderRadius: 18,
     backgroundColor: colors.primary,
     flexDirection: 'row',
@@ -402,7 +425,12 @@ const styles = StyleSheet.create({
     gap: 8,
     ...shadow,
   },
+  finishButtonFlex: { flex: 1, minWidth: 0 },
   finishButtonText: { color: '#FFF', fontSize: 16, fontWeight: '900' },
   disabledButton: { opacity: 0.45 },
   pressed: { opacity: 0.82 },
+  readyScreen: { alignItems: 'center', paddingVertical: 12 },
+  readyImage: { width: '100%', height: 240, marginBottom: 20 },
+  readyTitle: { color: colors.text, fontSize: 26, fontWeight: '900', textAlign: 'center', marginBottom: 8 },
+  readyBody: { color: colors.muted, fontSize: 15, fontWeight: '600', textAlign: 'center', lineHeight: 22, paddingHorizontal: 10 },
 });

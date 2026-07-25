@@ -1748,6 +1748,12 @@ const localeMap: Record<string, string> = {
   THB: 'th',
 };
 
+export function getNativeLanguageName(id: string): string {
+  const locale = localeMap[id] ?? 'en';
+  const key = 'lang' + id;
+  return translations[locale]?.[key] ?? translations.en[key] ?? id;
+}
+
 export function useTranslation() {
   const languageId = useCartStore((s) => s.languageId);
   const locale = localeMap[languageId] ?? 'en';
