@@ -5,14 +5,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useEffect, useRef, useMemo } from 'react';
 import { getTheme } from '../../lib/theme';
 import { useCartStore } from '../../store/useCartStore';
+import { useTranslation } from '../../lib/i18n';
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const pulseAnim = useRef(new Animated.Value(1));
   const { themeMode } = useCartStore();
   const darkMode = themeMode === 'dark';
-  const t = useMemo(() => getTheme(darkMode), [darkMode]);
-  const styles = useMemo(() => getStyles(t, darkMode), [t, darkMode]);
+  const { t } = useTranslation();
+  const theme = useMemo(() => getTheme(darkMode), [darkMode]);
+  const styles = useMemo(() => getStyles(theme, darkMode), [theme, darkMode]);
 
   useEffect(() => {
     Animated.loop(
@@ -28,8 +30,8 @@ export default function TabLayout() {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: t.text,
-          tabBarInactiveTintColor: t.muted,
+          tabBarActiveTintColor: theme.text,
+          tabBarInactiveTintColor: theme.muted,
           tabBarStyle: {
             position: 'absolute',
             borderTopWidth: 0,
@@ -48,28 +50,28 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Dashboard',
+            title: t('dashboard'),
             tabBarIcon: ({ color }) => <Ionicons name="grid-outline" color={color} size={22} />,
           }}
         />
         <Tabs.Screen
           name="cart"
           options={{
-            title: 'Cart',
+            title: t('cart'),
             tabBarIcon: ({ color }) => <Ionicons name="cart-outline" color={color} size={22} />,
           }}
         />
         <Tabs.Screen
           name="list"
           options={{
-            title: 'List',
+            title: t('list'),
             tabBarIcon: ({ color }) => <Ionicons name="checkbox-outline" color={color} size={22} />,
           }}
         />
         <Tabs.Screen
           name="history"
           options={{
-            title: 'History',
+            title: t('history'),
             tabBarIcon: ({ color }) => <Ionicons name="time-outline" color={color} size={22} />,
           }}
         />
@@ -91,12 +93,12 @@ export default function TabLayout() {
   );
 }
 
-const getStyles = (t: ReturnType<typeof getTheme>, darkMode: boolean) => StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: t.bg },
+const getStyles = (theme: ReturnType<typeof getTheme>, darkMode: boolean) => StyleSheet.create({
+  wrap: { flex: 1, backgroundColor: theme.bg },
   tabBarGlass: {
     backgroundColor: darkMode ? 'rgba(17,17,17,0.92)' : 'rgba(255,255,255,0.88)',
     borderTopWidth: 1,
-    borderTopColor: t.glassBorder,
+    borderTopColor: theme.glassBorder,
   },
   scanContainer: {
     position: 'absolute',
@@ -115,7 +117,7 @@ const getStyles = (t: ReturnType<typeof getTheme>, darkMode: boolean) => StyleSh
     width: 62,
     height: 62,
     borderRadius: 31,
-    backgroundColor: t.text,
+    backgroundColor: theme.text,
     opacity: 0.18,
   },
   scanFab: {
@@ -125,10 +127,10 @@ const getStyles = (t: ReturnType<typeof getTheme>, darkMode: boolean) => StyleSh
     borderRadius: 31,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: t.text,
+    backgroundColor: theme.text,
     borderWidth: 3,
     borderColor: darkMode ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.75)',
-    shadowColor: t.text,
+    shadowColor: theme.text,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 18,

@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { OcrTextChoice, ReceiptParsedItem } from '../lib/receiptParser';
 import { formatMoney } from '../lib/format';
 import { colors } from '../lib/theme';
+import { useTranslation } from '../lib/i18n';
 
 interface DraftItem {
   name: string;
@@ -39,12 +40,6 @@ function toDraft(item: ReceiptParsedItem): DraftItem {
   };
 }
 
-const subtitleText = (totalDetected: boolean, items: ReceiptParsedItem[], cleanCount: number, scanPass: number) =>
-  totalDetected ? `Receipt complete — ${cleanCount} item${cleanCount === 1 ? '' : 's'}`
-    : items.length === 0 ? 'No items auto-detected'
-      : scanPass > 0 ? `Part ${scanPass} — ${cleanCount} item${cleanCount === 1 ? '' : 's'} total`
-        : `${cleanCount} item${cleanCount === 1 ? '' : 's'} detected`;
-
 export default function ReceiptReviewSheet({
   open, items, receiptTotal = null,
   nameSuggestions = [],
@@ -59,6 +54,8 @@ export default function ReceiptReviewSheet({
   const successOpacity = useRef(new Animated.Value(0));
   const checkScale = useRef(new Animated.Value(0));
   const textOpacity = useRef(new Animated.Value(0));
+
+  const { t } = useTranslation();
 
   const panResponder = useRef(
     PanResponder.create({
@@ -131,14 +128,14 @@ export default function ReceiptReviewSheet({
     return (
       <View key={`item-${index}`} style={styles.itemCard}>
         <View style={styles.itemTop}>
-          <TextInput style={styles.nameInput} value={item.name} onChangeText={(name) => updateItem(index, { name })} placeholder="Item name" placeholderTextColor={colors.soft} />
+          <TextInput style={styles.nameInput} value={item.name} onChangeText={(name) => updateItem(index, { name })} placeholder={t('itemNamePlaceholder')} placeholderTextColor={colors.soft} />
           <TouchableOpacity style={styles.removeButton} onPress={() => setDraftItems((current) => current.filter((_, i) => i !== index))}>
             <Ionicons name="trash-outline" size={17} color={colors.text} />
           </TouchableOpacity>
         </View>
         <View style={styles.row}>
-          <TextInput style={[styles.input, styles.qtyInput]} value={item.quantity} onChangeText={(v) => updateItem(index, { quantity: v })} keyboardType="decimal-pad" placeholder="Qty" placeholderTextColor={colors.soft} />
-          <TextInput style={[styles.input, styles.priceInput]} value={item.price} onChangeText={(v) => updateItem(index, { price: v })} keyboardType="decimal-pad" placeholder="Price" placeholderTextColor={colors.soft} />
+          <TextInput style={[styles.input, styles.qtyInput]} value={item.quantity} onChangeText={(v) => updateItem(index, { quantity: v })} keyboardType="decimal-pad" placeholder={t('qty')} placeholderTextColor={colors.soft} />
+          <TextInput style={[styles.input, styles.priceInput]} value={item.price} onChangeText={(v) => updateItem(index, { price: v })} keyboardType="decimal-pad" placeholder={t('price')} placeholderTextColor={colors.soft} />
           <Text style={styles.lineTotal}>{formatMoney(price * qty)}</Text>
         </View>
         {nameSuggestions.length > 0 ? (
@@ -158,20 +155,20 @@ export default function ReceiptReviewSheet({
     <>
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Review Receipt</Text>
-          <Text style={styles.subtitle}>{subtitleText(totalDetected, items, cleanItems.length, scanPass)}</Text>
+          <Text style={styles.title}>{t('reviewReceiptTitle')}</Text>
+          <Text style={styles.subtitle}>{totalDetected ? t('receiptComplete', { count: cleanItems.length }) : items.length === 0 ? t('noItemsFound') : scanPass > 0 ? t('partLabel', { pass: scanPass, count: cleanItems.length }) : t('itemsFound', { count: cleanItems.length })}</Text>
         </View>
         <Text style={styles.total}>{formatMoney(total)}</Text>
       </View>
       {receiptTotal != null && receiptTotal > 0 ? (
         <Text style={[styles.receiptTotalHint, totalMismatch && styles.receiptTotalMismatch]}>
-          Receipt total: {formatMoney(receiptTotal)}{totalMismatch ? ' — review items before importing' : ''}
+          {t('receiptTotal')}: {formatMoney(receiptTotal)}{totalMismatch ? t('reviewItemsBefore') : ''}
         </Text>
       ) : null}
       {totalDetected ? (
         <View style={styles.completeBanner}>
           <Ionicons name="checkmark-circle" size={16} color={colors.success} />
-          <Text style={styles.completeBannerText}>Total detected — receipt fully scanned</Text>
+          <Text style={styles.completeBannerText}>{t('totalDetected')}</Text>
         </View>
       ) : null}
     </>
@@ -182,22 +179,22 @@ export default function ReceiptReviewSheet({
       <View style={styles.actions}>
         <TouchableOpacity style={styles.addButton} onPress={addEmptyItem}>
           <Ionicons name="add" size={18} color={colors.text} />
-          <Text style={styles.addButtonText}>Add Item</Text>
+          <Text style={styles.addButtonText}>{t('addItem')}</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.actions}>
         {onScanMore && !totalDetected ? (
           <TouchableOpacity style={[styles.actionButton, styles.scanMoreButton]} onPress={() => onScanMore(draftItems.map(toParsed))}>
             <Ionicons name="camera-outline" size={16} color={colors.text} />
-            <Text style={styles.cancelText}>Scan Next Part</Text>
+            <Text style={styles.cancelText}>{t('scanNextPart')}</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={[styles.actionButton, styles.cancelButton]} onPress={onCancel}>
-            <Text style={styles.cancelText}>Scan Again</Text>
+            <Text style={styles.cancelText}>{t('scanAgain')}</Text>
           </TouchableOpacity>
         )}
         <TouchableOpacity style={[styles.actionButton, styles.confirmButton, cleanItems.length === 0 && styles.disabled]} disabled={cleanItems.length === 0} onPress={handleConfirm}>
-          <Text style={styles.confirmText}>{totalDetected || scanPass === 0 ? 'Add Items' : 'Finish & Add'}</Text>
+          <Text style={styles.confirmText}>{totalDetected || scanPass === 0 ? t('addItems') : t('finishAdd')}</Text>
         </TouchableOpacity>
       </View>
     </>
@@ -234,7 +231,7 @@ export default function ReceiptReviewSheet({
                 <Ionicons name="checkmark" size={38} color="#FFF" />
               </Animated.View>
               <Animated.View style={{ opacity: textOpacity.current }}>
-                <Text style={styles.successTitle}>Receipt imported</Text>
+                <Text style={styles.successTitle}>{t('receiptImported')}</Text>
                 <Text style={styles.successPrice}>{formatMoney(confirmedTotal)}</Text>
               </Animated.View>
             </Animated.View>

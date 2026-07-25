@@ -13,10 +13,13 @@ import {
   Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { BUDGET_CATEGORIES, BudgetCategoryId, DEFAULT_CATEGORY, getCategoryLabel } from '../lib/budgetCategories';
+import { BUDGET_CATEGORIES, BudgetCategoryId, DEFAULT_CATEGORY } from '../lib/budgetCategories';
 import { colors } from '../lib/theme';
 import { OcrChoice, OcrPriceChoice } from '../lib/ocrParser';
+import { useTranslation } from '../lib/i18n';
 import { formatMoney } from '../lib/format';
+import { getCurrency } from '../lib/currencies';
+import { useCartStore } from '../store/useCartStore';
 import { PreviousPrice, PriceComparison } from '../lib/priceHistory';
 
 interface VerifySheetProps {
@@ -44,6 +47,9 @@ export default function VerifySheet({
   onConfirm,
   onCancel,
 }: VerifySheetProps) {
+  const { t } = useTranslation();
+  const currencyId = useCartStore((s) => s.currencyId);
+  const currencySymbol = getCurrency(currencyId).symbol;
   const [editName, setEditName] = useState(name);
   const [editPrice, setEditPrice] = useState(price.toFixed(2));
   const [quantity, setQuantity] = useState(1);
@@ -181,7 +187,7 @@ export default function VerifySheet({
             <View style={styles.handle} />
           </View>
 
-          <Text style={styles.title}>Verify Product</Text>
+          <Text style={styles.title}>{t('verifyProduct')}</Text>
 
 <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetScrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
@@ -210,12 +216,12 @@ export default function VerifySheet({
               <View style={styles.smartPickPanel}>
                 <View style={styles.smartPickHeader}>
                   <Ionicons name="hand-left-outline" size={16} color={colors.text} />
-                  <Text style={styles.smartPickTitle}>Tap the correct text if Cany guessed wrong</Text>
+                  <Text style={styles.smartPickTitle}>{t('tapCorrectText')}</Text>
                 </View>
 
                 {nameChoices.length > 0 && (
                   <View style={styles.choiceGroup}>
-                    <Text style={styles.choiceLabel}>Product name</Text>
+                    <Text style={styles.choiceLabel}>{t('productNameLabel')}</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
                       {nameChoices.map((choice) => (
                         <TouchableOpacity
@@ -232,7 +238,7 @@ export default function VerifySheet({
 
                 {priceChoices.length > 0 && (
                   <View style={styles.choiceGroup}>
-                    <Text style={styles.choiceLabel}>Price</Text>
+                    <Text style={styles.choiceLabel}>{t('priceLabel')}</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
                       {priceChoices.map((choice) => {
                         const selected = Number(editPrice) === choice.value;
@@ -253,10 +259,10 @@ export default function VerifySheet({
             )}
 
             <View style={styles.field}>
-              <Text style={styles.label}>Product Name</Text>
+              <Text style={styles.label}>{t('productNameLabel')}</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Enter product name"
+                placeholder={t('productName')}
                 placeholderTextColor="rgba(0,0,0,0.32)"
                 value={editName}
                 onChangeText={setEditName}
@@ -264,9 +270,9 @@ export default function VerifySheet({
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Price</Text>
+              <Text style={styles.label}>{t('priceLabel')}</Text>
               <View style={styles.priceContainer}>
-                <Text style={styles.currencySymbol}>₱</Text>
+                <Text style={styles.currencySymbol}>{currencySymbol}</Text>
                 <TextInput
                   style={styles.priceInput}
                   placeholder="0.00"
@@ -279,7 +285,7 @@ export default function VerifySheet({
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Quantity</Text>
+              <Text style={styles.label}>{t('quantity')}</Text>
               <View style={styles.quantityContainer}>
                 <TouchableOpacity style={styles.quantityBtn} onPress={decrementQuantity}>
                   <Ionicons name="remove" size={20} color={colors.text} />
@@ -292,7 +298,7 @@ export default function VerifySheet({
             </View>
 
             <View style={styles.field}>
-              <Text style={styles.label}>Category</Text>
+              <Text style={styles.label}>{t('category')}</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choiceRow}>
                 {BUDGET_CATEGORIES.map((option) => {
                   const selected = category === option.id;
@@ -302,7 +308,7 @@ export default function VerifySheet({
                       activeOpacity={0.78}
                       style={[styles.choiceChip, selected && styles.choiceChipActive]}
                       onPress={() => setCategory(option.id)}>
-                      <Text style={[styles.choiceText, selected && styles.choiceTextActive]}>{getCategoryLabel(option.id)}</Text>
+                      <Text style={[styles.choiceText, selected && styles.choiceTextActive]}>{t('category' + option.id)}</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -310,18 +316,18 @@ export default function VerifySheet({
             </View>
 
             <View style={styles.totalContainer}>
-              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalLabel}>{t('total')}</Text>
               <Text style={styles.totalPrice}>
-                ₱ {(parseFloat(editPrice.replace(',', '.') || '0') * quantity).toFixed(2)}
+                {formatMoney((parseFloat(editPrice.replace(',', '.') || '0') * quantity))}
               </Text>
             </View>
 
             <View style={styles.actions}>
               <TouchableOpacity style={[styles.btn, styles.cancelBtn]} onPress={onCancel}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+                <Text style={styles.cancelBtnText}>{t('cancel')}</Text>
               </TouchableOpacity>
               <AnimatedTouchableOpacity style={[styles.btn, styles.confirmBtn, { transform: [{ scale: pressAnim.current } ]}]} onPress={handleConfirm}>
-                <Text style={styles.confirmBtnText}>Add to Cart</Text>
+                <Text style={styles.confirmBtnText}>{t('addToCart')}</Text>
               </AnimatedTouchableOpacity>
             </View>
           </ScrollView>
@@ -335,7 +341,7 @@ export default function VerifySheet({
                   <Ionicons name="checkmark" size={38} color="#FFF" />
                 </Animated.View>
                 <Animated.View style={{ opacity: textOpacity.current }}>
-                  <Text style={styles.successTitle}>You've successfully scanned an item</Text>
+                  <Text style={styles.successTitle}>{t('youScanned')}</Text>
                   <Text style={styles.successPrice}>{formatMoney(confirmedPrice)}</Text>
                 </Animated.View>
               </Animated.View>

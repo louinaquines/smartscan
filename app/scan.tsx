@@ -16,6 +16,7 @@ import VerifySheet from '../components/VerifySheet';
 import ReceiptReviewSheet from '../components/ReceiptReviewSheet';
 import AppDialog from '../components/AppDialog';
 import { colors } from '../lib/theme';
+import { useTranslation } from '../lib/i18n';
 
 type ScanMode = 'priceTag' | 'receipt';
 
@@ -30,12 +31,13 @@ const dedupeReceiptItems = (items: ReceiptParsedItem[]) => {
 };
 
 export default function ScanScreen() {
+  const { t } = useTranslation();
   const [hasPermission, setHasPermission] = useState(Platform.OS === 'ios');
   const [permissionChecked, setPermissionChecked] = useState(Platform.OS === 'ios');
   const [isScanning, setIsScanning] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [scanMode, setScanMode] = useState<ScanMode>('priceTag');
-  const [scanStatus, setScanStatus] = useState('Tap Scan to capture');
+  const [scanStatus, setScanStatus] = useState(t('tapScan'));
   const [detected, setDetected] = useState<{ name: string; price: number } | null>(null);
   const [choices, setChoices] = useState<{ names: OcrChoice[]; prices: OcrPriceChoice[] }>({ names: [], prices: [] });
   const [receiptItems, setReceiptItems] = useState<ReceiptParsedItem[]>([]);
@@ -47,7 +49,7 @@ export default function ScanScreen() {
   const [receiptComplete, setReceiptComplete] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [addedToCartDialogOpen, setAddedToCartDialogOpen] = useState(false);
-  const [addedDialog, setAddedDialog] = useState<{ title: string; message: string }>({ title: 'Item added', message: 'Product added to cart.' });
+  const [addedDialog, setAddedDialog] = useState<{ title: string; message: string }>({ title: t('itemAdded'), message: t('productAdded') });
   const cameraRef = useRef<any>(null);
   const isScanningRef = useRef(false);
   const foundRef = useRef(false);
@@ -147,7 +149,7 @@ export default function ScanScreen() {
 
     isScanningRef.current = true;
     setIsScanning(true);
-    setScanStatus(scanModeRef.current === 'receipt' ? 'Reading receipt...' : 'Reading shelf tag...');
+    setScanStatus(scanModeRef.current === 'receipt' ? t('readingReceipt') : t('readingTag'));
 
     try {
       const photo = await cameraRef.current.capture();
@@ -176,7 +178,7 @@ export default function ScanScreen() {
         foundRef.current = true;
         if (!mountedRef.current) return;
         setReceiptSheetOpen(true);
-        setScanStatus(totalDetected ? 'Receipt complete — review items' : 'Review receipt items');
+        setScanStatus(totalDetected ? t('receiptComplete') : t('reviewReceipt'));
         return;
       }
 
@@ -189,9 +191,9 @@ export default function ScanScreen() {
         setChoices(nextChoices);
         setDetected(parsed);
         setSheetOpen(true);
-        setScanStatus('Item found');
+        setScanStatus(t('itemFound'));
       } else {
-        setScanStatus('No item detected — try again');
+        setScanStatus(t('noItemDetected'));
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
@@ -206,7 +208,7 @@ export default function ScanScreen() {
         }
       } else if (mountedRef.current) {
         console.error(e);
-        setScanStatus('Capture failed — try again');
+        setScanStatus(t('captureFailed'));
       }
     } finally {
       isScanningRef.current = false;
@@ -230,7 +232,7 @@ export default function ScanScreen() {
     setReceiptComplete(false);
     setDetected(null);
     setChoices({ names: [], prices: [] });
-    setScanStatus('Tap Scan to capture');
+    setScanStatus(t('tapScan'));
   }, []);
 
   const handleModeChange = useCallback((mode: ScanMode) => {
@@ -246,7 +248,7 @@ export default function ScanScreen() {
     const readyTimer = setTimeout(() => {
       if (mountedRef.current && focusedRef.current) {
         setCameraReady(true);
-        setScanStatus('Tap Scan to capture');
+        setScanStatus(t('tapScan'));
       }
     }, 1000);
 
@@ -261,7 +263,7 @@ export default function ScanScreen() {
       isScanned: true,
       category,
     });
-    setAddedDialog({ title: 'Item added', message: 'Product added to cart.' });
+    setAddedDialog({ title: t('itemAdded'), message: t('productAdded') });
     setAddedToCartDialogOpen(true);
     setSheetOpen(false);
     setDetected(null);
@@ -274,7 +276,7 @@ export default function ScanScreen() {
     setDetected(null);
     setChoices({ names: [], prices: [] });
     foundRef.current = false;
-    setScanStatus('Tap Scan to capture');
+    setScanStatus(t('tapScan'));
   }, []);
 
   const handleConfirmReceipt = useCallback((items: ReceiptParsedItem[]) => {
@@ -289,8 +291,8 @@ export default function ScanScreen() {
     setReceiptScanPass(0);
     setReceiptComplete(false);
     setAddedDialog({
-      title: 'Receipt imported',
-      message: `${items.length} item${items.length === 1 ? '' : 's'} added to cart.`,
+      title: t('receiptImported'),
+      message: t('itemsAdded', { count: items.length }),
     });
     setAddedToCartDialogOpen(true);
     router.dismiss();
@@ -306,7 +308,7 @@ export default function ScanScreen() {
 
     setReceiptComplete(false);
     foundRef.current = false;
-    setScanStatus('Tap Scan to capture next part');
+    setScanStatus(t('tapScan'));
   }, [receiptScanPass]);
 
   const handleCancelReceipt = useCallback(() => {
@@ -320,15 +322,15 @@ export default function ScanScreen() {
     setReceiptScanPass(0);
     setReceiptComplete(false);
     foundRef.current = false;
-    setScanStatus('Tap Scan to capture');
+    setScanStatus(t('tapScan'));
   }, []);
 
   if (!permissionChecked) {
     return (
       <View style={styles.container}>
         <ActivityIndicator color={colors.primary} size="large" />
-        <Text style={styles.title}>Opening Camera</Text>
-        <Text style={styles.text}>Cany is preparing the scanner.</Text>
+        <Text style={styles.title}>{t('openingCamera')}</Text>
+        <Text style={styles.text}>{t('cameraPreparing')}</Text>
       </View>
     );
   }
@@ -337,13 +339,13 @@ export default function ScanScreen() {
     return (
       <View style={styles.container}>
         <Ionicons name="camera-outline" size={56} color="rgba(0,0,0,0.34)" />
-        <Text style={styles.title}>Camera access needed</Text>
-        <Text style={styles.text}>Enable camera access in your phone settings to scan price tags.</Text>
+        <Text style={styles.title}>{t('cameraAccessNeeded')}</Text>
+        <Text style={styles.text}>{t('enableCamera')}</Text>
         <TouchableOpacity style={styles.permBtn} onPress={() => Linking.openSettings()}>
-          <Text style={styles.permBtnText}>Open Settings</Text>
+          <Text style={styles.permBtnText}>{t('openSettings')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.cancelBtn} onPress={() => router.dismiss()}>
-          <Text style={styles.cancelText}>Go Back</Text>
+          <Text style={styles.cancelText}>{t('goBack')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -361,7 +363,7 @@ export default function ScanScreen() {
         onError={(e: any) => {
           console.error('Camera error:', e);
           setCameraReady(false);
-          setScanStatus('Camera is not ready');
+          setScanStatus(t('cameraNotReady'));
         }}
       />
 
@@ -379,7 +381,7 @@ export default function ScanScreen() {
               <View style={[styles.modeIconWrap, scanMode === 'priceTag' && styles.modeIconWrapActive]}>
                 <Ionicons name="pricetag-outline" size={16} color={scanMode === 'priceTag' ? '#FFF' : 'rgba(255,255,255,0.7)'} />
               </View>
-              <Text style={[styles.modeText, scanMode === 'priceTag' && styles.modeTextActive]}>Price Tag</Text>
+              <Text style={[styles.modeText, scanMode === 'priceTag' && styles.modeTextActive]}>{t('priceTag')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.modeButton, scanMode === 'receipt' && styles.modeButtonActive]}
@@ -388,7 +390,7 @@ export default function ScanScreen() {
               <View style={[styles.modeIconWrap, scanMode === 'receipt' && styles.modeIconWrapActive]}>
                 <Ionicons name="receipt-outline" size={16} color={scanMode === 'receipt' ? '#FFF' : 'rgba(255,255,255,0.7)'} />
               </View>
-              <Text style={[styles.modeText, scanMode === 'receipt' && styles.modeTextActive]}>Receipt</Text>
+              <Text style={[styles.modeText, scanMode === 'receipt' && styles.modeTextActive]}>{t('receipt')}</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.topBadge}>
@@ -401,8 +403,8 @@ export default function ScanScreen() {
             </View>
             <Text style={styles.hint}>
               {scanMode === 'receipt'
-                ? 'Align receipt top-to-bottom & tap Scan'
-                : 'Position price tag inside frame & tap Scan'}
+                ? t('alignReceipt')
+                : t('alignTag')}
             </Text>
           </View>
         </View>
@@ -461,7 +463,7 @@ style={[
               />
             </View>
             <Text style={styles.captureText}>
-              {isScanning ? 'Processing…' : scanMode === 'receipt' ? 'Scan Receipt' : 'Scan Price Tag'}
+              {isScanning ? t('processing') : scanMode === 'receipt' ? t('scanReceipt') : t('scanPriceTag')}
             </Text>
           </TouchableOpacity>
         </View>

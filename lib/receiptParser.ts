@@ -1,4 +1,6 @@
 import { DEFAULT_CATEGORY } from './budgetCategories';
+import { CURRENCY_MARK_SOURCE, CURRENCY_MARK_CLEAN_RE } from './currencies';
+import { formatMoney } from './format';
 
 export type ReceiptParsedItem = {
   name: string;
@@ -16,8 +18,6 @@ export type ReceiptOcrPriceChoice = {
   value: number;
 };
 
-const PESO_MARK = String.fromCharCode(0x20b1);
-
 const NOISE_LINE =
   /\b(?:subtotal|total tender|change due|^\s*total\b|^\s*cash\b|vatable|vat amt|vat exempt|zero rated|customer copy|sold to|business style|^\s*tin\b|permit|supplier|invoice|summary|member|scan qr|metro rewards|pos supplier|sales invoice|this serves|issued|si no|till\b|qty of|items purchased|item\(s\)|purchased|retail stores|mandaue|cebu|estancia|barangay|universal information|rewards club|vat registration|business name|opencode|claude|google|gemini|chatgpt|open\s*ai|ai\s*model|anthropic|deepseek|llama|gpt|bard|copilot)\b/i;
 
@@ -28,7 +28,7 @@ const PACKAGING_SUFFIX = /\b\d{1,3}\s*\/\s*\d+(?:\.\d+)?\s*(?:lt|l|ml|g|kg|pc|pc
 
 const normalizeLine = (line: string) =>
   line
-    .replace(/[₱]/g, PESO_MARK)
+    .replace(CURRENCY_MARK_CLEAN_RE, '')
     .replace(/\(\s*(\d+(?:[,.]\d{2})?\s*)\)/g, '$1')
     .replace(/\s+/g, ' ')
     .trim();
@@ -232,7 +232,7 @@ export function getReceiptOcrSuggestions(input: string | any): { names: OcrTextC
       const priceKey = priceMatch[1];
       if (!priceSet.has(priceKey)) {
         priceSet.add(priceKey);
-        prices.push({ label: `₱ ${toNumber(priceKey).toFixed(2)}`, value: toNumber(priceKey) });
+        prices.push({ label: formatMoney(toNumber(priceKey)), value: toNumber(priceKey) });
       }
     }
   }

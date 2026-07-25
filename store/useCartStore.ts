@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { BudgetCategoryId, CategoryBudgets, DEFAULT_CATEGORY, createEmptyCategoryBudgets } from '../lib/budgetCategories';
 import { buildWidgetSnapshot } from '../lib/backup';
-import { CurrencyId, DEFAULT_CURRENCY } from '../lib/currencies';
+import { CurrencyId, DEFAULT_CURRENCY, DEFAULT_LANGUAGE, LanguageId } from '../lib/currencies';
 import { setActiveCurrency } from '../lib/format';
 import { stringSimilarity } from '../lib/stringMatch';
 import { storage, StorageKeys } from '../lib/storage';
@@ -58,6 +58,7 @@ type CartStore = {
     budget: number;
     categoryBudgets: CategoryBudgets;
     currencyId: CurrencyId;
+    languageId: LanguageId;
     themeMode: ThemeMode;
     sessionId: string | null;
     isHydrated: boolean;
@@ -66,6 +67,7 @@ type CartStore = {
     setBudget: (amount: number) => Promise<void>;
     setCategoryBudget: (category: BudgetCategoryId, amount: number) => Promise<void>;
     setCurrency: (currencyId: CurrencyId) => Promise<void>;
+    setLanguage: (languageId: LanguageId) => Promise<void>;
     setThemeMode: (themeMode: ThemeMode) => Promise<void>;
     setSessionId: (id: string) => void;
     addHouseholdMember: (name: string) => void;
@@ -118,6 +120,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
     budget: 0,
     categoryBudgets: createEmptyCategoryBudgets(),
     currencyId: DEFAULT_CURRENCY,
+    languageId: DEFAULT_LANGUAGE,
     themeMode: 'light',
     sessionId: null,
     isHydrated: false,
@@ -145,6 +148,11 @@ export const useCartStore = create<CartStore>((set, get) => ({
         setActiveCurrency(currencyId);
         await storage.set(StorageKeys.CURRENCY, currencyId);
         set({ currencyId });
+    },
+
+    setLanguage: async (languageId) => {
+        await storage.set(StorageKeys.LANGUAGE, languageId);
+        set({ languageId });
     },
 
     setThemeMode: async (themeMode) => {
@@ -385,10 +393,11 @@ isScanned: false,
     },
 
     loadState: async () => {
-        const [savedBudget, savedCategoryBudgets, savedCurrency, savedThemeMode, items, sessions, shoppingList, householdMembers, activeMemberId] = await Promise.all([
+        const [savedBudget, savedCategoryBudgets, savedCurrency, savedLanguage, savedThemeMode, items, sessions, shoppingList, householdMembers, activeMemberId] = await Promise.all([
             storage.getNumber(StorageKeys.BUDGET),
             storage.getJson<Partial<CategoryBudgets> | null>(StorageKeys.CATEGORY_BUDGETS, null),
             storage.getString(StorageKeys.CURRENCY),
+            storage.getString(StorageKeys.LANGUAGE),
             storage.getString(StorageKeys.THEME_MODE),
             storage.getJson<CartItem[]>(StorageKeys.CART_ITEMS, []),
             storage.getJson<ShoppingSession[]>(StorageKeys.SESSIONS, []),
@@ -404,12 +413,16 @@ isScanned: false,
         const currencyId = (savedCurrency && ['PHP', 'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'AED', 'JPY', 'KRW', 'SAR', 'MYR', 'THB'].includes(savedCurrency)
             ? savedCurrency
             : DEFAULT_CURRENCY) as CurrencyId;
+        const languageId = (savedLanguage && ['PHP', 'USD', 'EUR', 'GBP', 'CAD', 'AUD', 'SGD', 'AED', 'JPY', 'KRW', 'SAR', 'MYR', 'THB'].includes(savedLanguage)
+            ? savedLanguage
+            : DEFAULT_LANGUAGE) as LanguageId;
         const themeMode: ThemeMode = savedThemeMode === 'dark' ? 'dark' : 'light';
         setActiveCurrency(currencyId);
         set({
             budget,
             categoryBudgets,
             currencyId,
+            languageId,
             themeMode,
             items: items.map((item) => ({ ...item, category: item.category ?? DEFAULT_CATEGORY })),
             sessions: sessions.map((session) => ({

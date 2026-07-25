@@ -8,6 +8,7 @@ import { getProductHistory, getProductHistorySummary } from '../../lib/productHi
 import { getTheme, shadow } from '../../lib/theme';
 import { useScreenPadding } from '../../lib/useScreenPadding';
 import { ShoppingSession, useCartStore } from '../../store/useCartStore';
+import { useTranslation } from '../../lib/i18n';
 
 type SessionCardProps = {
     session: ShoppingSession;
@@ -35,20 +36,21 @@ function SessionCard({ session, sessions, onOpen, onDelete, darkMode }: SessionC
     const unitCount = session.items.reduce((sum, item) => sum + item.quantity, 0);
     const budgetDiff = session.budget - session.total;
     const over = session.budget > 0 && budgetDiff < 0;
-    const t = getTheme(darkMode);
-    const styles = useMemo(() => getStyles(t), [t]);
+    const { t } = useTranslation();
+    const theme = getTheme(darkMode);
+    const styles = useMemo(() => getStyles(theme), [theme]);
 
     return (
         <View style={styles.cardContainer}>
             <Pressable style={styles.sessionCard} onPress={() => onOpen(session)}>
                 <View style={styles.sessionTop}>
                     <View style={styles.sessionIcon}>
-                        <Ionicons name="bag-check-outline" size={20} color={t.text} />
+                        <Ionicons name="bag-check-outline" size={20} color={theme.text} />
                     </View>
                     <View style={styles.sessionTitleBlock}>
                         <Text style={styles.sessionDate}>{formatShortDate(session.date)}</Text>
                         <Text style={styles.sessionMeta}>
-                            {session.storeName ? `${session.storeName} • ` : ''}{session.items.length} item{session.items.length === 1 ? '' : 's'} ({unitCount} unit{unitCount === 1 ? '' : 's'})
+                            {session.storeName ? `${session.storeName} • ` : ''}{session.items.length} {t('itemsLabel')} ({unitCount} {t('units')})
                         </Text>
                     </View>
                     <View style={styles.sessionRightBlock}>
@@ -60,9 +62,9 @@ function SessionCard({ session, sessions, onOpen, onDelete, darkMode }: SessionC
                                 setConfirmOpen(true);
                             }}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            accessibilityLabel="Delete session"
+                            accessibilityLabel={t('delete')}
                         >
-                            <Ionicons name="trash-outline" size={17} color={t.muted} />
+                            <Ionicons name="trash-outline" size={17} color={theme.muted} />
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -73,10 +75,10 @@ function SessionCard({ session, sessions, onOpen, onDelete, darkMode }: SessionC
                             <Ionicons
                                 name={over ? "alert-circle-outline" : "checkmark-circle-outline"}
                                 size={13}
-                                color={over ? t.danger : t.text}
+                                color={over ? theme.danger : theme.text}
                             />
                             <Text style={[styles.budgetLine, over && styles.overText]}>
-                                {over ? `${formatMoney(Math.abs(budgetDiff))} over budget` : `${formatMoney(budgetDiff)} under budget`}
+                                {over ? t('overBudgetHistory', { amount: formatMoney(Math.abs(budgetDiff)) }) : t('underBudget', { amount: formatMoney(budgetDiff) })}
                             </Text>
                         </View>
                     </View>
@@ -86,25 +88,25 @@ function SessionCard({ session, sessions, onOpen, onDelete, darkMode }: SessionC
                     {session.items.slice(0, 3).map((item) => (
                         <View key={item.id} style={styles.historyItem}>
                             <Text style={styles.historyItemName} numberOfLines={1}>{item.name}</Text>
-                            <Text style={styles.historyItemPrice}>{item.isRecurring ? 'Repeat • ' : ''}{item.quantity} × {formatMoney(item.price)}</Text>
+                            <Text style={styles.historyItemPrice}>{item.isRecurring ? `${t('repeat')} • ` : ''}{item.quantity} × {formatMoney(item.price)}</Text>
                         </View>
                     ))}
                     {session.items.length > 3 && (
-                        <Text style={styles.moreText}>+{session.items.length - 3} more items</Text>
+                        <Text style={styles.moreText}>{t('moreItems', { count: session.items.length - 3 })}</Text>
                     )}
                 </View>
             </Pressable>
 
             <AppDialog
                 visible={confirmOpen}
-                title="Delete history?"
-                message="This removes this saved shopping session from your history."
+                title={t('deleteHistory')}
+                message={t('deleteHistoryMsg')}
                 icon="trash-outline"
                 onDismiss={() => setConfirmOpen(false)}
                 actions={[
-                    { label: 'Cancel', onPress: () => setConfirmOpen(false), variant: 'soft' },
+                    { label: t('cancel'), onPress: () => setConfirmOpen(false), variant: 'soft' },
                     {
-                        label: 'Delete',
+                        label: t('delete'),
                         onPress: () => {
                             setConfirmOpen(false);
                             onDelete(session.id);
@@ -123,8 +125,9 @@ export default function History() {
     const screenPadding = useScreenPadding();
 
     const darkMode = themeMode === 'dark';
-    const t = useMemo(() => getTheme(darkMode), [darkMode]);
-    const styles = useMemo(() => getStyles(t), [t]);
+    const { t } = useTranslation();
+    const theme = useMemo(() => getTheme(darkMode), [darkMode]);
+    const styles = useMemo(() => getStyles(theme), [theme]);
 
     const totalSpent = useMemo(() => sessions.reduce((sum, s) => sum + s.total, 0), [sessions]);
     const totalItemsCount = useMemo(() => sessions.reduce((sum, s) => sum + s.items.reduce((isum, i) => isum + i.quantity, 0), 0), [sessions]);
@@ -133,33 +136,33 @@ export default function History() {
         <ScrollView style={styles.screen} contentContainerStyle={[styles.content, screenPadding]} keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
                 <View>
-                    <Text style={styles.kicker}>Log & archive</Text>
-                    <Text style={styles.title}>History</Text>
+                    <Text style={styles.kicker}>{t('logArchive')}</Text>
+                    <Text style={styles.title}>{t('history')}</Text>
                 </View>
                 <View style={styles.headerIcon}>
-                    <Ionicons name="time-outline" size={22} color={t.text} />
+                    <Ionicons name="time-outline" size={22} color={theme.text} />
                 </View>
             </View>
 
             <View style={styles.summary}>
                 <View style={styles.summaryItem}>
                     <View style={styles.summaryHeader}>
-                        <Ionicons name="receipt-outline" size={15} color={t.text} />
-                        <Text style={styles.summaryLabel}>Trips</Text>
+                        <Ionicons name="receipt-outline" size={15} color={theme.text} />
+                        <Text style={styles.summaryLabel}>{t('tripsLabel')}</Text>
                     </View>
                     <Text style={styles.summaryValue}>{sessions.length}</Text>
                 </View>
                 <View style={styles.summaryItem}>
                     <View style={styles.summaryHeader}>
-                        <Ionicons name="wallet-outline" size={15} color={t.text} />
-                        <Text style={styles.summaryLabel}>Total Spent</Text>
+                        <Ionicons name="wallet-outline" size={15} color={theme.text} />
+                        <Text style={styles.summaryLabel}>{t('totalSpent')}</Text>
                     </View>
                     <Text style={styles.summaryValue}>{formatMoney(totalSpent)}</Text>
                 </View>
                 <View style={styles.summaryItem}>
                     <View style={styles.summaryHeader}>
-                        <Ionicons name="basket-outline" size={15} color={t.text} />
-                        <Text style={styles.summaryLabel}>Units</Text>
+                        <Ionicons name="basket-outline" size={15} color={theme.text} />
+                        <Text style={styles.summaryLabel}>{t('units')}</Text>
                     </View>
                     <Text style={styles.summaryValue}>{totalItemsCount}</Text>
                 </View>
@@ -168,10 +171,10 @@ export default function History() {
             {sessions.length === 0 ? (
                 <View style={styles.emptyState}>
                     <View style={styles.emptyIcon}>
-                        <Ionicons name="time-outline" size={28} color={t.text} />
+                        <Ionicons name="time-outline" size={28} color={theme.text} />
                     </View>
-                    <Text style={styles.emptyTitle}>No saved shopping trips</Text>
-                    <Text style={styles.emptyText}>Complete and save a cart session to archive your shopping history and track prices.</Text>
+                    <Text style={styles.emptyTitle}>{t('noSavedTrips')}</Text>
+                    <Text style={styles.emptyText}>{t('historyEmptyMsg')}</Text>
                 </View>
             ) : (
                 sessions.slice().reverse().map((session) => (
@@ -197,7 +200,7 @@ export default function History() {
                             <View style={styles.detailHeader}>
                                 <View>
                                     <Text style={styles.detailKicker}>{formatShortDate(selectedSession.date)}</Text>
-                                    <Text style={styles.detailTitle}>{selectedSession.storeName || 'Shopping Trip'}</Text>
+                                    <Text style={styles.detailTitle}>{selectedSession.storeName || t('shoppingTrip')}</Text>
                                 </View>
                                 <View style={styles.detailHeaderActions}>
                                     <TouchableOpacity
@@ -206,10 +209,10 @@ export default function History() {
                                             deleteSession(selectedSession.id);
                                             setSelectedSession(null);
                                         }}>
-                                        <Ionicons name="trash-outline" size={18} color={t.danger} />
+                                        <Ionicons name="trash-outline" size={18} color={theme.danger} />
                                     </TouchableOpacity>
                                     <TouchableOpacity style={styles.closeButton} onPress={() => setSelectedSession(null)}>
-                                        <Ionicons name="close" size={20} color={t.text} />
+                                        <Ionicons name="close" size={20} color={theme.text} />
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -217,7 +220,7 @@ export default function History() {
                             <View style={styles.detailSummary}>
                                 <Text style={styles.detailTotal}>{formatMoney(selectedSession.total)}</Text>
                                 <Text style={styles.detailMeta}>
-                                    {selectedSession.items.length} items • Budget: {selectedSession.budget > 0 ? formatMoney(selectedSession.budget) : 'None'}
+                                    {selectedSession.items.length} {t('itemsLabel')} • {t('budgetWithAmount', { amount: selectedSession.budget > 0 ? formatMoney(selectedSession.budget) : t('none') })}
                                 </Text>
                             </View>
 
@@ -230,7 +233,7 @@ export default function History() {
                                             <View style={styles.detailItemText}>
                                                 <Text style={styles.detailItemName}>{item.name}</Text>
                                                 <Text style={styles.detailItemMeta}>
-                                                    {item.quantity} × {formatMoney(item.price)} {item.isRecurring ? '• Recurring' : ''}
+                                                    {item.quantity} × {formatMoney(item.price)} {item.isRecurring ? `• ${t('repeat')}` : ''}
                                                 </Text>
                                                 {stores.length > 0 && (
                                                     <View style={styles.storeCompareRow}>

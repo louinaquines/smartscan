@@ -10,6 +10,7 @@ export const StorageKeys = {
     ACTIVE_MEMBER_ID: 'activeMemberId',
     WIDGET_SNAPSHOT: 'widgetSnapshot',
     CURRENCY: 'currency',
+    LANGUAGE: 'language',
     THEME_MODE: 'themeMode',
     USER_NAME: 'userName',
     COUNTRY: 'country',

@@ -2,10 +2,11 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Animated, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useTranslation } from '../../lib/i18n';
 import AppDialog from '../../components/AppDialog';
 import BudgetDonut from '../../components/BudgetDonut';
 import Mascot from '../../components/Mascot';
-import { BUDGET_CATEGORIES, BudgetCategoryId, DEFAULT_CATEGORY, getCategoryLabel } from '../../lib/budgetCategories';
+import { BUDGET_CATEGORIES, BudgetCategoryId, DEFAULT_CATEGORY } from '../../lib/budgetCategories';
 import { formatMoney } from '../../lib/format';
 import { getTheme, shadow } from '../../lib/theme';
 import { useScreenPadding } from '../../lib/useScreenPadding';
@@ -14,7 +15,7 @@ import SettingsSheet from '../../components/SettingsSheet';
 import { getCurrency } from '../../lib/currencies';
 
 export default function Dashboard() {
-    const { items, budget, categoryBudgets, sessions, shoppingList, setBudget, setCategoryBudget, total, remaining, isHydrated, currencyId, setCurrency, themeMode, setThemeMode } = useCartStore();
+    const { items, budget, categoryBudgets, sessions, shoppingList, setBudget, setCategoryBudget, total, remaining, isHydrated, currencyId, setCurrency, languageId, setLanguage, themeMode, setThemeMode } = useCartStore();
     const isDark = themeMode === 'dark';
     const colors = useMemo(() => getTheme(isDark), [isDark]);
     
@@ -26,6 +27,7 @@ export default function Dashboard() {
     const [activeCategory, setActiveCategory] = useState<BudgetCategoryId | null>(null);
     const screenPadding = useScreenPadding();
     const activeCurrency = useMemo(() => getCurrency(currencyId), [currencyId]);
+    const { t } = useTranslation();
 
     const styles = useMemo(() => StyleSheet.create({
         screen: { flex: 1, backgroundColor: colors.bg },
@@ -212,7 +214,7 @@ export default function Dashboard() {
     const manualCount = items.length - scannedCount;
     const statusColor = rem < 0 ? colors.danger : progress > 85 ? colors.warning : colors.success;
     const statusBg = rem < 0 ? colors.dangerSoft : progress > 85 ? colors.warningSoft : colors.successSoft;
-    const statusText = budget <= 0 ? 'Set your budget' : rem < 0 ? 'Over budget' : progress > 85 ? 'Almost full' : 'On track';
+    const statusText = budget <= 0 ? t('setBudget') : rem < 0 ? t('overBudget') : progress > 85 ? t('almostFull') : t('onTrack');
 
     const progressAnim = useRef(new Animated.Value(0));
     const recentItems = items.slice(-5).reverse();
@@ -241,13 +243,13 @@ export default function Dashboard() {
     const cartVsAverage = topStoreAverage > 0 ? spent - topStoreAverage : 0;
     const smartSuggestion = topStoreName && topStoreAverage > 0
         ? cartVsAverage > 0
-            ? `Your cart (${formatMoney(spent)}) is ${formatMoney(Math.round(cartVsAverage))} above your usual ${formatMoney(Math.round(topStoreAverage))} at ${topStoreName}. ${rem < 0 ? 'You\'re over budget.' : openListCount > 0 ? `You still have ${openListCount} item${openListCount === 1 ? '' : 's'} on your list.` : 'Consider trimming before checkout.'}`
-            : `Your cart (${formatMoney(spent)}) is ${formatMoney(Math.round(Math.abs(cartVsAverage)))} below your usual ${formatMoney(Math.round(topStoreAverage))} at ${topStoreName}. ${openListCount > 0 ? `You have ${openListCount} item${openListCount === 1 ? '' : 's'} left to grab.` : 'You\'re in good shape.'}`
+            ? t('smartAboveAvg', { spent: formatMoney(spent), diff: formatMoney(Math.round(cartVsAverage)), avg: formatMoney(Math.round(topStoreAverage)), store: topStoreName }) + (rem < 0 ? t('smartOverBudget') : openListCount > 0 ? t('smartItemsOnList', { count: openListCount }) : t('smartTrimBefore'))
+            : t('smartBelowAvg', { spent: formatMoney(spent), diff: formatMoney(Math.round(Math.abs(cartVsAverage))), avg: formatMoney(Math.round(topStoreAverage)), store: topStoreName }) + (openListCount > 0 ? t('smartItemsToGrab', { count: openListCount }) : t('smartGoodShape'))
         : openListCount > 0
-            ? `${openListCount} shopping list item${openListCount === 1 ? '' : 's'} still to pick up.`
+            ? t('smartItemsToPick', { count: openListCount })
             : budget > 0
-                ? `Budget is ${formatMoney(budget)} — you've spent ${formatMoney(spent)} so far.`
-                : 'Set a budget and save a few sessions to get personalized suggestions.';
+                ? t('smartBudgetSoFar', { budget: formatMoney(budget), spent: formatMoney(spent) })
+                : t('noBudgetSetMsg');
     const categorySpend = BUDGET_CATEGORIES.map((category) => {
         const spent = items
             .filter((item) => (item.category ?? DEFAULT_CATEGORY) === category.id)
@@ -291,17 +293,17 @@ export default function Dashboard() {
         setBudgetSavedDialogOpen(true);
     };
 
-    let mascotMessage = "Ready to start scanning? Set a budget and let's go.";
+    let mascotMessage = t('readyToScan');
     let mascotType: 'neutral' | 'happy' | 'alert' = 'neutral';
     if (budget > 0) {
         if (rem < 0) {
-            mascotMessage = "You are over budget. Review the cart before saving.";
+            mascotMessage = t('overBudgetMsg');
             mascotType = 'alert';
         } else if (progress > 85) {
-            mascotMessage = "You are close to your limit. Scan carefully.";
+            mascotMessage = t('closeToLimit');
             mascotType = 'alert';
         } else if (spent > 0) {
-            mascotMessage = "Nice progress. Your budget is still in a healthy range.";
+            mascotMessage = t('healthyRange');
             mascotType = 'happy';
         }
     }
@@ -333,7 +335,7 @@ export default function Dashboard() {
                         <Ionicons name="bulb-outline" size={20} color={colors.primary} />
                     </View>
                     <View style={styles.smartCopy}>
-                        <Text style={styles.smartTitle}>Smart suggestion</Text>
+                        <Text style={styles.smartTitle}>{t('smartSuggestion')}</Text>
                         <Text style={styles.smartText}>{smartSuggestion}</Text>
                     </View>
                 </View>
@@ -346,17 +348,17 @@ export default function Dashboard() {
                                 <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
                                 <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
                             </View>
-                            <Text style={styles.label}>Budget</Text>
+                            <Text style={styles.label}>{t('budget')}</Text>
                             <View style={styles.budgetAmountContainer}>
-                                <Text style={styles.budgetAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.45}>{budget > 0 ? formatMoney(budget) : '₱ 0.00'}</Text>
+                                <Text style={styles.budgetAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.45}>{budget > 0 ? formatMoney(budget) : formatMoney(0)}</Text>
                             </View>
-                            <Text style={styles.spentLine} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>Spent {formatMoney(spent)}</Text>
+                            <Text style={styles.spentLine} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{t('spent')} {formatMoney(spent)}</Text>
                             {budget > 0 ? (
                                 <Text style={[styles.remaining, { color: statusColor }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-                                    {rem < 0 ? `${formatMoney(Math.abs(rem))} over budget` : `${formatMoney(rem)} left`}
+                                    {rem < 0 ? t('overBudgetLabel', { amount: formatMoney(Math.abs(rem)) }) : t('leftLabel', { amount: formatMoney(rem) })}
                                 </Text>
                             ) : (
-                                <Text style={styles.budgetMessage}>No budget set</Text>
+                                <Text style={styles.budgetMessage}>{t('noBudgetSet')}</Text>
                             )}
                         </View>
                         <BudgetDonut spent={spent} budget={budget} categories={categorySpend.map((category) => ({ id: category.id, spent: category.spent, budget: category.budget }))} />
@@ -384,7 +386,7 @@ export default function Dashboard() {
                             value={budgetInput}
                             onChangeText={setBudgetInput}
                             keyboardType="decimal-pad"
-                            placeholder="Set budget..."
+                            placeholder={t('setBudgetPlaceholder')}
                             placeholderTextColor={colors.soft}
                         />
                         <TouchableOpacity style={styles.saveButton} onPress={handleBudgetSave}>
@@ -394,8 +396,8 @@ export default function Dashboard() {
                 </View>
 
                 <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Categories</Text>
-                    <Text style={styles.sectionMeta}>{formatMoney(budget)} total</Text>
+                    <Text style={styles.sectionTitle}>{t('categories')}</Text>
+                    <Text style={styles.sectionMeta}>{formatMoney(budget)} {t('totalLabel')}</Text>
                 </View>
 
                 <ScrollView
@@ -416,7 +418,7 @@ export default function Dashboard() {
                                     <Ionicons name={category.icon as keyof typeof Ionicons.glyphMap} size={15} color={isActive ? (isDark ? '#111' : '#FFF') : colors.primary} />
                                 </View>
                                 <View style={styles.chipText}>
-                                    <Text style={[styles.chipLabel, isActive && styles.chipLabelActive]} numberOfLines={1}>{getCategoryLabel(category.id)}</Text>
+                                    <Text style={[styles.chipLabel, isActive && styles.chipLabelActive]} numberOfLines={1}>{t('category' + category.id)}</Text>
                                     <Text style={[styles.chipAmount, isActive && styles.chipAmountActive, over && styles.chipAmountOver]} numberOfLines={1}>{formatMoney(category.spent)}</Text>
                                 </View>
                             </TouchableOpacity>
@@ -434,13 +436,13 @@ export default function Dashboard() {
                                     <Ionicons name={activeCategoryData.icon as keyof typeof Ionicons.glyphMap} size={20} color={colors.primary} />
                                 </View>
                                 <View style={styles.detailTitleBlock}>
-                                    <Text style={styles.detailName}>{getCategoryLabel(activeCategoryData.id)}</Text>
+                                    <Text style={styles.detailName}>{t('category' + activeCategoryData.id)}</Text>
                                     <Text style={[styles.detailStatus, over && styles.detailStatusOver]}>
                                         {activeCategoryData.budget > 0
                                             ? over
-                                                ? `${formatMoney(Math.abs(activeCategoryData.remaining))} over budget`
-                                                : `${formatMoney(activeCategoryData.remaining)} remaining`
-                                            : 'No budget set'}
+                                                ? t('overBudgetLabel', { amount: formatMoney(Math.abs(activeCategoryData.remaining)) })
+                                                : `${formatMoney(activeCategoryData.remaining)} ${t('remaining')}`
+                                            : t('noBudgetSet')}
                                     </Text>
                                 </View>
                                 <TouchableOpacity onPress={() => setActiveCategory(null)} hitSlop={12}>
@@ -451,12 +453,12 @@ export default function Dashboard() {
                             <View style={styles.detailStats}>
                                 <View style={styles.detailStat}>
                                     <Text style={styles.detailStatValue}>{formatMoney(activeCategoryData.spent)}</Text>
-                                    <Text style={styles.detailStatLabel}>Spent</Text>
+                                    <Text style={styles.detailStatLabel}>{t('spent')}</Text>
                                 </View>
                                 <View style={styles.detailDivider} />
                                 <View style={styles.detailStat}>
                                     <Text style={styles.detailStatValue}>{formatMoney(activeCategoryData.budget)}</Text>
-                                    <Text style={styles.detailStatLabel}>Budget</Text>
+                                    <Text style={styles.detailStatLabel}>{t('budget')}</Text>
                                 </View>
                             </View>
 
@@ -470,7 +472,7 @@ export default function Dashboard() {
                                     value={categoryInputs[activeCategoryData.id] ?? ''}
                                     onChangeText={(value) => setCategoryInputs((current) => ({ ...current, [activeCategoryData.id]: value }))}
                                     keyboardType="decimal-pad"
-                                    placeholder={activeCategoryData.budget > 0 ? `Budget: ₱${activeCategoryData.budget}` : 'Set budget...'}
+                                    placeholder={activeCategoryData.budget > 0 ? t('budgetPlaceholder', { amount: formatMoney(activeCategoryData.budget) }) : t('setBudgetPlaceholder')}
                                     placeholderTextColor={colors.soft}
                                 />
                                 <TouchableOpacity style={styles.categorySave} onPress={() => handleCategoryBudgetSave(activeCategoryData.id)}>
@@ -493,7 +495,7 @@ export default function Dashboard() {
                         </View>
                         <View>
                             <Text style={styles.metricValue}>{items.length}</Text>
-                            <Text style={styles.metricLabel}>Items</Text>
+                            <Text style={styles.metricLabel}>{t('items')}</Text>
                         </View>
                     </View>
                     <View style={styles.metric}>
@@ -502,7 +504,7 @@ export default function Dashboard() {
                         </View>
                         <View>
                             <Text style={styles.metricValue}>{scannedCount}</Text>
-                            <Text style={styles.metricLabel}>Scanned</Text>
+                            <Text style={styles.metricLabel}>{t('scanned')}</Text>
                         </View>
                     </View>
                     <View style={styles.metric}>
@@ -511,35 +513,35 @@ export default function Dashboard() {
                         </View>
                         <View>
                             <Text style={styles.metricValue}>{sessions.length}</Text>
-                            <Text style={styles.metricLabel}>Sessions</Text>
+                            <Text style={styles.metricLabel}>{t('sessions')}</Text>
                         </View>
                     </View>
                 </ScrollView>
 
                 <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Trends</Text>
-                    <Text style={styles.sectionMeta}>{sessions.length} trips</Text>
+                    <Text style={styles.sectionTitle}>{t('trends')}</Text>
+                    <Text style={styles.sectionMeta}>{sessions.length} {t('trips')}</Text>
                 </View>
 
                 <View style={styles.trendPanel}>
                     <View style={styles.trendSummaryRow}>
                         <View style={styles.trendSummaryItem}>
                             <Text style={styles.trendValue}>{formatMoney(weekSpent)}</Text>
-                            <Text style={styles.trendLabel}>This week</Text>
+                            <Text style={styles.trendLabel}>{t('thisWeek')}</Text>
                         </View>
                         <View style={styles.trendDivider} />
                         <View style={styles.trendSummaryItem}>
                             <Text style={styles.trendValue}>{formatMoney(monthSpent)}</Text>
-                            <Text style={styles.trendLabel}>30 days</Text>
+                            <Text style={styles.trendLabel}>{t('days30')}</Text>
                         </View>
                     </View>
                     {recentSessions.length === 0 ? (
-                        <Text style={styles.trendEmpty}>Save sessions to see grocery trip trends.</Text>
+                        <Text style={styles.trendEmpty}>{t('saveSessionsTrends')}</Text>
                     ) : (
                         <View style={styles.trendBars}>
                             {recentSessions.map((session) => (
                                 <View key={session.id} style={styles.trendBarRow}>
-                                    <Text style={styles.trendStore} numberOfLines={1}>{session.storeName || 'Store'}</Text>
+                                    <Text style={styles.trendStore} numberOfLines={1}>{session.storeName || t('store')}</Text>
                                     <View style={styles.trendTrack}>
                                         <View style={[styles.trendFill, { width: `${Math.max(8, (session.total / maxTrendTotal) * 100)}%` }]} />
                                     </View>
@@ -551,9 +553,9 @@ export default function Dashboard() {
                 </View>
 
                 <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Recent Items</Text>
+                    <Text style={styles.sectionTitle}>{t('recentItems')}</Text>
                     <TouchableOpacity onPress={() => router.push('/cart')}>
-                        <Text style={styles.sectionAction}>View Cart</Text>
+                        <Text style={styles.sectionAction}>{t('viewCart')}</Text>
                     </TouchableOpacity>
                 </View>
 
@@ -562,8 +564,8 @@ export default function Dashboard() {
                         <View style={styles.emptyIcon}>
                             <Ionicons name="basket-outline" size={32} color={colors.accent} />
                         </View>
-                        <Text style={styles.emptyTitle}>Your cart is empty</Text>
-                        <Text style={styles.emptyText}>Tap the scanner below to begin!</Text>
+                        <Text style={styles.emptyTitle}>{t('yourCartIsEmpty')}</Text>
+                        <Text style={styles.emptyText}>{t('tapScannerToBegin')}</Text>
                     </View>
                 ) : (
                     <View style={styles.recentList}>
@@ -581,7 +583,7 @@ export default function Dashboard() {
                         ))}
                         {items.length > 5 && (
                             <TouchableOpacity style={styles.viewAllButton} onPress={() => router.push('/cart')}>
-                                <Text style={styles.viewAllText}>View all {items.length} items</Text>
+                                <Text style={styles.viewAllText}>{t('viewAllItems', { count: items.length })}</Text>
                                 <Ionicons name="arrow-forward" size={16} color={colors.primary} />
                             </TouchableOpacity>
                         )}
@@ -593,25 +595,27 @@ export default function Dashboard() {
             </ScrollView>
             <AppDialog
                 visible={dialogOpen}
-                title="Invalid budget"
-                message="Enter a budget greater than zero."
+                title={t('invalidBudget')}
+                message={t('enterBudgetGreater')}
                 icon="wallet-outline"
                 onDismiss={() => setDialogOpen(false)}
-                actions={[{ label: 'OK', onPress: () => setDialogOpen(false) }]}
+                actions={[{ label: t('ok'), onPress: () => setDialogOpen(false) }]}
             />
             <AppDialog
                 visible={budgetSavedDialogOpen}
-                title="Budget set"
-                message="Your budget has been updated."
+                title={t('budgetSet')}
+                message={t('budgetUpdated')}
                 icon="checkmark-done-outline"
                 onDismiss={() => setBudgetSavedDialogOpen(false)}
-                actions={[{ label: 'OK', onPress: () => setBudgetSavedDialogOpen(false) }]}
+                actions={[{ label: t('ok'), onPress: () => setBudgetSavedDialogOpen(false) }]}
             />
             <SettingsSheet
                 open={settingsOpen}
                 onClose={() => setSettingsOpen(false)}
                 currencyId={currencyId}
                 setCurrency={setCurrency}
+                languageId={languageId}
+                setLanguage={setLanguage}
                 themeMode={themeMode}
                 setThemeMode={setThemeMode}
                 activeCurrency={activeCurrency}

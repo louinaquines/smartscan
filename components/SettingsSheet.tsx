@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getTheme } from '../lib/theme';
-import { CURRENCIES, CurrencyId } from '../lib/currencies';
+import { CURRENCIES, CurrencyId, LANGUAGES, LanguageId } from '../lib/currencies';
+import { useTranslation } from '../lib/i18n';
 
 interface SettingsSheetProps {
   open: boolean;
   onClose: () => void;
   currencyId: CurrencyId;
   setCurrency: (id: CurrencyId) => void;
+  languageId: LanguageId;
+  setLanguage: (id: LanguageId) => void;
   themeMode: 'light' | 'dark';
   setThemeMode: (mode: 'light' | 'dark') => void;
   activeCurrency: { id: string; symbol: string; flag: string; country: string };
@@ -27,12 +30,16 @@ export default function SettingsSheet({
   onClose,
   currencyId,
   setCurrency,
+  languageId,
+  setLanguage,
   themeMode,
   setThemeMode,
   activeCurrency,
 }: SettingsSheetProps) {
   const darkMode = themeMode === 'dark';
-  const t = getTheme(darkMode);
+  const theme = getTheme(darkMode);
+  const { t } = useTranslation();
+  const [langOpen, setLangOpen] = useState(false);
 
   return (
     <Modal
@@ -50,22 +57,22 @@ export default function SettingsSheet({
         />
 
         {/* Sheet */}
-        <View style={[styles.sheet, { backgroundColor: t.card, borderColor: t.glassBorder }]}>
+        <View style={[styles.sheet, { backgroundColor: theme.card, borderColor: theme.glassBorder }]}>
           <View style={styles.handleContainer}>
             <View style={[styles.handle, { backgroundColor: darkMode ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.18)' }]} />
           </View>
 
           <View style={styles.settingsHeader}>
             <View style={styles.headerTitles}>
-              <Text style={[styles.settingsTitle, { color: t.text }]}>Settings</Text>
-              <Text style={[styles.settingsSubtitle, { color: t.muted }]}>Make Cany fit your shopping style.</Text>
+              <Text style={[styles.settingsTitle, { color: theme.text }]}>{t('settings')}</Text>
+              <Text style={[styles.settingsSubtitle, { color: theme.muted }]}>{t('makeCanyFit')}</Text>
             </View>
             <TouchableOpacity
-              style={[styles.closeButton, { backgroundColor: t.surfaceBlue, borderColor: t.glassBorder }]}
+              style={[styles.closeButton, { backgroundColor: theme.surfaceBlue, borderColor: theme.glassBorder }]}
               onPress={onClose}
               activeOpacity={0.78}
             >
-              <Ionicons name="close" size={20} color={t.text} />
+              <Ionicons name="close" size={20} color={theme.text} />
             </TouchableOpacity>
           </View>
 
@@ -77,9 +84,9 @@ export default function SettingsSheet({
           >
             <View style={styles.settingsSection}>
               <View style={styles.settingLabelRow}>
-                <Ionicons name="cash-outline" size={18} color={t.primary} />
-                <Text style={[styles.settingLabel, { color: t.text }]}>Currency</Text>
-                <Text style={[styles.settingValue, { color: t.muted }]}>{activeCurrency.flag} {activeCurrency.id}</Text>
+                <Ionicons name="cash-outline" size={18} color={theme.primary} />
+                <Text style={[styles.settingLabel, { color: theme.text }]}>{t('currency')}</Text>
+                <Text style={[styles.settingValue, { color: theme.muted }]}>{activeCurrency.flag} {activeCurrency.id}</Text>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.currencyRail}>
                 {CURRENCIES.map((currency) => {
@@ -91,15 +98,15 @@ export default function SettingsSheet({
                       key={currency.id}
                       style={[
                         styles.currencyChip,
-                        { backgroundColor: t.surfaceBlue, borderColor: t.glassBorder },
-                        selected && { backgroundColor: t.primary, borderColor: t.primary },
+                        { backgroundColor: theme.surfaceBlue, borderColor: theme.glassBorder },
+                        selected && { backgroundColor: theme.primary, borderColor: theme.primary },
                       ]}
                       onPress={() => setCurrency(currency.id)}
                       activeOpacity={0.78}>
                       <Text style={styles.currencyFlag}>{currency.flag}</Text>
                       <View>
-                        <Text style={[styles.currencyCode, { color: selected ? activeTextColor : t.text }]}>{currency.id}</Text>
-                        <Text style={[styles.currencyCountry, { color: selected ? activeMutedColor : t.muted }]} numberOfLines={1}>{currency.country}</Text>
+                        <Text style={[styles.currencyCode, { color: selected ? activeTextColor : theme.text }]}>{currency.id}</Text>
+                        <Text style={[styles.currencyCountry, { color: selected ? activeMutedColor : theme.muted }]} numberOfLines={1}>{currency.country}</Text>
                       </View>
                     </TouchableOpacity>
                   );
@@ -109,43 +116,81 @@ export default function SettingsSheet({
 
             <View style={styles.settingsSection}>
               <View style={styles.settingLabelRow}>
-                <Ionicons name="contrast-outline" size={18} color={t.primary} />
-                <Text style={[styles.settingLabel, { color: t.text }]}>Appearance</Text>
+                <Ionicons name="language-outline" size={18} color={theme.primary} />
+                <Text style={[styles.settingLabel, { color: theme.text }]}>{t('language')}</Text>
               </View>
-              <View style={[styles.themeSwitch, { backgroundColor: t.surfaceBlue, borderColor: t.glassBorder }]}>
+              <TouchableOpacity
+                style={[styles.langDropdown, { backgroundColor: theme.surfaceBlue, borderColor: theme.glassBorder }]}
+                onPress={() => setLangOpen(!langOpen)}
+                activeOpacity={0.7}>
+                <Text style={[styles.langDropdownText, { color: theme.text }]}>{t('lang' + languageId)}</Text>
+                <Ionicons name={langOpen ? 'chevron-up' : 'chevron-down'} size={18} color={theme.muted} />
+              </TouchableOpacity>
+              {langOpen && (
+                <View style={[styles.langList, { backgroundColor: theme.surfaceBlue, borderColor: theme.glassBorder }]}>
+                  {LANGUAGES.map((language) => {
+                    const selected = language.id === languageId;
+                    return (
+                      <TouchableOpacity
+                        key={language.id}
+                        style={[
+                          styles.langRow,
+                          selected && styles.langRowActive,
+                        ]}
+                        onPress={() => { setLanguage(language.id); setLangOpen(false); }}
+                        activeOpacity={0.7}>
+                        <Text style={[
+                          styles.langText,
+                          { color: theme.text },
+                          selected && styles.langTextActive,
+                        ]}>{t('lang' + language.id)}</Text>
+                        {selected && <Ionicons name="checkmark" size={18} color={darkMode ? '#111' : '#FFF'} />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+
+            <View style={styles.settingsSection}>
+              <View style={styles.settingLabelRow}>
+                <Ionicons name="contrast-outline" size={18} color={theme.primary} />
+                <Text style={[styles.settingLabel, { color: theme.text }]}>{t('appearance')}</Text>
+              </View>
+              <View style={[styles.themeSwitch, { backgroundColor: theme.surfaceBlue, borderColor: theme.glassBorder }]}>
                 <TouchableOpacity
                   style={[
                     styles.themeOption,
-                    themeMode === 'light' && { backgroundColor: t.primary },
+                    themeMode === 'light' && { backgroundColor: theme.primary },
                   ]}
                   onPress={() => setThemeMode('light')}
                   activeOpacity={0.82}>
-                  <Ionicons name="sunny-outline" size={19} color={themeMode === 'light' ? (darkMode ? '#111' : '#FFF') : t.text} />
-                  <Text style={[styles.themeOptionText, { color: t.text }, themeMode === 'light' && { color: darkMode ? '#111' : '#FFF' }]}>Light</Text>
+                  <Ionicons name="sunny-outline" size={19} color={themeMode === 'light' ? (darkMode ? '#111' : '#FFF') : theme.text} />
+                  <Text style={[styles.themeOptionText, { color: theme.text }, themeMode === 'light' && { color: darkMode ? '#111' : '#FFF' }]}>{t('light')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
                     styles.themeOption,
-                    themeMode === 'dark' && { backgroundColor: t.primary },
+                    themeMode === 'dark' && { backgroundColor: theme.primary },
                   ]}
                   onPress={() => setThemeMode('dark')}
                   activeOpacity={0.82}>
-                  <Ionicons name="moon-outline" size={18} color={themeMode === 'dark' ? '#111' : t.text} />
-                  <Text style={[styles.themeOptionText, { color: t.text }, themeMode === 'dark' && { color: '#111' }]}>Dark</Text>
+                  <Ionicons name="moon-outline" size={18} color={themeMode === 'dark' ? '#111' : theme.text} />
+                  <Text style={[styles.themeOptionText, { color: theme.text }, themeMode === 'dark' && { color: '#111' }]}>{t('dark')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            <View style={[styles.privacyBadge, { backgroundColor: t.surfaceBlue, borderColor: t.glassBorder }]}>
-              <View style={[styles.privacyIcon, { backgroundColor: t.card, borderColor: t.glassBorder }]}>
-                <Ionicons name="shield-checkmark-outline" size={22} color={t.primary} />
+            <View style={[styles.privacyBadge, { backgroundColor: theme.surfaceBlue, borderColor: theme.glassBorder }]}>
+              <View style={[styles.privacyIcon, { backgroundColor: theme.card, borderColor: theme.glassBorder }]}>
+                <Ionicons name="shield-checkmark-outline" size={22} color={theme.primary} />
               </View>
-              <Text style={[styles.privacyText, { color: t.text }]}>Your shopping lists, budget, and history stay safely on your device. Cany never tracks or uploads your data.</Text>
+              <Text style={[styles.privacyText, { color: theme.text }]}>{t('privacyNotice')}</Text>
             </View>
 
-            <View style={[styles.versionCard, { backgroundColor: t.surfaceBlue, borderColor: t.glassBorder }]}>
-              <Text style={[styles.versionTitle, { color: t.text }]}>Cany v1.0.0</Text>
-              <Text style={[styles.versionText, { color: t.muted }]}>Built for smart offline shopping</Text>
+            <View style={[styles.versionCard, { backgroundColor: theme.surfaceBlue, borderColor: theme.glassBorder }]}>
+              <Text style={[styles.versionTitle, { color: theme.text }]}>{t('version')}</Text>
+              <Text style={[styles.versionText, { color: theme.muted }]}>{t('builtFor')}</Text>
             </View>
           </ScrollView>
         </View>
@@ -259,6 +304,44 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     maxWidth: 64,
     marginTop: 2,
+  },
+  langDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 18,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  langDropdownText: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  langList: {
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  langRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(128,128,128,0.15)',
+  },
+  langText: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  langTextActive: {
+    fontWeight: '900',
+  },
+  langRowActive: {
+    backgroundColor: 'rgba(0,0,0,0.06)',
   },
   currencyFlag: {
     fontSize: 20,

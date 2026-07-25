@@ -4,12 +4,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AppDialog from '../../components/AppDialog';
 import Mascot from '../../components/Mascot';
-import { BUDGET_CATEGORIES, BudgetCategoryId, DEFAULT_CATEGORY, getCategoryLabel } from '../../lib/budgetCategories';
+import { BUDGET_CATEGORIES, BudgetCategoryId, DEFAULT_CATEGORY } from '../../lib/budgetCategories';
 import { buildCartShareText } from '../../lib/cartShare';
 import { formatMoney } from '../../lib/format';
 import { getTheme, shadow } from '../../lib/theme';
 import { useScreenPadding } from '../../lib/useScreenPadding';
 import { CartItem, useCartStore } from '../../store/useCartStore';
+import { useTranslation } from '../../lib/i18n';
 
 export default function Cart() {
     const { items, budget, householdMembers, activeMemberId, addHouseholdMember, removeHouseholdMember, setActiveMember, addItem, removeItem, updateItem, updateQuantity, toggleRecurringItem, addRecurringItemsToCart, saveSession, clearCart, total, themeMode } = useCartStore();
@@ -37,6 +38,8 @@ export default function Cart() {
     const t = useMemo(() => getTheme(darkMode), [darkMode]);
     const styles = useMemo(() => getStyles(t), [t]);
 
+    const { t: tr } = useTranslation();
+
     const cartTotal = total();
     const itemCount = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
     const getMemberName = (id?: string) => householdMembers.find((member) => member.id === id)?.name;
@@ -48,7 +51,7 @@ export default function Cart() {
 
     const handleShare = async () => {
         if (items.length === 0) {
-            setDialog({ title: 'Empty cart', message: 'Add items before sharing your cart.', icon: 'share-outline' });
+            setDialog({ title: tr('emptyCart'), message: tr('addItemsBeforeSharing'), icon: 'share-outline' });
             return;
         }
         await Share.share({ message: buildCartShareText(items, cartTotal) });
@@ -57,8 +60,8 @@ export default function Cart() {
     const handleAddRecurring = () => {
         const added = addRecurringItemsToCart();
         setDialog({
-            title: added > 0 ? 'Recurring items added' : 'No recurring items yet',
-            message: added > 0 ? `${added} recurring item${added === 1 ? '' : 's'} added to your cart.` : 'Mark items as recurring after adding them, then they can be suggested next time.',
+            title: added > 0 ? tr('recurringAdded') : tr('noRecurringYet'),
+            message: added > 0 ? tr('recurringAddedMsg', { count: added }) : tr('noRecurringMsg'),
             icon: 'repeat-outline',
         });
     };
@@ -69,11 +72,11 @@ export default function Cart() {
         const parsedQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
 
         if (!cleanName) {
-            setDialog({ title: 'Missing name', message: 'Enter the item name before adding it to your cart.', icon: 'create-outline' });
+            setDialog({ title: tr('missingName'), message: tr('enterItemName'), icon: 'create-outline' });
             return;
         }
         if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
-            setDialog({ title: 'Invalid price', message: 'Enter a price greater than zero.', icon: 'cash-outline' });
+            setDialog({ title: tr('invalidPrice'), message: tr('enterPriceGreater'), icon: 'cash-outline' });
             return;
         }
 
@@ -126,14 +129,14 @@ export default function Cart() {
 
     const handleSaveSession = async () => {
         if (items.length === 0) {
-            setDialog({ title: 'Empty cart', message: 'Add items before saving a shopping session.', icon: 'bag-outline' });
+            setDialog({ title: tr('emptyCart'), message: tr('addItemsBeforeSharing'), icon: 'bag-outline' });
             return;
         }
         const success = await saveSession(storeName.trim() || undefined);
         if (success) {
             setDialog({
-                title: 'Session saved',
-                message: 'Your shopping trip has been saved to history and price trends have been updated.',
+                title: tr('sessionSaved'),
+                message: tr('sessionSavedMsg'),
                 icon: 'checkmark-circle-outline',
             });
             setStoreName('');
@@ -161,8 +164,8 @@ export default function Cart() {
         <ScrollView style={styles.screen} contentContainerStyle={[styles.content, screenPadding]} keyboardShouldPersistTaps="handled">
             <View style={styles.header}>
                 <View>
-                    <Text style={styles.kicker}>Current trip</Text>
-                    <Text style={styles.title}>Cart</Text>
+                    <Text style={styles.kicker}>{tr('currentTrip')}</Text>
+                    <Text style={styles.title}>{tr('cart')}</Text>
                 </View>
                 <View style={styles.headerActions}>
                     <TouchableOpacity style={styles.iconBtn} onPress={handleShare} activeOpacity={0.78}>
@@ -174,9 +177,9 @@ export default function Cart() {
             <View style={styles.summaryCard}>
                 <View style={styles.summaryTop}>
                     <View>
-                        <Text style={styles.summaryLabel}>Cart Total</Text>
+                        <Text style={styles.summaryLabel}>{tr('cartTotal')}</Text>
                         <Text style={styles.summaryValue}>{formatMoney(cartTotal)}</Text>
-                        <Text style={styles.summarySub}>{itemCount} item{itemCount === 1 ? '' : 's'} • {items.length} unique</Text>
+                        <Text style={styles.summarySub}>{tr('items', { count: itemCount })} • {items.length} {tr('unique')}</Text>
                     </View>
                     <View style={styles.badgeWrap}>
                         <View style={styles.badge}>
@@ -189,11 +192,11 @@ export default function Cart() {
                 <View style={styles.quickActionsRow}>
                     <TouchableOpacity style={styles.quickActionBtn} onPress={handleAddRecurring} activeOpacity={0.78}>
                         <Ionicons name="repeat-outline" size={16} color={t.text} />
-                        <Text style={styles.quickActionText}>Add Recurring</Text>
+                        <Text style={styles.quickActionText}>{tr('addRecurring')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.quickActionBtn} onPress={handleShare} activeOpacity={0.78}>
                         <Ionicons name="paper-plane-outline" size={16} color={t.text} />
-                        <Text style={styles.quickActionText}>Share Cart</Text>
+                        <Text style={styles.quickActionText}>{tr('shareCart')}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -202,14 +205,14 @@ export default function Cart() {
             <View style={styles.householdPanel}>
                 <View style={styles.householdHeader}>
                     <Ionicons name="people-outline" size={18} color={t.text} />
-                    <Text style={styles.householdTitle}>Household / Shopping Buddies</Text>
+                    <Text style={styles.householdTitle}>{tr('household')}</Text>
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.memberRail}>
                     <TouchableOpacity
                         style={[styles.memberChip, activeMemberId === null && styles.memberChipActive]}
                         onPress={() => setActiveMember(null)}
                         activeOpacity={0.78}>
-                        <Text style={[styles.memberText, activeMemberId === null && styles.memberTextActive]}>Everyone</Text>
+                        <Text style={[styles.memberText, activeMemberId === null && styles.memberTextActive]}>{tr('everyone')}</Text>
                     </TouchableOpacity>
                     {householdMembers.map((member) => {
                         const selected = activeMemberId === member.id;
@@ -238,7 +241,7 @@ export default function Cart() {
                 <View style={styles.memberAddRow}>
                     <TextInput
                         style={styles.memberInput}
-                        placeholder="Add family member..."
+                        placeholder={tr('addFamilyMember')}
                         placeholderTextColor={t.soft}
                         value={memberName}
                         onChangeText={setMemberName}
@@ -251,10 +254,10 @@ export default function Cart() {
 
             {/* Manual item entry form */}
             <View style={styles.formCard}>
-                <Text style={styles.sectionTitle}>Add item manually</Text>
+                <Text style={styles.sectionTitle}>{tr('addItemManually')}</Text>
                 <TextInput
                     style={styles.input}
-                    placeholder="Product name"
+                    placeholder={tr('productName')}
                     placeholderTextColor={t.soft}
                     value={name}
                     onChangeText={setName}
@@ -262,7 +265,7 @@ export default function Cart() {
                 <View style={styles.formGrid}>
                     <TextInput
                         style={[styles.input, styles.priceInput]}
-                        placeholder="Price"
+                        placeholder={tr('price')}
                         placeholderTextColor={t.soft}
                         value={price}
                         onChangeText={setPrice}
@@ -270,7 +273,7 @@ export default function Cart() {
                     />
                     <TextInput
                         style={[styles.input, styles.quantityInput]}
-                        placeholder="Qty"
+                        placeholder={tr('qty')}
                         placeholderTextColor={t.soft}
                         value={quantity}
                         onChangeText={setQuantity}
@@ -297,16 +300,16 @@ export default function Cart() {
 
                 <TouchableOpacity style={styles.addButton} onPress={handleAdd} activeOpacity={0.82}>
                     <Ionicons name="add" size={20} color={darkMode ? '#111' : '#FFF'} />
-                    <Text style={{ color: darkMode ? '#111' : '#FFF', fontWeight: '900', fontSize: 16 }}>Add to Cart</Text>
+                    <Text style={{ color: darkMode ? '#111' : '#FFF', fontWeight: '900', fontSize: 16 }}>{tr('addToCart')}</Text>
                 </TouchableOpacity>
             </View>
 
             {/* Cart Items List */}
             <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Cart Items ({items.length})</Text>
+                <Text style={styles.sectionTitle}>{tr('cartItems', { count: items.length })}</Text>
                 {items.length > 0 && (
                     <TouchableOpacity onPress={clearCart}>
-                        <Text style={styles.clearText}>Clear all</Text>
+                        <Text style={styles.clearText}>{tr('clearAll')}</Text>
                     </TouchableOpacity>
                 )}
             </View>
@@ -316,15 +319,15 @@ export default function Cart() {
                     <View style={styles.emptyIcon}>
                         <Ionicons name="cart-outline" size={30} color={t.text} />
                     </View>
-                    <Text style={styles.emptyTitle}>Your cart is empty</Text>
-                    <Text style={styles.emptyText}>Scan price tags or add items manually to track your spending instantly.</Text>
+                    <Text style={styles.emptyTitle}>{tr('yourCartIsEmpty')}</Text>
+                    <Text style={styles.emptyText}>{tr('emptyCartMsg')}</Text>
                     <TouchableOpacity style={styles.emptyAction} onPress={() => router.push('/scan')} activeOpacity={0.82}>
                         <Ionicons name="scan" size={18} color={darkMode ? '#111' : '#FFF'} />
-                        <Text style={styles.emptyActionText}>Start Scanning</Text>
+                        <Text style={styles.emptyActionText}>{tr('startScanning')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.recurringAction} onPress={handleAddRecurring} activeOpacity={0.82}>
                         <Ionicons name="repeat-outline" size={16} color={t.text} />
-                        <Text style={styles.recurringActionText}>Add Recurring Items</Text>
+                        <Text style={styles.recurringActionText}>{tr('addRecurringItems')}</Text>
                     </TouchableOpacity>
                 </View>
             ) : (
@@ -337,7 +340,7 @@ export default function Cart() {
                                 <View style={styles.itemText}>
                                     <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
                                     <Text style={styles.itemMeta}>
-                                        {getCategoryLabel(item.category)} • {item.isScanned ? 'Scanned' : 'Manual'}
+                                        {tr('category' + item.category)} • {item.isScanned ? tr('scanned') : tr('manual')}
                                         {memberName ? ` • ${memberName}` : ''}
                                     </Text>
                                 </View>
@@ -359,13 +362,13 @@ export default function Cart() {
                                     <TouchableOpacity
                                         style={[styles.editButton, item.isRecurring && styles.recurringButtonActive]}
                                         onPress={() => toggleRecurringItem(item.id)}
-                                        accessibilityLabel="Toggle recurring">
+                                        accessibilityLabel={tr('toggleRecurring')}>
                                         <Ionicons name="repeat" size={17} color={item.isRecurring ? (darkMode ? '#111' : '#FFF') : t.text} />
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={styles.editButton} onPress={() => openEditModal(item)} accessibilityLabel="Edit item">
+                                    <TouchableOpacity style={styles.editButton} onPress={() => openEditModal(item)} accessibilityLabel={tr('editItemLabel')}>
                                         <Ionicons name="create-outline" size={17} color={t.text} />
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={styles.deleteButton} onPress={() => removeItem(item.id)} accessibilityLabel="Remove item">
+                                    <TouchableOpacity style={styles.deleteButton} onPress={() => removeItem(item.id)} accessibilityLabel={tr('removeItem')}>
                                         <Ionicons name="trash-outline" size={17} color={t.danger} />
                                     </TouchableOpacity>
                                 </View>
@@ -378,10 +381,10 @@ export default function Cart() {
             {/* Store & Checkout Section */}
             {items.length > 0 && (
                 <View style={styles.storeBox}>
-                    <Text style={styles.storeLabel}>Store Name (optional)</Text>
+                    <Text style={styles.storeLabel}>{tr('storeName')}</Text>
                     <TextInput
                         style={styles.storeInput}
-                        placeholder="e.g. Supermarket, Grocery, Mall..."
+                        placeholder={tr('storePlaceholder')}
                         placeholderTextColor={t.soft}
                         value={storeName}
                         onChangeText={setStoreName}
@@ -389,7 +392,7 @@ export default function Cart() {
                     <TouchableOpacity style={styles.checkoutButton} onPress={handleSaveSession} activeOpacity={0.88}>
                         <View style={styles.checkoutFill} />
                         <Ionicons name="checkmark-done-circle-outline" size={20} color={darkMode ? '#111' : '#FFF'} />
-                        <Text style={[styles.checkoutText, { color: darkMode ? '#111' : '#FFF' }]}>Complete & Save Session</Text>
+                        <Text style={[styles.checkoutText, { color: darkMode ? '#111' : '#FFF' }]}>{tr('completeSave')}</Text>
                     </TouchableOpacity>
                 </View>
             )}
@@ -402,23 +405,23 @@ export default function Cart() {
                     <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditingItem(null)} />
                     <View style={styles.editSheet}>
                         <View style={styles.editHandle} />
-                        <Text style={styles.editTitle}>Edit Item</Text>
+                        <Text style={styles.editTitle}>{tr('editItem')}</Text>
 
-                        <Text style={styles.editLabel}>Name</Text>
-                        <TextInput style={styles.input} value={editName} onChangeText={setEditName} placeholder="Product name" placeholderTextColor={t.soft} />
+                        <Text style={styles.editLabel}>{tr('nameLabel')}</Text>
+                        <TextInput style={styles.input} value={editName} onChangeText={setEditName} placeholder={tr('productName')} placeholderTextColor={t.soft} />
 
                         <View style={styles.editGrid}>
                             <View style={styles.editGridItem}>
-                                <Text style={styles.editLabel}>Price</Text>
+                                <Text style={styles.editLabel}>{tr('priceLabel')}</Text>
                                 <TextInput style={styles.input} value={editPrice} onChangeText={setEditPrice} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={t.soft} />
                             </View>
                             <View style={styles.editGridQty}>
-                                <Text style={styles.editLabel}>Qty</Text>
+                                <Text style={styles.editLabel}>{tr('quantityLabel')}</Text>
                                 <TextInput style={styles.input} value={editQuantity} onChangeText={setEditQuantity} keyboardType="number-pad" placeholder="1" placeholderTextColor={t.soft} />
                             </View>
                         </View>
 
-                        <Text style={styles.editLabel}>Category</Text>
+                        <Text style={styles.editLabel}>{tr('category')}</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryScroll}>
                             {BUDGET_CATEGORIES.map((cat) => {
                                 const selected = editCategory === cat.id;
@@ -437,10 +440,10 @@ export default function Cart() {
 
                         <View style={styles.editActions}>
                             <TouchableOpacity style={[styles.editActionButton, styles.editCancel]} onPress={() => setEditingItem(null)}>
-                                <Text style={styles.editCancelText}>Cancel</Text>
+                                <Text style={styles.editCancelText}>{tr('cancel')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity style={[styles.editActionButton, styles.editSave]} onPress={handleSaveEdit}>
-                                <Text style={styles.editSaveText}>Save Changes</Text>
+                                <Text style={styles.editSaveText}>{tr('saveChanges')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -454,7 +457,7 @@ export default function Cart() {
                 message={dialog?.message ?? ''}
                 icon={dialog?.icon ?? 'alert-circle-outline'}
                 onDismiss={() => setDialog(null)}
-                actions={dialog?.actions ?? [{ label: 'OK', onPress: () => setDialog(null) }]}
+                actions={dialog?.actions ?? [{ label: tr('ok'), onPress: () => setDialog(null) }]}
             />
 
             {/* Success Overlay */}
@@ -465,7 +468,7 @@ export default function Cart() {
                             <Ionicons name="checkmark" size={38} color={darkMode ? '#111' : '#FFF'} />
                         </Animated.View>
                         <Animated.View style={{ opacity: textOpacity.current }}>
-                            <Text style={styles.successTitle}>Added to cart</Text>
+                            <Text style={styles.successTitle}>{tr('addedToCart')}</Text>
                             <Text style={styles.successPrice}>{formatMoney(addedItemPrice)}</Text>
                         </Animated.View>
                     </Animated.View>

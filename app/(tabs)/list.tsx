@@ -7,6 +7,7 @@ import { formatMoney } from '../../lib/format';
 import { getTheme, shadow } from '../../lib/theme';
 import { useScreenPadding } from '../../lib/useScreenPadding';
 import { useCartStore } from '../../store/useCartStore';
+import { useTranslation } from '../../lib/i18n';
 
 export default function ShoppingList() {
   const { shoppingList, addShoppingListItem, toggleShoppingListItem, removeShoppingListItem, themeMode } = useCartStore();
@@ -17,8 +18,9 @@ export default function ShoppingList() {
   const screenPadding = useScreenPadding();
 
   const darkMode = themeMode === 'dark';
-  const t = useMemo(() => getTheme(darkMode), [darkMode]);
-  const styles = useMemo(() => getStyles(t), [t]);
+  const theme = useMemo(() => getTheme(darkMode), [darkMode]);
+  const { t } = useTranslation();
+  const styles = useMemo(() => getStyles(theme), [theme]);
 
   const estimateTotal = useMemo(
     () => shoppingList.reduce((sum, item) => sum + item.estimatedPrice * item.quantity, 0),
@@ -48,8 +50,8 @@ export default function ShoppingList() {
     <ScrollView style={styles.screen} contentContainerStyle={[styles.content, screenPadding]} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <View>
-          <Text style={styles.kicker}>Before shopping</Text>
-          <Text style={styles.title}>List</Text>
+          <Text style={styles.kicker}>{t('beforeShopping')}</Text>
+          <Text style={styles.title}>{t('list')}</Text>
         </View>
         <TouchableOpacity style={styles.scanButton} onPress={() => router.push('/scan')}>
           <Ionicons name="scan" size={20} color={darkMode ? '#111' : '#FFF'} />
@@ -59,24 +61,24 @@ export default function ShoppingList() {
       <View style={styles.summary}>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryValue}>{checkedCount}/{shoppingList.length}</Text>
-          <Text style={styles.summaryLabel}>Checked</Text>
+          <Text style={styles.summaryLabel}>{t('checked')}</Text>
         </View>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryValue}>{formatMoney(estimateTotal)}</Text>
-          <Text style={styles.summaryLabel}>Estimate</Text>
+          <Text style={styles.summaryLabel}>{t('estimate')}</Text>
         </View>
         <View style={styles.summaryItem}>
           <Text style={styles.summaryValue}>{formatMoney(actualTotal)}</Text>
-          <Text style={styles.summaryLabel}>Actual</Text>
+          <Text style={styles.summaryLabel}>{t('actual')}</Text>
         </View>
       </View>
 
       <View style={styles.form}>
-        <Text style={styles.sectionTitle}>Add planned item</Text>
-        <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Item name" placeholderTextColor={t.soft} />
+        <Text style={styles.sectionTitle}>{t('addPlannedItem')}</Text>
+        <TextInput style={styles.input} value={name} onChangeText={setName} placeholder={t('itemName')} placeholderTextColor={theme.soft} />
         <View style={styles.formRow}>
-          <TextInput style={[styles.input, styles.priceInput]} value={estimatedPrice} onChangeText={setEstimatedPrice} keyboardType="decimal-pad" placeholder="Estimate" placeholderTextColor={t.soft} />
-          <TextInput style={[styles.input, styles.qtyInput]} value={quantity} onChangeText={setQuantity} keyboardType="number-pad" placeholder="Qty" placeholderTextColor={t.soft} />
+          <TextInput style={[styles.input, styles.priceInput]} value={estimatedPrice} onChangeText={setEstimatedPrice} keyboardType="decimal-pad" placeholder={t('estimateShort')} placeholderTextColor={theme.soft} />
+          <TextInput style={[styles.input, styles.qtyInput]} value={quantity} onChangeText={setQuantity} keyboardType="number-pad" placeholder={t('qty')} placeholderTextColor={theme.soft} />
           <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
             <Ionicons name="add" size={24} color={darkMode ? '#111' : '#FFF'} />
           </TouchableOpacity>
@@ -85,9 +87,9 @@ export default function ShoppingList() {
 
       {shoppingList.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="list-outline" size={34} color={t.text} />
-          <Text style={styles.emptyTitle}>No planned items</Text>
-          <Text style={styles.emptyText}>Add items here before shopping. Scans can check them off automatically.</Text>
+          <Ionicons name="list-outline" size={34} color={theme.text} />
+          <Text style={styles.emptyTitle}>{t('noPlannedItems')}</Text>
+          <Text style={styles.emptyText}>{t('listEmptyMsg')}</Text>
         </View>
       ) : (
         shoppingList.map((item) => (
@@ -98,12 +100,12 @@ export default function ShoppingList() {
             <View style={styles.itemMain}>
               <Text style={[styles.itemName, item.checked && styles.itemNameChecked]} numberOfLines={1}>{item.name}</Text>
               <Text style={styles.itemMeta}>
-                {item.quantity} x est. {formatMoney(item.estimatedPrice)}
-                {item.actualPrice !== undefined ? ` - actual ${formatMoney(item.actualPrice)}` : ''}
+                {item.quantity} x {t('estLabel')} {formatMoney(item.estimatedPrice)}
+                {item.actualPrice !== undefined ? ` - ${t('actualLabel')} ${formatMoney(item.actualPrice)}` : ''}
               </Text>
             </View>
             <TouchableOpacity style={styles.deleteButton} onPress={() => removeShoppingListItem(item.id)}>
-              <Ionicons name="trash-outline" size={18} color={t.danger} />
+              <Ionicons name="trash-outline" size={18} color={theme.danger} />
             </TouchableOpacity>
           </View>
         ))
@@ -112,43 +114,43 @@ export default function ShoppingList() {
       <View style={{ height: 100 }} />
       <AppDialog
         visible={dialogOpen}
-        title="Missing item"
-        message="Enter an item name before adding it to your list."
+        title={t('missingItem')}
+        message={t('enterItemNameBefore')}
         icon="create-outline"
         onDismiss={() => setDialogOpen(false)}
-        actions={[{ label: 'OK', onPress: () => setDialogOpen(false) }]}
+        actions={[{ label: t('ok'), onPress: () => setDialogOpen(false) }]}
       />
     </ScrollView>
   );
 }
 
-const getStyles = (t: ReturnType<typeof getTheme>) => StyleSheet.create({
-  screen: { flex: 1, backgroundColor: t.bg },
+const getStyles = (theme: ReturnType<typeof getTheme>) => StyleSheet.create({
+  screen: { flex: 1, backgroundColor: theme.bg },
   content: {},
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
-  kicker: { color: t.text, fontSize: 13, fontWeight: '800', textTransform: 'uppercase' },
-  title: { color: t.text, fontSize: 30, fontWeight: '900' },
-  scanButton: { width: 48, height: 48, borderRadius: 16, backgroundColor: t.primary, alignItems: 'center', justifyContent: 'center', ...shadow },
+  kicker: { color: theme.text, fontSize: 13, fontWeight: '800', textTransform: 'uppercase' },
+  title: { color: theme.text, fontSize: 30, fontWeight: '900' },
+  scanButton: { width: 48, height: 48, borderRadius: 16, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', ...shadow },
   summary: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  summaryItem: { flex: 1, backgroundColor: t.card, borderRadius: 18, padding: 12, borderWidth: 1, borderColor: t.glassBorder, minHeight: 88, justifyContent: 'center' },
-  summaryValue: { color: t.text, fontSize: 16, fontWeight: '900' },
-  summaryLabel: { color: t.muted, fontSize: 12, marginTop: 5, fontWeight: '700' },
-  form: { backgroundColor: t.card, borderRadius: 24, padding: 18, borderWidth: 1, borderColor: t.glassBorder, marginBottom: 18 },
-  sectionTitle: { color: t.text, fontSize: 18, fontWeight: '900' },
-  input: { height: 50, backgroundColor: t.glass, borderRadius: 16, paddingHorizontal: 16, color: t.text, borderWidth: 1, borderColor: t.glassBorder, marginTop: 12, fontSize: 15 },
+  summaryItem: { flex: 1, backgroundColor: theme.card, borderRadius: 18, padding: 12, borderWidth: 1, borderColor: theme.glassBorder, minHeight: 88, justifyContent: 'center' },
+  summaryValue: { color: theme.text, fontSize: 16, fontWeight: '900' },
+  summaryLabel: { color: theme.muted, fontSize: 12, marginTop: 5, fontWeight: '700' },
+  form: { backgroundColor: theme.card, borderRadius: 24, padding: 18, borderWidth: 1, borderColor: theme.glassBorder, marginBottom: 18 },
+  sectionTitle: { color: theme.text, fontSize: 18, fontWeight: '900' },
+  input: { height: 50, backgroundColor: theme.glass, borderRadius: 16, paddingHorizontal: 16, color: theme.text, borderWidth: 1, borderColor: theme.glassBorder, marginTop: 12, fontSize: 15 },
   formRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   priceInput: { flex: 1 },
   qtyInput: { width: 74 },
-  addButton: { width: 50, height: 50, borderRadius: 16, backgroundColor: t.accent, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
-  emptyState: { backgroundColor: t.card, alignItems: 'center', paddingVertical: 42, paddingHorizontal: 20, borderRadius: 24, borderWidth: 1, borderColor: t.glassBorder },
-  emptyTitle: { color: t.text, fontWeight: '900', marginTop: 12, fontSize: 17 },
-  emptyText: { color: t.soft, marginTop: 6, textAlign: 'center', fontSize: 14, lineHeight: 20 },
-  itemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: t.card, borderRadius: 20, padding: 14, borderWidth: 1, borderColor: t.glassBorder, marginBottom: 10 },
-  checkBox: { width: 34, height: 34, borderRadius: 12, borderWidth: 1, borderColor: t.glassBorder, alignItems: 'center', justifyContent: 'center', backgroundColor: t.glass, marginRight: 12 },
-  checkBoxActive: { backgroundColor: t.primary, borderColor: t.primary },
+  addButton: { width: 50, height: 50, borderRadius: 16, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
+  emptyState: { backgroundColor: theme.card, alignItems: 'center', paddingVertical: 42, paddingHorizontal: 20, borderRadius: 24, borderWidth: 1, borderColor: theme.glassBorder },
+  emptyTitle: { color: theme.text, fontWeight: '900', marginTop: 12, fontSize: 17 },
+  emptyText: { color: theme.soft, marginTop: 6, textAlign: 'center', fontSize: 14, lineHeight: 20 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.card, borderRadius: 20, padding: 14, borderWidth: 1, borderColor: theme.glassBorder, marginBottom: 10 },
+  checkBox: { width: 34, height: 34, borderRadius: 12, borderWidth: 1, borderColor: theme.glassBorder, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.glass, marginRight: 12 },
+  checkBoxActive: { backgroundColor: theme.primary, borderColor: theme.primary },
   itemMain: { flex: 1, minWidth: 0 },
-  itemName: { color: t.text, fontSize: 16, fontWeight: '900' },
-  itemNameChecked: { color: t.soft, textDecorationLine: 'line-through' },
-  itemMeta: { color: t.muted, fontSize: 12, marginTop: 4 },
-  deleteButton: { width: 40, height: 40, borderRadius: 14, backgroundColor: t.dangerSoft, alignItems: 'center', justifyContent: 'center', marginLeft: 10 },
+  itemName: { color: theme.text, fontSize: 16, fontWeight: '900' },
+  itemNameChecked: { color: theme.soft, textDecorationLine: 'line-through' },
+  itemMeta: { color: theme.muted, fontSize: 12, marginTop: 4 },
+  deleteButton: { width: 40, height: 40, borderRadius: 14, backgroundColor: theme.dangerSoft, alignItems: 'center', justifyContent: 'center', marginLeft: 10 },
 });

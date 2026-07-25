@@ -1,3 +1,6 @@
+import { CURRENCY_MARK_SOURCE, CURRENCY_MARK_CLEAN_RE } from './currencies';
+import { formatMoney } from './format';
+
 type OcrLine = {
   text: string;
   top?: number;
@@ -11,22 +14,20 @@ type ParsedPrice = {
   line?: OcrLine;
 };
 
-const PESO_MARK = String.fromCharCode(0x20b1);
-const DECIMAL_PRICE_RE = new RegExp(`(?:${PESO_MARK}|₱|P)?\\s*(\\d{1,4}(?:[,.]\\d{2}))`, 'i');
-const DECIMAL_PRICE_WITH_MARK_RE = new RegExp(`(?:${PESO_MARK}|₱|P)\\s*(\\d{1,4}(?:[,.]\\d{2}))`, 'i');
-const SPLIT_PRICE_RE = new RegExp(`(?:${PESO_MARK}|₱|P)?\\s*(\\d{1,4})\\s+(\\d{2})(?=\\s*(?:/\\s*PC|PC|EA|EACH|$))`, 'i');
-const SPLIT_PRICE_WITH_MARK_RE = new RegExp(`(?:${PESO_MARK}|₱|P)\\s*(\\d{1,4})\\s*(\\d{2})?`, 'i');
-const DOT_CENTS_PRICE_RE = new RegExp(`(?:${PESO_MARK}|₱|P)?\\s*(\\d{1,4})\\s*[,.]\\s*(\\d{2})(?=\\s*(?:/\\s*PC|PC|EA|EACH|$))`, 'i');
-const DOT_CENTS_PRICE_WITH_MARK_RE = new RegExp(`(?:${PESO_MARK}|₱|P)\\s*(\\d{1,4})\\s*[,.]\\s*(\\d{2})`, 'i');
+const DECIMAL_PRICE_RE = new RegExp(`(?:${CURRENCY_MARK_SOURCE})?\\s*(\\d{1,4}(?:[,.]\\d{2}))`, 'i');
+const DECIMAL_PRICE_WITH_MARK_RE = new RegExp(`(?:${CURRENCY_MARK_SOURCE})\\s*(\\d{1,4}(?:[,.]\\d{2}))`, 'i');
+const SPLIT_PRICE_RE = new RegExp(`(?:${CURRENCY_MARK_SOURCE})?\\s*(\\d{1,4})\\s+(\\d{2})(?=\\s*(?:/\\s*PC|PC|EA|EACH|$))`, 'i');
+const SPLIT_PRICE_WITH_MARK_RE = new RegExp(`(?:${CURRENCY_MARK_SOURCE})\\s*(\\d{1,4})\\s*(\\d{2})?`, 'i');
+const DOT_CENTS_PRICE_RE = new RegExp(`(?:${CURRENCY_MARK_SOURCE})?\\s*(\\d{1,4})\\s*[,.]\\s*(\\d{2})(?=\\s*(?:/\\s*PC|PC|EA|EACH|$))`, 'i');
+const DOT_CENTS_PRICE_WITH_MARK_RE = new RegExp(`(?:${CURRENCY_MARK_SOURCE})\\s*(\\d{1,4})\\s*[,.]\\s*(\\d{2})`, 'i');
 const UNMARKED_SPLIT_PRICE_RE = /\b(\d{1,4})\s+(\d{2})\b/i;
 const COMPACT_CENTS_RE = /\b(\d{1,4})(?:º|°|o|O){2}\b/;
 const GENERIC_PRICE_RE = /\b(\d{1,4}(?:[,.]\d{2}))\b/;
 
 const normalizeOcrText = (value: string) =>
   value
-    .replace(/[₱]/g, PESO_MARK)
+    .replace(CURRENCY_MARK_CLEAN_RE, '')
     .replace(COMPACT_CENTS_RE, '$1 00')
-    .replace(/\b(?:P|₱)\s*([0-9])/gi, `${PESO_MARK} $1`)
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -39,8 +40,9 @@ const cleanName = (value: string) =>
     .replace(/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/g, ' ')
     .replace(/\b\d{1,2}:\d{2}\s*(?:AM|PM)?\b/gi, ' ')
     .replace(/\b\d{4,}\b/g, ' ')
-    .replace(/\b\d+\s*(?:KL|ML|G|KG|L)\b/gi, ' ')
-    .replace(/[^a-zA-Z0-9\s&\-]/g, ' ')
+    .replace(/\b\d+\s*(?:KL|ML|G|KG|L|OZ|LB|MG)\b/gi, ' ')
+    .replace(/\b\w{1,2}\b/g, ' ')
+    .replace(/[^a-zA-Z0-9\s&\-\.]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -139,9 +141,10 @@ const combinedNameNearPrice = (lines: OcrLine[], priceLine?: OcrLine) => {
 
 const isWeakName = (name: string) => {
   const letters = name.replace(/[^a-zA-Z]/g, '');
-  if (letters.length < 4) return true;
+  if (letters.length < 3) return true;
   if (/^\d/.test(name)) return true;
-  if (/\b(?:PUREGOLD|SM BONUS|BONUS|NA|PC|EA|EACH)\b/i.test(name)) return true;
+  if (/\b(?:PUREGOLD|SM BONUS|BONUS|NA|PC|EA|EACH|TOTAL|CASH|CHANGE|VAT|QTY)\b/i.test(name)) return true;
+  if (/^[\d\s\-]+$/.test(name)) return true;
   return false;
 };
 
@@ -154,7 +157,7 @@ const lineScore = (line: OcrLine, priceLine?: OcrLine) => {
   const uppercaseRatio = letters.length > 0 ? upperLetters.length / letters.length : 0;
   const wordCount = text.split(/\s+/).filter(Boolean).length;
   const lengthScore = Math.min(text.length / 22, 1);
-  const wordScore = wordCount >= 2 ? 1 : 0.35;
+  const wordScore = wordCount >= 2 ? 1 : wordCount === 1 ? 0.5 : 0;
   const heightScore = Math.min((line.height ?? 0) / 44, 1);
   const proximityScore =
     priceLine?.top !== undefined && line.top !== undefined
@@ -164,8 +167,9 @@ const lineScore = (line: OcrLine, priceLine?: OcrLine) => {
     priceLine?.left !== undefined && line.left !== undefined && line.left < priceLine.left
       ? 0.9
       : 0;
+  const brandScore = /\b(?:MAGNOLIA|NESTLE|COCA|PEPSI|SAN|MIGUEL|LADY|CHOICE|SILVER|SWAN|PROCTER|GAMBLE|UNILEVER|COLGATE|PALMOLIVE|PONDS|DEL|MONTE|PUREFOODS|CDO|NISSIN|SELECTA|OISHI|BIG)\b/i.test(text) ? 0.5 : 0;
 
-  return lengthScore * 2 + uppercaseRatio * 1.4 + wordScore + heightScore + proximityScore + leftSideScore;
+  return lengthScore * 2 + uppercaseRatio * 1.4 + wordScore + heightScore + proximityScore + leftSideScore + brandScore;
 };
 
 export type OcrChoice = {
@@ -255,7 +259,7 @@ export function getOcrSelectionChoices(input: string | any): { names: OcrChoice[
       .map((line) => parsePriceFromText(line.text))
       .filter((price): price is ParsedPrice => Boolean(price))
       .map((price) => ({
-        label: `₱ ${price.price.toFixed(2)}`,
+        label: formatMoney(price.price),
         value: price.price,
       })),
     (price) => price.label

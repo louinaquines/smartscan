@@ -11,20 +11,22 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { CURRENCIES, CurrencyId, CurrencyOption, getCurrency } from '../lib/currencies';
+import { CURRENCIES, CurrencyId, CurrencyOption, getCurrency, LANGUAGES, LanguageId, getLanguage } from '../lib/currencies';
 import { colors, shadow } from '../lib/theme';
+import { useTranslation } from '../lib/i18n';
 
 type OnboardingPayload = {
   name: string;
   country: string;
   currencyId: CurrencyId;
+  languageId: LanguageId;
 };
 
 type OnboardingProps = {
   onDone: (payload: OnboardingPayload) => void | Promise<void>;
 };
 
-const STEPS = ['Name', 'Country', 'Currency'];
+const STEPS = ['Name', 'Country', 'Currency', 'Language'];
 
 function ProgressDots({ step }: { step: number }) {
   return (
@@ -53,14 +55,17 @@ function CurrencyCard({ currency }: { currency: CurrencyOption }) {
 }
 
 export default function Onboarding({ onDone }: OnboardingProps) {
+  const { t } = useTranslation();
   const [started, setStarted] = useState(false);
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [countryQuery, setCountryQuery] = useState('');
   const [selectedCountry, setSelectedCountry] = useState(CURRENCIES[0].country);
   const [currencyId, setCurrencyId] = useState<CurrencyId>(CURRENCIES[0].id);
+  const [languageId, setLanguageId] = useState<LanguageId>(CURRENCIES[0].id);
 
   const selectedCurrency = getCurrency(currencyId);
+  const selectedLanguage = getLanguage(languageId);
   const cleanName = name.trim();
 
   const countryOptions = useMemo(() => {
@@ -75,6 +80,7 @@ export default function Onboarding({ onDone }: OnboardingProps) {
     setSelectedCountry(currency.country);
     setCountryQuery(currency.country);
     setCurrencyId(currency.id);
+    setLanguageId(currency.id as LanguageId);
   };
 
   const canContinue =
@@ -88,7 +94,7 @@ export default function Onboarding({ onDone }: OnboardingProps) {
       setStep((current) => current + 1);
       return;
     }
-    onDone({ name: cleanName, country: selectedCountry, currencyId });
+    onDone({ name: cleanName, country: selectedCountry, currencyId, languageId });
   };
 
   if (!started) {
@@ -102,7 +108,7 @@ export default function Onboarding({ onDone }: OnboardingProps) {
           <Text style={styles.introCopy}>Smart, real-time grocery budget tracking right at the shelf.</Text>
         </View>
         <Pressable style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]} onPress={() => setStarted(true)}>
-          <Text style={styles.primaryButtonText}>Get Started</Text>
+          <Text style={styles.primaryButtonText}>{t('getStarted')}</Text>
           <Ionicons name="arrow-forward" size={18} color="#FFF" />
         </Pressable>
       </View>
@@ -116,19 +122,19 @@ export default function Onboarding({ onDone }: OnboardingProps) {
 
         <View style={styles.setupHeader}>
           <Image source={require('../assets/cany-logo2.png')} style={styles.smallLogo} />
-          <Text style={styles.setupTitle}>Quick Setup</Text>
-          <Text style={styles.setupSubtitle}>{STEPS[step]} · {step + 1} of {STEPS.length}</Text>
+          <Text style={styles.setupTitle}>{t('quickSetup')}</Text>
+          <Text style={styles.setupSubtitle}>{t(STEPS[step].toLowerCase())} · {t('stepOf', { step: step + 1, total: STEPS.length })}</Text>
         </View>
 
         <View style={styles.panel}>
           {step === 0 && (
             <View>
-              <Text style={styles.question}>What's your name?</Text>
+              <Text style={styles.question}>{t('whatsYourName')}</Text>
               <TextInput
                 style={styles.input}
                 value={name}
                 onChangeText={setName}
-                placeholder="Your name"
+                placeholder={t('yourName')}
                 placeholderTextColor={colors.soft}
                 autoCapitalize="words"
                 returnKeyType="next"
@@ -139,12 +145,12 @@ export default function Onboarding({ onDone }: OnboardingProps) {
 
           {step === 1 && (
             <View>
-              <Text style={styles.question}>Where are you shopping?</Text>
+              <Text style={styles.question}>{t('whereShopping')}</Text>
               <TextInput
                 style={styles.input}
                 value={countryQuery}
                 onChangeText={setCountryQuery}
-                placeholder="Search country"
+                placeholder={t('searchCountry')}
                 placeholderTextColor={colors.soft}
               />
               <View style={styles.countryList}>
@@ -171,8 +177,8 @@ export default function Onboarding({ onDone }: OnboardingProps) {
 
           {step === 2 && (
             <View>
-              <Text style={styles.question}>Preferred currency</Text>
-              <Text style={styles.helper}>Suggested from {selectedCountry || 'your country'}.</Text>
+              <Text style={styles.question}>{t('preferredCurrency')}</Text>
+              <Text style={styles.helper}>{t('suggestedFrom', { country: selectedCountry })}</Text>
               <CurrencyCard currency={selectedCurrency} />
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.currencyRail}>
                 {CURRENCIES.map((currency) => {
@@ -191,6 +197,28 @@ export default function Onboarding({ onDone }: OnboardingProps) {
               </ScrollView>
             </View>
           )}
+
+          {step === 3 && (
+            <View>
+              <Text style={styles.question}>{t('preferredLanguage')}</Text>
+              <Text style={styles.helper}>{t('selectLanguage')}</Text>
+              <View style={styles.langList}>
+                {LANGUAGES.map((language) => {
+                  const selected = language.id === languageId;
+                  return (
+                    <Pressable
+                      key={language.id}
+                      style={[styles.langRow, selected && styles.langRowSelected]}
+                      onPress={() => setLanguageId(language.id)}
+                    >
+                      <Text style={[styles.langText, selected && styles.langTextSelected]}>{t('lang' + language.id)}</Text>
+                      {selected && <Ionicons name="checkmark" size={20} color={colors.primary} />}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
         </View>
 
         <View style={styles.actionRow}>
@@ -205,7 +233,7 @@ export default function Onboarding({ onDone }: OnboardingProps) {
             style={({ pressed }) => [styles.finishButton, !canContinue && styles.disabledButton, pressed && canContinue && styles.pressed]}
             onPress={goNext}
           >
-            <Text style={styles.finishButtonText}>{step === STEPS.length - 1 ? 'Finish & Start Shopping' : 'Continue'}</Text>
+            <Text style={styles.finishButtonText}>{step === STEPS.length - 1 ? t('finishShopping') : t('continue')}</Text>
             <Ionicons name={step === STEPS.length - 1 ? 'checkmark' : 'arrow-forward'} size={18} color="#FFF" />
           </Pressable>
         </View>
@@ -321,6 +349,20 @@ const styles = StyleSheet.create({
   currencyCopy: { flex: 1, minWidth: 0 },
   currencyName: { color: colors.text, fontSize: 16, fontWeight: '900' },
   currencyMeta: { color: colors.muted, fontSize: 13, fontWeight: '800', marginTop: 3 },
+  langList: { borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: colors.glassBorder },
+  langRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    backgroundColor: colors.glass,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.glassBorder,
+  },
+  langRowSelected: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  langText: { color: colors.text, fontSize: 16, fontWeight: '800' },
+  langTextSelected: { color: colors.primary, fontWeight: '900' },
   currencyRail: { flexDirection: 'row', gap: 8, paddingTop: 14, paddingRight: 8 },
   currencyChip: {
     minHeight: 42,
