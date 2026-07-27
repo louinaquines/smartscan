@@ -1,8 +1,9 @@
-import { useState, useMemo } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AppDialog from '../../components/AppDialog';
 import Mascot from '../../components/Mascot';
+import Skeleton from '../../components/Skeleton';
 import { formatMoney, formatShortDate } from '../../lib/format';
 import { getProductHistory, getProductHistorySummary } from '../../lib/productHistory';
 import { getTheme, shadow } from '../../lib/theme';
@@ -120,9 +121,26 @@ function SessionCard({ session, sessions, onOpen, onDelete, darkMode }: SessionC
 }
 
 export default function History() {
-    const { sessions, deleteSession, themeMode } = useCartStore();
+    const { sessions, deleteSession, themeMode, loadState } = useCartStore();
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [selectedSession, setSelectedSession] = useState<ShoppingSession | null>(null);
     const screenPadding = useScreenPadding();
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await loadState();
+        setRefreshing(false);
+        setLoading(true);
+        setTimeout(() => {
+            setLoading(false);
+        }, 600);
+    }, [loadState]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setLoading(false), 1000);
+        return () => clearTimeout(timer);
+    }, []);
 
     const darkMode = themeMode === 'dark';
     const { t } = useTranslation();
@@ -132,8 +150,34 @@ export default function History() {
     const totalSpent = useMemo(() => sessions.reduce((sum, s) => sum + s.total, 0), [sessions]);
     const totalItemsCount = useMemo(() => sessions.reduce((sum, s) => sum + s.items.reduce((isum, i) => isum + i.quantity, 0), 0), [sessions]);
 
+    if (loading) {
+        return (
+            <ScrollView style={styles.screen} contentContainerStyle={[styles.content, screenPadding]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                    <Skeleton width={120} height={36} radius={12} />
+                    <Skeleton width={36} height={36} radius={18} />
+                </View>
+                <Skeleton width="100%" height={90} radius={20} style={{ marginBottom: 16 }} />
+                <Skeleton width="100%" height={130} radius={20} style={{ marginBottom: 12 }} />
+                <Skeleton width="100%" height={130} radius={20} />
+            </ScrollView>
+        );
+    }
+
     return (
-        <ScrollView style={styles.screen} contentContainerStyle={[styles.content, screenPadding]} keyboardShouldPersistTaps="handled">
+        <ScrollView
+            style={styles.screen}
+            contentContainerStyle={[styles.content, screenPadding]}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={
+                <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor={theme.primary}
+                    colors={[theme.primary]}
+                />
+            }
+        >
             <View style={styles.header}>
                 <View>
                     <Text style={styles.kicker}>{t('logArchive')}</Text>
@@ -177,7 +221,7 @@ export default function History() {
                     <Text style={styles.emptyText}>{t('historyEmptyMsg')}</Text>
                 </View>
             ) : (
-                sessions.slice().reverse().map((session) => (
+                sessions.map((session) => (
                     <SessionCard
                         key={session.id}
                         session={session}

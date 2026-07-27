@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useMemo, useState, useEffect, useCallback } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AppDialog from '../../components/AppDialog';
+import Skeleton from '../../components/Skeleton';
 import { formatMoney } from '../../lib/format';
 import { getTheme, shadow } from '../../lib/theme';
 import { useScreenPadding } from '../../lib/useScreenPadding';
@@ -10,12 +11,29 @@ import { useCartStore } from '../../store/useCartStore';
 import { useTranslation } from '../../lib/i18n';
 
 export default function ShoppingList() {
-  const { shoppingList, addShoppingListItem, toggleShoppingListItem, removeShoppingListItem, themeMode } = useCartStore();
+  const { shoppingList, addShoppingListItem, toggleShoppingListItem, removeShoppingListItem, themeMode, loadState } = useCartStore();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [name, setName] = useState('');
   const [estimatedPrice, setEstimatedPrice] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [dialogOpen, setDialogOpen] = useState(false);
   const screenPadding = useScreenPadding();
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadState();
+    setRefreshing(false);
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+    }, 600);
+  }, [loadState]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setLoading(false), 1000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const darkMode = themeMode === 'dark';
   const theme = useMemo(() => getTheme(darkMode), [darkMode]);
@@ -46,8 +64,35 @@ export default function ShoppingList() {
     setQuantity('1');
   };
 
+  if (loading) {
+    return (
+      <ScrollView style={styles.screen} contentContainerStyle={[styles.content, screenPadding]}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <Skeleton width={120} height={36} radius={12} />
+          <Skeleton width={40} height={40} radius={20} />
+        </View>
+        <Skeleton width="100%" height={100} radius={20} style={{ marginBottom: 16 }} />
+        <Skeleton width="100%" height={150} radius={24} style={{ marginBottom: 20 }} />
+        <Skeleton width="100%" height={70} radius={18} style={{ marginBottom: 10 }} />
+        <Skeleton width="100%" height={70} radius={18} />
+      </ScrollView>
+    );
+  }
+
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={[styles.content, screenPadding]} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={[styles.content, screenPadding]}
+      keyboardShouldPersistTaps="handled"
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={theme.primary}
+          colors={[theme.primary]}
+        />
+      }
+    >
       <View style={styles.header}>
         <View>
           <Text style={styles.kicker}>{t('beforeShopping')}</Text>

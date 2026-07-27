@@ -1,129 +1,161 @@
+import { Platform, NativeModules } from 'react-native';
 import { storage, StorageKeys } from './storage';
 
-type NotifyHandler = (title: string, body: string) => void;
-let notifyHandler: NotifyHandler | null = null;
-const timers: Record<string, ReturnType<typeof setTimeout>> = {};
+type NotificationsModule = typeof import('expo-notifications');
+let Notifications: NotificationsModule | null = null;
 
-export function setNotifyHandler(handler: NotifyHandler) {
-  notifyHandler = handler;
-}
-
-function fire(title: string, body: string, delayMs = 2000) {
-  const handler = notifyHandler;
-  if (!handler) return;
-  setTimeout(() => handler(title, body), delayMs);
-}
-
-function clearTimer(id: string) {
-  if (timers[id]) {
-    clearTimeout(timers[id]);
-    delete timers[id];
+async function load(): Promise<NotificationsModule | null> {
+  if (Notifications) return Notifications;
+  if (!NativeModules?.ExpoPushTokenManager) return null;
+  try {
+    Notifications = await import('expo-notifications');
+    return Notifications;
+  } catch {
+    return null;
   }
 }
 
-function scheduleDemo(id: string, title: string, body: string, delayMs: number) {
-  clearTimer(id);
-  const handler = notifyHandler;
-  timers[id] = setTimeout(() => {
-    if (handler) handler(title, body);
-    delete timers[id];
-  }, delayMs);
+const NOTIFICATION_IDS = {
+  WEEKLY_REMINDER: 'weekly-reminder',
+  SATURDAY_LIST: 'saturday-list',
+  ABANDONED_CART_2H: 'abandoned-cart-2h',
+  ABANDONED_CART_12H: 'abandoned-cart-12h',
+};
+
+export async function setupNotificationHandler() {
+  const mod = await load();
+  if (!mod) return;
+  mod.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: false,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    }),
+  });
 }
 
 export async function requestPermissions(): Promise<boolean> {
+  const mod = await load();
+  if (!mod) return false;
+  const { status: existingStatus } = await mod.getPermissionsAsync();
+  let finalStatus = existingStatus;
+  if (existingStatus !== 'granted') {
+    const { status } = await mod.requestPermissionsAsync();
+    finalStatus = status;
+  }
+  if (finalStatus !== 'granted') {
+    return false;
+  }
+  if (Platform.OS === 'android') {
+    await mod.setNotificationChannelAsync('cany-notifications', {
+      name: 'Cany Notifications',
+      importance: mod.AndroidImportance.HIGH,
+    });
+  }
   return true;
 }
 
 export async function cancelAllNotifications() {
-  for (const key of Object.keys(timers)) {
-    clearTimer(key);
-  }
+  const mod = await load();
+  if (!mod) return;
+  await mod.cancelAllScheduledNotificationsAsync();
 }
 
 export async function scheduleRoutineTriggers(lastSessionDate: Date | null) {
+  const mod = await load();
+  if (!mod) return;
   if (!lastSessionDate) return;
   const now = new Date();
   const daysSince = Math.floor((now.getTime() - lastSessionDate.getTime()) / 86400000);
-  if (daysSince < 7) {
-    fire(
-      'Pantry looking empty? 🥫',
-      "It's been a week since your last run. Open Cany to start drafting your shopping list!"
-    );
-  }
-  if (daysSince < 14) {
-    const h2 = notifyHandler;
-    setTimeout(() => {
-      if (h2) h2(
-        'Time for a restock! 🛒',
-        "You haven't scanned any groceries lately. Prep your list now for a smoother trip later."
-      );
-    }, 4000);
+
+  if (daysSince >= 7) {
+    await mod.scheduleNotificationAsync({
+      identifier: NOTIFICATION_IDS.WEEKLY_REMINDER,
+      content: {
+        title: 'Pantry looking empty? 🥫',
+        body: "It's been a week since your last run. Open Cany to start drafting your shopping list!",
+      },
+      trigger: {
+        type: mod.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: 86400,
+      },
+    });
   }
 }
 
 export async function scheduleSaturdayListTrigger(openListCount: number) {
+  const mod = await load();
+  if (!mod) return;
   if (openListCount <= 0) return;
-  const h3 = notifyHandler;
-  setTimeout(() => {
-    if (h3) h3(
-      'Your list is ready! 📝',
-      `You have ${openListCount} items on your checklist. Don't forget to use Cany to track your budget today.`
-    );
-  }, 2500);
+  const now = new Date();
+  if (now.getDay() !== 6) return;
+
+  await mod.scheduleNotificationAsync({
+    identifier: NOTIFICATION_IDS.SATURDAY_LIST,
+    content: {
+      title: 'Your list is ready! 📝',
+      body: `You have ${openListCount} items on your checklist. Don't forget to use Cany to track your budget today.`,
+    },
+    trigger: {
+      type: mod.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 3600,
+    },
+  });
 }
 
-export async function schedulePaydayTriggers() {
-  scheduleDemo('payday-14',
-    'Payday tomorrow! 💳',
-    'Time to plan the grocery budget. Set your spending limit in Cany before you hit the aisles.',
-    3000
-  );
-  scheduleDemo('payday-29',
-    'Payday tomorrow! 💳',
-    'Time to plan the grocery budget. Set your spending limit in Cany before you hit the aisles.',
-    6000
-  );
-  scheduleDemo('month-start',
-    'New month, fresh budget 💵',
-    'A new month means a clean slate. Update your Cany budget settings for your next trip.',
-    9000
-  );
-}
-
-export async function scheduleHolidayTriggers() {
-  scheduleDemo('holiday-holyweek',
-    'Beat the holiday rush! 🏃\u200D♂️',
-    'Supermarkets will be packed soon. Prep your Cany list today and shop early.',
-    3500
-  );
-  scheduleDemo('holiday-christmas',
-    'Noche Buena prep! 🎄',
-    'Holiday groceries can break the bank. Use Cany to stick strictly to your festive budget.',
-    7000
-  );
-}
-
-export async function scheduleAbandonedCartNotifications(itemsCount: number, cartTotal: number) {
+export async function scheduleAbandonedCartNotifications(itemsCount: number, _cartTotal: number) {
+  const mod = await load();
+  if (!mod) return;
   if (itemsCount <= 0) return;
-  scheduleDemo('cart-2h',
-    'Did you check out? 🛍️',
-    "You still have scanned items in your active cart. Don't forget to save your trip to your History!",
-    5000
-  );
-  scheduleDemo('cart-12h',
-    'Unsaved Grocery Run ⚠️',
-    "Your last shopping session wasn't saved. Tap here to review your cart and log your expenses.",
-    10000
-  );
+
+  await mod.cancelScheduledNotificationAsync(NOTIFICATION_IDS.ABANDONED_CART_2H);
+  await mod.cancelScheduledNotificationAsync(NOTIFICATION_IDS.ABANDONED_CART_12H);
+
+  await mod.scheduleNotificationAsync({
+    identifier: NOTIFICATION_IDS.ABANDONED_CART_2H,
+    content: {
+      title: 'Did you check out? 🛍️',
+      body: "You still have scanned items in your active cart. Don't forget to save your trip to your History!",
+    },
+    trigger: {
+      type: mod.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 2 * 3600,
+    },
+  });
+
+  await mod.scheduleNotificationAsync({
+    identifier: NOTIFICATION_IDS.ABANDONED_CART_12H,
+    content: {
+      title: 'Unsaved Grocery Run ⚠️',
+      body: "Your last shopping session wasn't saved. Tap here to review your cart and log your expenses.",
+    },
+    trigger: {
+      type: mod.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 12 * 3600,
+    },
+  });
 }
 
 export async function cancelAbandonedCartNotifications() {
-  clearTimer('cart-2h');
-  clearTimer('cart-12h');
+  const mod = await load();
+  if (!mod) return;
+  await mod.cancelScheduledNotificationAsync(NOTIFICATION_IDS.ABANDONED_CART_2H);
+  await mod.cancelScheduledNotificationAsync(NOTIFICATION_IDS.ABANDONED_CART_12H);
 }
 
 export async function sendBudgetLockedNotification() {
-  fire('Budget Locked In 🔒', "You're all set! Stick to your limit and let the scanner do the math for you.", 1500);
+  const mod = await load();
+  if (!mod) return;
+  await mod.scheduleNotificationAsync({
+    content: {
+      title: 'Budget Locked In 🔒',
+      body: "You're all set! Stick to your limit and let the scanner do the math for you.",
+    },
+    trigger: {
+      type: mod.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 1,
+    },
+  });
 }
 
 export async function setupAllNotifications(openListCount: number) {
@@ -131,8 +163,6 @@ export async function setupAllNotifications(openListCount: number) {
   await Promise.all([
     scheduleRoutineTriggers(lastSession),
     scheduleSaturdayListTrigger(openListCount),
-    schedulePaydayTriggers(),
-    scheduleHolidayTriggers(),
   ]);
 }
 

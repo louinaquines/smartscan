@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Animated, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { Animated, Image, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from '../../lib/i18n';
@@ -12,22 +12,42 @@ import { getTheme, shadow } from '../../lib/theme';
 import { useScreenPadding } from '../../lib/useScreenPadding';
 import { useCartStore } from '../../store/useCartStore';
 import SettingsSheet from '../../components/SettingsSheet';
+import Skeleton from '../../components/Skeleton';
 import { getCurrency } from '../../lib/currencies';
+import { storage, StorageKeys } from '../../lib/storage';
 
 export default function Dashboard() {
-    const { items, budget, categoryBudgets, sessions, shoppingList, setBudget, setCategoryBudget, total, remaining, isHydrated, currencyId, setCurrency, languageId, setLanguage, themeMode, setThemeMode } = useCartStore();
+    const { items, budget, categoryBudgets, sessions, shoppingList, setBudget, setCategoryBudget, total, remaining, isHydrated, currencyId, setCurrency, languageId, setLanguage, themeMode, setThemeMode, loadState } = useCartStore();
     const isDark = themeMode === 'dark';
     const colors = useMemo(() => getTheme(isDark), [isDark]);
     
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [budgetInput, setBudgetInput] = useState(budget > 0 ? String(budget) : '');
     const [categoryInputs, setCategoryInputs] = useState<Record<string, string>>({});
     const [dialogOpen, setDialogOpen] = useState(false);
     const [budgetSavedDialogOpen, setBudgetSavedDialogOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [activeCategory, setActiveCategory] = useState<BudgetCategoryId | null>(null);
+    const [userName, setUserName] = useState('');
     const screenPadding = useScreenPadding();
     const activeCurrency = useMemo(() => getCurrency(currencyId), [currencyId]);
     const { t } = useTranslation();
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await loadState();
+        setRefreshing(false);
+        setLoading(true);
+        setTimeout(() => {
+            setLoading(false);
+        }, 600);
+    }, [loadState]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setLoading(false), 1000);
+        return () => clearTimeout(timer);
+    }, []);
 
     const styles = useMemo(() => StyleSheet.create({
         screen: { flex: 1, backgroundColor: colors.bg },
@@ -50,11 +70,10 @@ export default function Dashboard() {
         smartCopy: { flex: 1, minWidth: 0 },
         smartTitle: { color: colors.text, fontSize: 14, fontWeight: '900' },
         smartText: { color: colors.muted, fontSize: 13, fontWeight: '700', lineHeight: 18, marginTop: 3 },
-        statusText: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
-        label: { fontSize: 12, color: colors.soft, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-        budgetAmount: { fontSize: 34, color: colors.text, fontWeight: '900', marginTop: 2, flexShrink: 1 },
-        spentLine: { fontSize: 13, color: colors.muted, marginTop: 5, fontWeight: '700' },
-        budgetMessage: { fontSize: 13, color: colors.soft, marginTop: 4 },
+        label: { fontSize: 14, color: colors.soft, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
+        budgetAmount: { fontSize: 38, color: colors.text, fontWeight: '900', marginTop: 12, flexShrink: 1 },
+        spentLine: { fontSize: 15, color: colors.muted, marginTop: 18, fontWeight: '700' },
+        budgetMessage: { fontSize: 15, color: colors.soft, marginTop: 18 },
         progressTrack: { height: 10, backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)', borderRadius: 99, overflow: 'hidden', marginTop: 22, borderWidth: 1, borderColor: colors.glassBorder },
         budgetInput: { flex: 1, height: 50, backgroundColor: colors.glass, borderRadius: 16, paddingHorizontal: 16, color: colors.text, borderWidth: 1, borderColor: colors.glassBorder, fontSize: 15 },
         saveButton: { width: 50, height: 50, borderRadius: 16, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
@@ -181,12 +200,10 @@ export default function Dashboard() {
         trendTrack: { flex: 1, height: 10, backgroundColor: colors.surfaceBlue, borderRadius: 99, overflow: 'hidden' },
         trendFill: { height: '100%', borderRadius: 99, backgroundColor: colors.primary },
         trendAmount: { width: 78, color: colors.muted, fontSize: 12, fontWeight: '800', textAlign: 'right' },
-        budgetTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-        budgetCopy: { flex: 1 },
-        statusPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 99, marginBottom: 12 },
-        statusDot: { width: 7, height: 7, borderRadius: 4 },
+        budgetTop: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 },
+        budgetCopy: { flex: 1, minWidth: 0 },
         budgetAmountContainer: { flexDirection: 'row', alignItems: 'baseline', minWidth: 0, maxWidth: '100%' },
-        remaining: { fontSize: 14, fontWeight: '800', marginTop: 6 },
+        remaining: { fontSize: 16, fontWeight: '800', marginTop: 10 },
         progressFill: { height: '100%', borderRadius: 99 },
         budgetInputRow: { flexDirection: 'row', gap: 10, marginTop: 18 },
         content: {},
@@ -267,6 +284,12 @@ export default function Dashboard() {
         }).start();
     }, [progress, progressAnim]);
 
+    useEffect(() => {
+        storage.getString(StorageKeys.USER_NAME).then((name) => {
+            if (name) setUserName(name);
+        });
+    }, []);
+
     const activeCategoryData = activeCategory
         ? categorySpend.find((c) => c.id === activeCategory) ?? null
         : null;
@@ -293,7 +316,7 @@ export default function Dashboard() {
         setBudgetSavedDialogOpen(true);
     };
 
-    let mascotMessage = t('readyToScan');
+    let mascotMessage = userName ? `Hi ${userName}! ${t('readyToScan')}` : t('readyToScan');
     let mascotType: 'neutral' | 'happy' | 'alert' = 'neutral';
     if (budget > 0) {
         if (rem < 0) {
@@ -310,12 +333,40 @@ export default function Dashboard() {
 
     if (!isHydrated) return null;
 
+    if (loading) {
+        return (
+            <View style={styles.screen}>
+                <ScrollView contentContainerStyle={[styles.content, screenPadding]}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                        <Skeleton width={120} height={40} radius={14} />
+                        <Skeleton width={40} height={40} radius={20} />
+                    </View>
+                    <Skeleton width="100%" height={70} radius={20} style={{ marginBottom: 18 }} />
+                    <Skeleton width="100%" height={60} radius={20} style={{ marginBottom: 18 }} />
+                    <Skeleton width="100%" height={180} radius={26} style={{ marginBottom: 20 }} />
+                    <Skeleton width="100%" height={100} radius={20} style={{ marginBottom: 20 }} />
+                    <Skeleton width="100%" height={140} radius={20} />
+                </ScrollView>
+            </View>
+        );
+    }
+
     return (
         <View style={styles.screen}>
             <View style={styles.ambientTop} />
             <View style={styles.ambientBlob} />
 
-            <ScrollView contentContainerStyle={[styles.content, screenPadding]}>
+            <ScrollView
+                contentContainerStyle={[styles.content, screenPadding]}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        tintColor={colors.primary}
+                        colors={[colors.primary]}
+                    />
+                }
+            >
                 <View style={styles.header}>
                     <View style={styles.brandRow}>
                         <Image source={require('../../assets/cany-logo2.png')} style={styles.brandLogo} />
@@ -344,10 +395,6 @@ export default function Dashboard() {
                 <View style={styles.budgetGlassCard}>
                     <View style={styles.budgetTop}>
                         <View style={styles.budgetCopy}>
-                            <View style={[styles.statusPill, { backgroundColor: statusBg }]}>
-                                <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-                                <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
-                            </View>
                             <Text style={styles.label}>{t('budget')}</Text>
                             <View style={styles.budgetAmountContainer}>
                                 <Text style={styles.budgetAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.45}>{budget > 0 ? formatMoney(budget) : formatMoney(0)}</Text>

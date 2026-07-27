@@ -15,6 +15,7 @@ export const StorageKeys = {
     USER_NAME: 'userName',
     COUNTRY: 'country',
     ONBOARDING_COMPLETE: 'onboardingComplete',
+    TUTORIAL_COMPLETE: 'tutorialComplete',
 } as const;
 
 export const storage = {

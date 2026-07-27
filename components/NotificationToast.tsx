@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, TouchableOpacity, View, Easing } from 'react-native';
+import { Animated, Image, StyleSheet, Text, TouchableOpacity, View, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, shadow } from '../lib/theme';
 
@@ -83,7 +83,7 @@ export default function NotificationToast({ visible, title, body, icon, onDismis
     >
       <TouchableOpacity style={styles.content} onPress={onDismiss} activeOpacity={0.85}>
         <View style={styles.iconWrap}>
-          <Ionicons name={(icon ?? 'notifications') as any} size={24} color={colors.primary} />
+          <Image source={require('../assets/cany-logo2.png')} style={{ width: 44, height: 44, borderRadius: 14 }} />
         </View>
         <View style={styles.textWrap}>
           <Text style={styles.title} numberOfLines={1}>{title}</Text>

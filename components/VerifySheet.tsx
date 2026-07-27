@@ -21,6 +21,7 @@ import { formatMoney } from '../lib/format';
 import { getCurrency } from '../lib/currencies';
 import { useCartStore } from '../store/useCartStore';
 import { PreviousPrice, PriceComparison } from '../lib/priceHistory';
+import { WeightUnit, calculateTotalPriceByWeight, calculatePricePerKg, formatWeightBadge } from '../lib/weightCalculator';
 
 interface VerifySheetProps {
   open: boolean;
@@ -31,7 +32,7 @@ interface VerifySheetProps {
   previousPrice?: PreviousPrice | null;
   nameChoices?: OcrChoice[];
   priceChoices?: OcrPriceChoice[];
-  onConfirm: (name: string, price: number, quantity: number, category: BudgetCategoryId) => void;
+  onConfirm: (name: string, price: number, quantity: number, category: BudgetCategoryId, weight?: number, unit?: WeightUnit, pricePerKg?: number) => void;
   onCancel: () => void;
 }
 
@@ -54,6 +55,13 @@ export default function VerifySheet({
   const [editPrice, setEditPrice] = useState(price.toFixed(2));
   const [quantity, setQuantity] = useState(1);
   const [category, setCategory] = useState<BudgetCategoryId>(initialCategory);
+  
+  // Weight & Per-Kilo State
+  const [calcMode, setCalcMode] = useState<'fixed' | 'weight'>('fixed');
+  const [inputPricePerKg, setInputPricePerKg] = useState('');
+  const [inputWeight, setInputWeight] = useState('');
+  const [weightUnit, setWeightUnit] = useState<WeightUnit>('g');
+
   const [showSuccess, setShowSuccess] = useState(false);
   const [confirmedPrice, setConfirmedPrice] = useState(0);
   const scaleAnim = useRef(new Animated.Value(0));
@@ -70,8 +78,13 @@ export default function VerifySheet({
       setEditPrice(price.toFixed(2));
       setQuantity(1);
       setCategory(initialCategory);
+      setCalcMode('fixed');
+      setInputPricePerKg('');
+      setInputWeight('');
+      setWeightUnit('g');
     }
   }, [open, name, price, initialCategory]);
+
   useEffect(() => {
     if (open) {
       Animated.timing(scaleAnim.current, {
@@ -84,6 +97,18 @@ export default function VerifySheet({
       scaleAnim.current.setValue(0);
     }
   }, [open, scaleAnim]);
+
+  // Recalculate total price when in weight mode
+  useEffect(() => {
+    if (calcMode === 'weight') {
+      const pkg = parseFloat(inputPricePerKg.replace(',', '.')) || 0;
+      const w = parseFloat(inputWeight.replace(',', '.')) || 0;
+      if (pkg > 0 && w > 0) {
+        const total = calculateTotalPriceByWeight(pkg, w, weightUnit);
+        setEditPrice(total.toFixed(2));
+      }
+    }
+  }, [calcMode, inputPricePerKg, inputWeight, weightUnit]);
 
   const handleConfirm = () => {
     Animated.sequence([
@@ -105,6 +130,9 @@ export default function VerifySheet({
       const totalPrice = updatedPrice * quantity;
       setConfirmedPrice(totalPrice);
       setShowSuccess(true);
+
+      const parsedWeight = parseFloat(inputWeight.replace(',', '.')) || undefined;
+      const parsedPkg = parseFloat(inputPricePerKg.replace(',', '.')) || (calcMode === 'fixed' && parsedWeight ? calculatePricePerKg(updatedPrice, parsedWeight, weightUnit) : undefined);
 
       // Reset animation values
       successScale.current.setValue(0);
@@ -144,7 +172,15 @@ export default function VerifySheet({
       // Auto-dismiss after 1.5 seconds
       setTimeout(() => {
         setShowSuccess(false);
-        onConfirm(editName || 'Product', updatedPrice, quantity, category);
+        onConfirm(
+          editName || 'Product',
+          updatedPrice,
+          quantity,
+          category,
+          calcMode === 'weight' ? parsedWeight : undefined,
+          calcMode === 'weight' ? weightUnit : undefined,
+          parsedPkg
+        );
       }, 1500);
     });
   };
@@ -163,6 +199,11 @@ export default function VerifySheet({
     }
     : null;
 
+  const currentPkg = calcMode === 'weight'
+    ? parseFloat(inputPricePerKg.replace(',', '.')) || 0
+    : (parseFloat(inputWeight.replace(',', '.')) ? calculatePricePerKg(livePrice, parseFloat(inputWeight), weightUnit) : 0);
+  const currentWeightNum = parseFloat(inputWeight.replace(',', '.')) || 0;
+
   return (
     <Modal
       visible={open}
@@ -174,7 +215,6 @@ export default function VerifySheet({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        {/* Backdrop */}
         <TouchableOpacity
           style={styles.backdrop}
           activeOpacity={1}
@@ -189,7 +229,7 @@ export default function VerifySheet({
 
           <Text style={styles.title}>{t('verifyProduct')}</Text>
 
-<ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetScrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetScrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
             {priceComparison && (
               <View style={[
@@ -269,20 +309,109 @@ export default function VerifySheet({
               />
             </View>
 
-            <View style={styles.field}>
-              <Text style={styles.label}>{t('priceLabel')}</Text>
-              <View style={styles.priceContainer}>
-                <Text style={styles.currencySymbol}>{currencySymbol}</Text>
-                <TextInput
-                  style={styles.priceInput}
-                  placeholder="0.00"
-                  placeholderTextColor="rgba(0,0,0,0.32)"
-                  value={editPrice}
-                  onChangeText={setEditPrice}
-                  keyboardType="decimal-pad"
-                />
-              </View>
+            {/* Mode Switcher: Fixed Price vs Weight / Per-Kilo */}
+            <View style={styles.calcToggleRow}>
+              <TouchableOpacity
+                style={[styles.calcToggleBtn, calcMode === 'fixed' && styles.calcToggleBtnActive]}
+                onPress={() => setCalcMode('fixed')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="pricetag-outline" size={14} color={calcMode === 'fixed' ? '#FFF' : colors.text} />
+                <Text style={[styles.calcToggleText, calcMode === 'fixed' && styles.calcToggleTextActive]}>
+                  {t('fixedPrice')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.calcToggleBtn, calcMode === 'weight' && styles.calcToggleBtnActive]}
+                onPress={() => setCalcMode('weight')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="scale-outline" size={14} color={calcMode === 'weight' ? '#FFF' : colors.text} />
+                <Text style={[styles.calcToggleText, calcMode === 'weight' && styles.calcToggleTextActive]}>
+                  {t('perKiloCalc')}
+                </Text>
+              </TouchableOpacity>
             </View>
+
+            {calcMode === 'fixed' ? (
+              <View style={styles.field}>
+                <Text style={styles.label}>{t('priceLabel')}</Text>
+                <View style={styles.priceContainer}>
+                  <Text style={styles.currencySymbol}>{currencySymbol}</Text>
+                  <TextInput
+                    style={styles.priceInput}
+                    placeholder="0.00"
+                    placeholderTextColor="rgba(0,0,0,0.32)"
+                    value={editPrice}
+                    onChangeText={setEditPrice}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.weightCard}>
+                <View style={styles.weightRow}>
+                  <View style={[styles.field, { flex: 1 }]}>
+                    <Text style={styles.label}>{t('pricePerKg')}</Text>
+                    <View style={styles.priceContainer}>
+                      <Text style={styles.currencySymbol}>{currencySymbol}</Text>
+                      <TextInput
+                        style={styles.priceInput}
+                        placeholder="0.00"
+                        placeholderTextColor="rgba(0,0,0,0.32)"
+                        value={inputPricePerKg}
+                        onChangeText={setInputPricePerKg}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                  </View>
+
+                  <View style={[styles.field, { flex: 1 }]}>
+                    <Text style={styles.label}>{t('weight')}</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="e.g. 500"
+                      placeholderTextColor="rgba(0,0,0,0.32)"
+                      value={inputWeight}
+                      onChangeText={setInputWeight}
+                      keyboardType="decimal-pad"
+                    />
+                  </View>
+                </View>
+
+                {/* Unit Selector */}
+                <View style={styles.field}>
+                  <Text style={styles.label}>{t('unit')}</Text>
+                  <View style={styles.unitRow}>
+                    {(['g', 'kg', 'lb', 'oz'] as WeightUnit[]).map((u) => (
+                      <TouchableOpacity
+                        key={u}
+                        style={[styles.unitChip, weightUnit === u && styles.unitChipActive]}
+                        onPress={() => setWeightUnit(u)}
+                      >
+                        <Text style={[styles.unitText, weightUnit === u && styles.unitTextActive]}>{u}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {livePrice > 0 && (
+                  <View style={styles.calcResultBox}>
+                    <Text style={styles.calcResultLabel}>{t('calculatedTotal')}</Text>
+                    <Text style={styles.calcResultValue}>{formatMoney(livePrice)}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {currentPkg > 0 && currentWeightNum > 0 && (
+              <View style={styles.weightBadgeWrap}>
+                <Ionicons name="scale" size={13} color={colors.primary} />
+                <Text style={styles.weightBadgeText}>
+                  {formatWeightBadge(currentWeightNum, weightUnit, currentPkg, currencySymbol)}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.field}>
               <Text style={styles.label}>{t('quantity')}</Text>
@@ -318,36 +447,41 @@ export default function VerifySheet({
             <View style={styles.totalContainer}>
               <Text style={styles.totalLabel}>{t('total')}</Text>
               <Text style={styles.totalPrice}>
-                {formatMoney((parseFloat(editPrice.replace(',', '.') || '0') * quantity))}
+                {formatMoney((parseFloat(editPrice.replace(',', '.')) || 0) * quantity)}
               </Text>
             </View>
 
-            <View style={styles.actions}>
-              <TouchableOpacity style={[styles.btn, styles.cancelBtn]} onPress={onCancel}>
-                <Text style={styles.cancelBtnText}>{t('cancel')}</Text>
-              </TouchableOpacity>
-              <AnimatedTouchableOpacity style={[styles.btn, styles.confirmBtn, { transform: [{ scale: pressAnim.current } ]}]} onPress={handleConfirm}>
-                <Text style={styles.confirmBtnText}>{t('addToCart')}</Text>
-              </AnimatedTouchableOpacity>
-            </View>
           </ScrollView>
-        </Animated.View>
 
-          {/* Success Overlay */}
-          {showSuccess && (
-            <Animated.View style={[styles.successOverlay, { opacity: successOpacity.current }]}>
-              <Animated.View style={[styles.successContent, { transform: [{ scale: successScale.current }] }]}>
-                <Animated.View style={[styles.successCheckCircle, { transform: [{ scale: checkScale.current }] }]}>
-                  <Ionicons name="checkmark" size={38} color="#FFF" />
-                </Animated.View>
-                <Animated.View style={{ opacity: textOpacity.current }}>
-                  <Text style={styles.successTitle}>{t('youScanned')}</Text>
-                  <Text style={styles.successPrice}>{formatMoney(confirmedPrice)}</Text>
-                </Animated.View>
-              </Animated.View>
-            </Animated.View>
-          )}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity style={styles.cancelButton} onPress={onCancel}>
+              <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
+            </TouchableOpacity>
+
+            <AnimatedTouchableOpacity
+              style={[styles.confirmButton, { transform: [{ scale: pressAnim.current }] }]}
+              onPress={handleConfirm}>
+              <Text style={styles.confirmButtonText}>{t('addToCart')}</Text>
+            </AnimatedTouchableOpacity>
+          </View>
+        </Animated.View>
       </KeyboardAvoidingView>
+
+      {/* Success Modal Animation Overlay */}
+      {showSuccess && (
+        <Animated.View style={[styles.successOverlay, { opacity: successOpacity.current }]}>
+          <Animated.View style={[styles.successCard, { transform: [{ scale: successScale.current }] }]}>
+            <Animated.View style={[styles.checkCircle, { transform: [{ scale: checkScale.current }] }]}>
+              <Ionicons name="checkmark" size={48} color="#FFFFFF" />
+            </Animated.View>
+            <Animated.View style={{ opacity: textOpacity.current, alignItems: 'center' }}>
+              <Text style={styles.successTitle}>{t('itemAdded')}</Text>
+              <Text style={styles.successName} numberOfLines={1}>{editName || 'Product'}</Text>
+              <Text style={styles.successPrice}>{formatMoney(confirmedPrice)}</Text>
+            </Animated.View>
+          </Animated.View>
+        </Animated.View>
+      )}
     </Modal>
   );
 }
@@ -359,282 +493,399 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.36)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   sheet: {
-    backgroundColor: colors.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-    maxHeight: '86%',
-  },
-  sheetScroll: {
-    maxHeight: 560,
-  },
-  sheetScrollContent: {
-    paddingBottom: 10,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    maxHeight: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 10,
   },
   handleContainer: {
     alignItems: 'center',
-    marginBottom: 16,
+    paddingVertical: 12,
   },
   handle: {
     width: 36,
     height: 4,
-    backgroundColor: 'rgba(0,0,0,0.18)',
     borderRadius: 2,
+    backgroundColor: 'rgba(0,0,0,0.15)',
   },
   title: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
     color: colors.text,
-    marginBottom: 20,
     textAlign: 'center',
+    marginBottom: 8,
   },
-  smartPickPanel: {
-    backgroundColor: colors.surfaceBlue,
-    borderRadius: 18,
-    padding: 12,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-},
+  sheetScroll: {
+    maxHeight: 520,
+  },
+  sheetScrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
   priceAlert: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
-    borderRadius: 16,
+    gap: 8,
+    backgroundColor: 'rgba(0,0,0,0.04)',
+    borderRadius: 14,
     padding: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
-    backgroundColor: colors.surfaceBlue,
+    borderColor: 'rgba(0,0,0,0.06)',
   },
   priceAlertWarn: {
-    backgroundColor: colors.warningSoft,
+    backgroundColor: 'rgba(255, 149, 0, 0.12)',
+    borderColor: 'rgba(255, 149, 0, 0.3)',
   },
   priceAlertGood: {
-    backgroundColor: colors.successSoft,
+    backgroundColor: 'rgba(52, 199, 89, 0.12)',
+    borderColor: 'rgba(52, 199, 89, 0.3)',
   },
   priceAlertText: {
     flex: 1,
-    color: colors.text,
     fontSize: 13,
-    fontWeight: '800',
-    lineHeight: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  smartPickPanel: {
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
+    gap: 12,
   },
   smartPickHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    marginBottom: 10,
+    gap: 6,
   },
   smartPickTitle: {
-    flex: 1,
-    color: colors.text,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '800',
+    color: colors.text,
   },
   choiceGroup: {
-    marginTop: 8,
+    gap: 6,
   },
   choiceLabel: {
-    color: colors.muted,
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '700',
+    color: colors.muted,
     textTransform: 'uppercase',
-    marginBottom: 7,
+    letterSpacing: 0.5,
   },
   choiceRow: {
+    flexDirection: 'row',
     gap: 8,
-    paddingRight: 8,
   },
   choiceChip: {
-    maxWidth: 220,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 99,
-    backgroundColor: colors.card,
+    paddingVertical: 8,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(0,0,0,0.1)',
   },
   choiceChipActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
   choiceText: {
-    color: colors.text,
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
+    color: colors.text,
   },
   choiceTextActive: {
-    color: '#FFF',
+    color: '#FFFFFF',
   },
   field: {
-    marginBottom: 18,
+    marginBottom: 14,
   },
   label: {
-    fontSize: 13,
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.muted,
-    marginBottom: 8,
-    fontWeight: '600',
+    marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.66)',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: colors.text,
+    height: 48,
+    backgroundColor: 'rgba(0,0,0,0.04)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
     fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(0,0,0,0.08)',
   },
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.66)',
-    borderRadius: 8,
+    height: 48,
+    backgroundColor: 'rgba(0,0,0,0.04)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: colors.borderPink,
-    paddingHorizontal: 16,
+    borderColor: 'rgba(0,0,0,0.08)',
   },
   currencySymbol: {
-    fontSize: 13,
+    fontSize: 18,
+    fontWeight: '800',
     color: colors.text,
-    fontWeight: '600',
     marginRight: 6,
   },
   priceInput: {
     flex: 1,
-    paddingVertical: 14,
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.text,
+  },
+  calcToggleRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(0,0,0,0.04)',
+    borderRadius: 14,
+    padding: 3,
+    marginBottom: 14,
+    gap: 4,
+  },
+  calcToggleBtn: {
+    flex: 1,
+    height: 38,
+    borderRadius: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  calcToggleBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  calcToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  calcToggleTextActive: {
+    color: '#FFFFFF',
+  },
+  weightCard: {
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.06)',
+    marginBottom: 14,
+    gap: 8,
+  },
+  weightRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  unitRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  unitChip: {
+    flex: 1,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
+  },
+  unitChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  unitText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  unitTextActive: {
+    color: '#FFFFFF',
+  },
+  calcResultBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.primarySoft,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  calcResultLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  calcResultValue: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '800',
+    color: colors.primary,
+  },
+  weightBadgeWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.primarySoft,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 14,
+  },
+  weightBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
   },
   quantityContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(255,255,255,0.66)',
-    borderRadius: 8,
+    height: 48,
+    backgroundColor: 'rgba(0,0,0,0.04)',
+    borderRadius: 14,
     paddingHorizontal: 8,
-    paddingVertical: 8,
     borderWidth: 1,
-    borderColor: colors.glassBorder,
+    borderColor: 'rgba(0,0,0,0.08)',
   },
   quantityBtn: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surfacePink,
-    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   quantityText: {
-    color: colors.text,
     fontSize: 18,
-    fontWeight: '700',
-    minWidth: 40,
-    textAlign: 'center',
+    fontWeight: '800',
+    color: colors.text,
   },
   totalContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.surfaceBlue,
-    borderRadius: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    marginVertical: 20,
-    borderWidth: 1,
-    borderColor: colors.primarySoft,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+    marginTop: 6,
   },
   totalLabel: {
-    fontSize: 15,
-    color: colors.muted,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
   },
   totalPrice: {
     fontSize: 22,
-    fontWeight: '800',
-    color: colors.text,
+    fontWeight: '900',
+    color: colors.primary,
   },
-  actions: {
+  buttonContainer: {
     flexDirection: 'row',
-    gap: 12,
-    paddingTop: 12,
-    marginTop: 20,
-    backgroundColor: colors.card,
-  },
-  btn: {
-    flex: 1,
+    paddingHorizontal: 20,
     paddingVertical: 16,
-    borderRadius: 14,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.06)',
+  },
+  cancelButton: {
+    flex: 1,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.05)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelBtn: {
-    backgroundColor: 'rgba(255,255,255,0.66)',
-    borderWidth: 1,
-    borderColor: colors.glassBorder,
-  },
-  cancelBtnText: {
+  cancelButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
     color: colors.text,
-    fontSize: 16,
-    fontWeight: '600',
   },
-  confirmBtn: {
+  confirmButton: {
+    flex: 2,
+    height: 50,
+    borderRadius: 16,
     backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
-  confirmBtnText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '700',
+  confirmButtonText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   successOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 99,
+    zIndex: 999,
   },
-  successContent: {
+  successCard: {
+    width: 260,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
     alignItems: 'center',
-    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  successCheckCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: colors.primary,
+  checkCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#34C759',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 8,
+    marginBottom: 16,
   },
   successTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
     color: colors.text,
+    marginBottom: 4,
+  },
+  successName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.muted,
+    marginBottom: 8,
     textAlign: 'center',
-    marginTop: 4,
   },
   successPrice: {
     fontSize: 22,
     fontWeight: '900',
     color: colors.primary,
-    textAlign: 'center',
   },
 });

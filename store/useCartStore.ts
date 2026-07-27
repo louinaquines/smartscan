@@ -12,13 +12,16 @@ export type CartItem = {
     name: string;
     price: number;
     quantity: number;
-isScanned: boolean;
+    isScanned: boolean;
     isRecurring?: boolean;
     addedByMemberId?: string;
     brand?: string;
     category: BudgetCategoryId;
     productCategory?: string;
     productImageUrl?: string;
+    weight?: number;
+    unit?: 'kg' | 'g' | 'lb' | 'oz';
+    pricePerKg?: number;
     createdAt: string;
 };
 
@@ -33,9 +36,12 @@ export type ShoppingListItem = {
     name: string;
     estimatedPrice: number;
     quantity: number;
-checked: boolean;
+    checked: boolean;
     actualPrice?: number;
     matchedCartItemId?: string;
+    weight?: number;
+    unit?: 'kg' | 'g' | 'lb' | 'oz';
+    pricePerKg?: number;
     createdAt: string;
 };
 

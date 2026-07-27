@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
-import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
+import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AppDialog from '../../components/AppDialog';
@@ -11,10 +11,31 @@ import { getTheme, shadow } from '../../lib/theme';
 import { useScreenPadding } from '../../lib/useScreenPadding';
 import { CartItem, useCartStore } from '../../store/useCartStore';
 import { useTranslation } from '../../lib/i18n';
+import { formatWeightBadge } from '../../lib/weightCalculator';
+import { getCurrency } from '../../lib/currencies';
+import Skeleton from '../../components/Skeleton';
 
 export default function Cart() {
-    const { items, budget, householdMembers, activeMemberId, addHouseholdMember, removeHouseholdMember, setActiveMember, addItem, removeItem, updateItem, updateQuantity, toggleRecurringItem, addRecurringItemsToCart, saveSession, clearCart, total, themeMode } = useCartStore();
+    const { items, budget, householdMembers, activeMemberId, currencyId, addHouseholdMember, removeHouseholdMember, setActiveMember, addItem, removeItem, updateItem, updateQuantity, toggleRecurringItem, addRecurringItemsToCart, saveSession, clearCart, total, themeMode, loadState } = useCartStore();
+    const currencySymbol = getCurrency(currencyId).symbol;
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [name, setName] = useState('');
+
+    const onRefresh = useCallback(async () => {
+        setRefreshing(true);
+        await loadState();
+        setRefreshing(false);
+        setLoading(true);
+        setTimeout(() => {
+            setLoading(false);
+        }, 600);
+    }, [loadState]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setLoading(false), 1000);
+        return () => clearTimeout(timer);
+    }, []);
     const [price, setPrice] = useState('');
     const [quantity, setQuantity] = useState('1');
     const [storeName, setStoreName] = useState('');
@@ -160,8 +181,36 @@ export default function Cart() {
         setEditingItem(null);
     };
 
+    if (loading) {
+        return (
+            <ScrollView style={styles.screen} contentContainerStyle={[styles.content, screenPadding]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                    <Skeleton width={120} height={36} radius={12} />
+                    <Skeleton width={40} height={40} radius={20} />
+                </View>
+                <Skeleton width="100%" height={110} radius={20} style={{ marginBottom: 16 }} />
+                <Skeleton width="100%" height={80} radius={20} style={{ marginBottom: 16 }} />
+                <Skeleton width="100%" height={160} radius={24} style={{ marginBottom: 20 }} />
+                <Skeleton width="100%" height={120} radius={20} style={{ marginBottom: 12 }} />
+                <Skeleton width="100%" height={120} radius={20} />
+            </ScrollView>
+        );
+    }
+
     return (
-        <ScrollView style={styles.screen} contentContainerStyle={[styles.content, screenPadding]} keyboardShouldPersistTaps="handled">
+        <ScrollView
+            style={styles.screen}
+            contentContainerStyle={[styles.content, screenPadding]}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={
+                <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor={t.text}
+                    colors={[t.primary]}
+                />
+            }
+        >
             <View style={styles.header}>
                 <View>
                     <Text style={styles.kicker}>{tr('currentTrip')}</Text>
@@ -333,9 +382,9 @@ export default function Cart() {
             ) : (
                 items.map((item) => {
                     const memberName = getMemberName(item.addedByMemberId);
+                    const weightText = item.weight && item.unit && item.pricePerKg ? formatWeightBadge(item.weight, item.unit, item.pricePerKg, currencySymbol) : '';
                     return (
                         <View key={item.id} style={styles.itemRow}>
-                            <View style={[styles.itemAccent, { backgroundColor: item.isScanned ? t.text : t.muted }]} />
                             <View style={styles.itemMain}>
                                 <View style={styles.itemText}>
                                     <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
@@ -343,6 +392,12 @@ export default function Cart() {
                                         {tr('category' + item.category)} • {item.isScanned ? tr('scanned') : tr('manual')}
                                         {memberName ? ` • ${memberName}` : ''}
                                     </Text>
+                                    {!!weightText && (
+                                        <View style={styles.itemWeightBadge}>
+                                            <Ionicons name="scale-outline" size={11} color={t.primary} />
+                                            <Text style={styles.itemWeightText}>{weightText}</Text>
+                                        </View>
+                                    )}
                                 </View>
                                 <Text style={styles.itemTotal}>{formatMoney(item.price * item.quantity)}</Text>
                             </View>
@@ -538,13 +593,12 @@ const getStyles = (t: ReturnType<typeof getTheme>) => StyleSheet.create({
     recurringActionText: { color: t.text, fontWeight: '800', fontSize: 14 },
 
     itemRow: { backgroundColor: t.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: t.glassBorder, marginBottom: 12, overflow: 'hidden' },
-    itemAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 5, opacity: 0.9 },
-    itemMain: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginLeft: 6 },
+    itemMain: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     itemText: { flex: 1, paddingRight: 12 },
     itemName: { color: t.text, fontSize: 16, fontWeight: '900' },
     itemMeta: { color: t.muted, fontSize: 13, marginTop: 4 },
     itemTotal: { color: t.text, fontSize: 18, fontWeight: '900' },
-    itemControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16, marginLeft: 6 },
+    itemControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },
     qtyControls: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: t.glass, borderRadius: 14, padding: 4, borderWidth: 1, borderColor: t.glassBorder },
     qtyButton: { width: 34, height: 34, borderRadius: 10, backgroundColor: t.glass, alignItems: 'center', justifyContent: 'center' },
     qtyText: { minWidth: 24, textAlign: 'center', color: t.text, fontSize: 16, fontWeight: '900' },
@@ -563,6 +617,9 @@ const getStyles = (t: ReturnType<typeof getTheme>) => StyleSheet.create({
     editSheet: { backgroundColor: t.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 38 : 22, borderWidth: 1, borderColor: t.glassBorder },
     editHandle: { alignSelf: 'center', width: 38, height: 4, borderRadius: 2, backgroundColor: t.muted, marginBottom: 16 },
     editTitle: { color: t.text, fontSize: 22, fontWeight: '900', textAlign: 'center', marginBottom: 16 },
+    itemWeightBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+    itemWeightText: { color: t.primary, fontSize: 11, fontWeight: '700' },
+
     editLabel: { color: t.muted, fontSize: 12, fontWeight: '900', textTransform: 'uppercase', marginTop: 10 },
     editGrid: { flexDirection: 'row', gap: 10 },
     editGridItem: { flex: 1 },

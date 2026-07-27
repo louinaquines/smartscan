@@ -27,6 +27,14 @@ const translations: LocaleTranslations = {
     clear: 'Clear',
     done: 'Done',
 
+    // Weight & Per-Kilo Calculator
+    fixedPrice: 'Fixed Price',
+    perKiloCalc: 'Weight / Per-Kilo',
+    pricePerKg: 'Price per kg',
+    weight: 'Weight',
+    unit: 'Unit',
+    calculatedTotal: 'Calculated Total',
+
     // Navigation
     dashboard: 'Dashboard',
     cart: 'Cart',

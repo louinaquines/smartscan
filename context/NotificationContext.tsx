@@ -1,6 +1,20 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
+import { NativeModules } from 'react-native';
 import NotificationToast from '../components/NotificationToast';
-import { setNotifyHandler } from '../lib/notifications';
+
+type NotificationsModule = typeof import('expo-notifications');
+let Notifications: NotificationsModule | null = null;
+
+async function load(): Promise<NotificationsModule | null> {
+  if (Notifications) return Notifications;
+  if (!NativeModules?.ExpoPushTokenManager) return null;
+  try {
+    Notifications = await import('expo-notifications');
+    return Notifications;
+  } catch {
+    return null;
+  }
+}
 
 interface NotificationItem {
   id: number;
@@ -40,9 +54,19 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setNotifyHandler((title, body) => {
-      showNotification(title, body);
+    let subscription: { remove: () => void } | null = null;
+    load().then((mod) => {
+      if (!mod) return;
+      subscription = mod.addNotificationReceivedListener((notification) => {
+        const { title, body } = notification.request.content;
+        if (title) {
+          showNotification(title, body ?? '');
+        }
+      });
     });
+    return () => {
+      if (subscription) subscription.remove();
+    };
   }, [showNotification]);
 
   return (

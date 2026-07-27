@@ -11,7 +11,7 @@
     ],
     "icon": "./assets/icon2.png",
     "splash": {
-      "image": "./assets/splash-icon2.png",
+      "image": "./assets/cany-logo2.png",
       "resizeMode": "contain",
       "backgroundColor": "#F6F8FA"
     },
@@ -39,7 +39,8 @@
       }
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-notifications"
     ]
   }
 }
