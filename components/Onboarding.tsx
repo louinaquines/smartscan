@@ -26,7 +26,7 @@ type OnboardingProps = {
   onDone: (payload: OnboardingPayload) => void | Promise<void>;
 };
 
-const STEPS = ['Name', 'Country', 'Currency', 'Language', 'Ready'];
+const STEPS = ['Name', 'Country', 'Currency', 'Language'];
 
 function ProgressDots({ step }: { step: number }) {
   return (
@@ -58,12 +58,13 @@ export default function Onboarding({ onDone }: OnboardingProps) {
   const { t } = useTranslation();
   const [started, setStarted] = useState(false);
   const [step, setStep] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
   const [name, setName] = useState('');
   const [countryOpen, setCountryOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState(CURRENCIES[0].country);
   const [currencyId, setCurrencyId] = useState<CurrencyId>(CURRENCIES[0].id);
-  const [languageId, setLanguageId] = useState<LanguageId>(CURRENCIES[0].id);
+  const [languageId, setLanguageId] = useState<LanguageId>('USD');
 
   const selectedCurrency = getCurrency(currencyId);
   const selectedLanguage = getLanguage(languageId);
@@ -87,8 +88,20 @@ export default function Onboarding({ onDone }: OnboardingProps) {
       setStep((current) => current + 1);
       return;
     }
+    setSubmitting(true);
     onDone({ name: cleanName, country: selectedCountry, currencyId, languageId });
   };
+
+  if (submitting) {
+    return (
+      <View style={styles.introScreen}>
+        <View style={styles.logoGlow}>
+          <Image source={require('../assets/cany-logo2.png')} style={styles.smallLogo} />
+        </View>
+        <Text style={styles.setupTitle}>Setting up your account...</Text>
+      </View>
+    );
+  }
 
   if (!started) {
     return (
@@ -220,14 +233,6 @@ export default function Onboarding({ onDone }: OnboardingProps) {
                   })}
                 </ScrollView>
               )}
-            </View>
-          )}
-
-          {step === 4 && (
-            <View style={styles.readyScreen}>
-              <Image source={require('../assets/okay.jpg')} style={styles.readyImage} resizeMode="contain" />
-              <Text style={styles.readyTitle}>You're all set!</Text>
-              <Text style={styles.readyBody}>Start scanning and tracking your grocery budget with Cany.</Text>
             </View>
           )}
         </View>
@@ -429,8 +434,4 @@ const styles = StyleSheet.create({
   finishButtonText: { color: '#FFF', fontSize: 16, fontWeight: '900' },
   disabledButton: { opacity: 0.45 },
   pressed: { opacity: 0.82 },
-  readyScreen: { alignItems: 'center', paddingVertical: 12 },
-  readyImage: { width: '100%', height: 240, marginBottom: 20 },
-  readyTitle: { color: colors.text, fontSize: 26, fontWeight: '900', textAlign: 'center', marginBottom: 8 },
-  readyBody: { color: colors.muted, fontSize: 15, fontWeight: '600', textAlign: 'center', lineHeight: 22, paddingHorizontal: 10 },
 });

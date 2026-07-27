@@ -35,15 +35,18 @@ export default function RootLayout() {
       storage.getString(StorageKeys.ONBOARDING_COMPLETE),
       storage.getString('DEV_SHOW_ONBOARDING_RELOAD'),
       storage.getString(StorageKeys.TUTORIAL_COMPLETE),
-    ]).then(([, savedOnboarding, devReset, savedTutorial]) => {
+      storage.getString(StorageKeys.USER_NAME),
+      storage.getString(StorageKeys.COUNTRY),
+    ]).then(([, savedOnboarding, devReset, savedTutorial, savedName, savedCountry]) => {
       if (!mounted) return;
       if (devReset === 'true') {
         storage.set(StorageKeys.ONBOARDING_COMPLETE, 'false');
         setOnboardingComplete(false);
       } else {
-        setOnboardingComplete(savedOnboarding === 'true');
+        const hasValidSetup = Boolean(savedName && savedCountry);
+        const flagIsTrue = savedOnboarding === 'true';
+        setOnboardingComplete(flagIsTrue && hasValidSetup);
       }
-      // Show tutorial if not yet completed
       if (savedTutorial !== 'true') {
         setShowTutorial(true);
       }
@@ -136,6 +139,8 @@ export default function RootLayout() {
 
   // Finish onboarding handler
   const finishOnboarding = async (setup: { name: string; country: string; currencyId: Parameters<typeof setCurrency>[0]; languageId: Parameters<typeof setLanguage>[0] }) => {
+    setOnboardingComplete(true);
+    setPhase('loading');
     await Promise.all([
       storage.set(StorageKeys.USER_NAME, setup.name),
       storage.set(StorageKeys.COUNTRY, setup.country),
@@ -144,10 +149,8 @@ export default function RootLayout() {
       storage.set('DEV_SHOW_ONBOARDING_RELOAD', 'false'),
     ]);
     await storage.set(StorageKeys.ONBOARDING_COMPLETE, 'true');
-    setPhase('loading');
     // Briefly show loading, then transition to app + show tutorial for new users
     setTimeout(() => {
-      setOnboardingComplete(true);
       setShowTutorial(true);
       setPhase('app');
     }, 1800);

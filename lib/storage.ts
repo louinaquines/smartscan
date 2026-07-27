@@ -28,7 +28,8 @@ export const storage = {
         return val ? parseFloat(val) : null;
     },
     getString: async (key: string): Promise<string | null> => {
-        return await AsyncStorage.getItem(key);
+        const val = await AsyncStorage.getItem(key);
+        return val ?? null;
     },
     getJson: async <T>(key: string, fallback: T): Promise<T> => {
         const val = await AsyncStorage.getItem(key);

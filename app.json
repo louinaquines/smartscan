@@ -40,7 +40,17 @@
     },
     "plugins": [
       "expo-font",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "manifestApplicationAttributes": {
+              "android:allowBackup": false
+            }
+          }
+        }
+      ]
     ]
   }
 }

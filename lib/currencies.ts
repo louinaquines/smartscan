@@ -57,7 +57,7 @@ export const LANGUAGES: LanguageOption[] = [
   { id: 'THB', name: 'Thai', flag: '🇹🇭' },
 ];
 
-export const DEFAULT_LANGUAGE: LanguageId = 'PHP';
+export const DEFAULT_LANGUAGE: LanguageId = 'USD';
 
 export const getLanguage = (id?: string | null) =>
   LANGUAGES.find((lang) => lang.id === id) ?? LANGUAGES[0];
