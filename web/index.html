@@ -1,276 +1,2098 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Cany – Smart Grocery Budget & Scanner</title>
-  <link rel="icon" href="cany-logo2.png" />
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            'cany-bg': '#F7F7F4',
-            'cany-surface': '#FFFFFF',
-            'cany-dark': '#080808',
-            'cany-muted': '#666666',
-            'cany-border': 'rgba(0,0,0,0.11)',
-            'cany-soft': 'rgba(0,0,0,0.06)',
-            'cany-accent': '#080808',
-          },
-          fontFamily: {
-            sans: ['Outfit', 'Inter', 'sans-serif'],
-          }
-        }
-      }
-    }
-  </script>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <title>Cany — grocery budget & scanner that runs offline</title>
+  <meta name="description" content="Scan shelf price tags with your phone, watch the running total, and never find out your bill at the counter. Works fully offline. Free, no ads, no account.">
+  <link rel="icon" type="image/png" href="assets/adaptive-icon2.png">
+  <link rel="apple-touch-icon" href="assets/adaptive-icon2.png">
+  <meta property="og:image" content="assets/adaptive-icon2.png">
+  <meta name="theme-color" content="#F7F3EA">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&family=Caveat:wght@500;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --paper: #F7F3EA;
+      --paper-2: #FFFDF8;
+      --ink: #201B16;
+      --ink-soft: rgba(32, 27, 22, 0.55);
+      --ink-faint: rgba(32, 27, 22, 0.16);
+      --line: rgba(32, 27, 22, 0.14);
+      --accent: #201B16;
+      --accent-dark: #000000;
+      --mark: rgba(32, 27, 22, 0.16);
+      --green: #201B16;
+      --red: #201B16;
+      --mono: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+      --hand: 'Caveat', 'Comic Sans MS', cursive;
+      --body: 'Outfit', -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
     body {
-      background-color: #F7F7F4;
-      font-family: 'Outfit', sans-serif;
+      background-color: var(--paper);
+      background-image: radial-gradient(rgba(32, 27, 22, 0.055) 1px, transparent 1px);
+      background-size: 22px 22px;
+      color: var(--ink);
+      font-family: var(--body);
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.5;
     }
-    .glass-nav {
-      background: rgba(247, 247, 244, 0.8);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      border: 1px solid rgba(0, 0, 0, 0.08);
+
+    .wrap { max-width: 1140px; margin: 0 auto; padding: 0 24px; }
+
+    .mono { font-family: var(--mono); }
+    .hand { font-family: var(--hand); }
+
+    img { display: block; }
+
+    a { color: inherit; }
+
+    ::selection { background: var(--ink); color: var(--paper); }
+
+    /* ---------- header ---------- */
+    .topbar {
+      border-bottom: 1px solid var(--line);
+      background: rgba(247, 243, 234, 0.92);
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
     }
-    .glass-card {
-      background: #FFFFFF;
-      border: 1px solid rgba(0, 0, 0, 0.08);
-      box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03);
+    .topbar-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      height: 64px;
     }
-    .phone-mockup {
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-      border: 8px solid #080808;
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .brand img { width: 32px; height: 32px; border-radius: 9px; object-fit: cover; }
+    .brand-name { font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
+    .brand-ver {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--ink);
+      border: 1px solid var(--ink-faint);
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(32,27,22,0.04);
+    }
+    .nav { display: flex; align-items: center; gap: 18px; }
+    .nav .navlinks { display: flex; align-items: center; gap: 22px; }
+    .nav a {
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--ink-soft);
+      border-bottom: 2px solid transparent;
+      padding-bottom: 2px;
+      transition: color .15s, border-color .15s;
+    }
+    .nav a:hover { color: var(--ink); border-color: var(--ink); }
+
+    .menu-toggle {
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      gap: 5px;
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
+      border: 2px solid var(--ink);
+      border-radius: 12px;
+      background: var(--paper-2);
+      cursor: pointer;
+      padding: 10px;
+      box-shadow: 2px 2px 0 0 var(--ink);
+    }
+    .menu-toggle span { display: block; height: 2px; background: var(--ink); border-radius: 2px; transition: transform .2s, opacity .2s; }
+    .menu-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .menu-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+    .menu-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    /* price-tag button */
+    .btn {
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 13px;
+      color: #fff;
+      background: var(--accent);
+      border: 2px solid var(--ink);
+      padding: 11px 20px;
+      text-decoration: none;
+      border-radius: 4px 14px 14px 14px;
+      box-shadow: 3px 3px 0 0 var(--ink);
+      transition: transform .1s, box-shadow .1s, background .15s;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+    }
+    .btn .btn-ico { width: 17px; height: 17px; flex-shrink: 0; }
+    .btn:hover { background: #fff; color: var(--ink); transform: translate(1px, 1px); box-shadow: 2px 2px 0 0 var(--ink); }
+    .nav .btn { color: #fff; }
+    .btn:active { transform: translate(3px, 3px); box-shadow: 0 0 0 0 var(--ink); }
+    .btn-secondary {
+      background: var(--paper-2);
+      color: var(--ink);
+      box-shadow: 3px 3px 0 0 var(--ink);
+    }
+    .btn-secondary:hover { background: #f1ebdd; }
+
+    /* ---------- hero ---------- */
+    .hero { padding: 72px 0 88px; }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 56px;
+      align-items: center;
+    }
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      color: var(--ink-soft);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .eyebrow::before {
+      content: '';
+      width: 34px;
+      height: 1px;
+      background: var(--ink);
+    }
+    h1 {
+      font-size: clamp(38px, 5.2vw, 64px);
+      line-height: 1.04;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      margin-bottom: 22px;
+    }
+    .hl {
+      background: linear-gradient(180deg, transparent 58%, var(--mark) 58%);
+      padding: 0 4px;
+    }
+    .hero-sub {
+      font-size: 18px;
+      color: var(--ink-soft);
+      max-width: 520px;
+      margin-bottom: 34px;
+    }
+    .hero-cta { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-bottom: 34px; }
+    .hero-note {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+    .perks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      position: relative;
+      margin-top: 22px;
+      padding-top: 20px;
+      border-top: 2px dashed rgba(32, 27, 22, 0.35);
+    }
+    .perk {
+      position: relative;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink-soft);
+      border: 1.5px solid var(--ink);
+      background: var(--paper-2);
+      padding: 7px 13px 7px 22px;
+      border-radius: 3px 9px 9px 9px;
+      box-shadow: 2px 2px 0 0 rgba(32, 27, 22, 0.35);
+      transition: transform .12s, box-shadow .12s;
+    }
+    .perk::before {
+      content: "";
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      width: 6px;
+      height: 6px;
+      margin-top: -3px;
+      border-radius: 50%;
+      border: 1.5px solid var(--ink);
+      background: var(--paper);
+    }
+    .perk:hover {
+      transform: rotate(var(--tilt, 0deg)) translateY(-2px);
+      box-shadow: 4px 4px 0 0 rgba(32, 27, 22, 0.45);
+    }
+    .perk b {
+      color: var(--ink);
+      font-weight: 700;
+      font-size: 16px;
+      margin-right: 4px;
+    }
+
+    /* phone mockup */
+    .phone-wrap { position: relative; justify-self: end; padding: 10px 18px 30px 10px; }
+    .phone-wrap .tape {
+      position: absolute;
+      width: 96px;
+      height: 26px;
+      background: rgba(32, 27, 22, 0.08);
+      border-left: 1px dashed rgba(32,27,22,0.25);
+      border-right: 1px dashed rgba(32,27,22,0.25);
+      top: -6px;
+      left: 38%;
+      transform: rotate(-6deg);
+      z-index: 5;
+    }
+    .phone {
+      width: 312px;
+      background: var(--paper);
+      border: 9px solid var(--ink);
       border-radius: 40px;
+      box-shadow: 14px 18px 0 -6px rgba(32,27,22,0.08), 18px 24px 0 -12px rgba(32,27,22,0.06);
+      transform: translateY(var(--par, 0px)) rotate(var(--tilt, -2.5deg));
       overflow: hidden;
-      background: #080808;
+      position: relative;
     }
-    .phone-notch {
-      width: 110px;
-      height: 18px;
-      background: #080808;
-      border-bottom-left-radius: 12px;
-      border-bottom-right-radius: 12px;
+    .phone .notch {
       position: absolute;
       top: 0;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 20;
+      width: 96px;
+      height: 18px;
+      background: var(--ink);
+      border-radius: 0 0 12px 12px;
+      z-index: 5;
+    }
+    .phone-screen { padding: 40px 14px 78px; font-size: 12px; }
+    .p-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .phone-brand { display: flex; align-items: center; gap: 8px; font-weight: 900; font-size: 16px; color: var(--ink); }
+    .phone-brand img { width: 26px; height: 26px; border-radius: 8px; object-fit: cover; }
+    .p-gear { width: 17px; height: 17px; color: var(--ink-soft); }
+    .mascot-bubble {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #fff;
+      border: 2px solid var(--ink);
+      border-radius: 15px;
+      padding: 9px 11px;
+      margin-bottom: 10px;
+      box-shadow: 0 8px 18px -10px rgba(0,0,0,0.35);
+    }
+    .mascot-bubble img { width: 46px; height: 46px; object-fit: contain; flex-shrink: 0; }
+    .mascot-bubble .bubble-copy { flex: 1; min-width: 0; }
+    .mascot-bubble .tag { font-family: var(--mono); font-size: 9px; color: var(--ink-soft); font-weight: 700; margin-bottom: 2px; }
+    .mascot-bubble p { font-weight: 700; font-size: 11px; line-height: 1.4; }
+    .smart-panel {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .smart-icon {
+      width: 30px;
+      height: 30px;
+      flex-shrink: 0;
+      border-radius: 9px;
+      background: rgba(0,0,0,0.07);
+      border: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink);
+    }
+    .smart-icon svg { width: 16px; height: 16px; }
+    .smart-title { font-size: 11px; font-weight: 900; }
+    .smart-panel p { color: var(--ink-soft); font-size: 10px; font-weight: 700; line-height: 1.45; margin-top: 2px; }
+    .budget-card {
+      background: #fff;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      padding: 13px;
+      margin-bottom: 12px;
+      box-shadow: 0 10px 24px -14px rgba(0,0,0,0.3);
+    }
+    .budget-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .budget-copy { flex: 1; min-width: 0; }
+    .budget-card .k { font-family: var(--mono); font-size: 9px; color: var(--ink-soft); font-weight: 800; letter-spacing: 0.08em; }
+    .budget-card .big { font-size: 22px; font-weight: 900; letter-spacing: -0.02em; margin: 3px 0; white-space: nowrap; }
+    .budget-card .spent { font-size: 10px; color: var(--ink-soft); font-weight: 700; }
+    .budget-card .remaining { font-size: 11px; font-weight: 800; color: var(--ink); margin-top: 2px; }
+    .donut { position: relative; width: 88px; text-align: center; flex-shrink: 0; }
+    .donut svg { width: 88px; height: 88px; }
+    .donut circle.fill {
+      stroke-dasharray: 0 257.6;
+      transition: stroke-dasharray 1.2s cubic-bezier(.22,.61,.36,1);
+    }
+    .donut-center { position: absolute; top: 26px; left: 0; right: 0; }
+    .donut-center b { display: block; font-size: 16px; font-weight: 900; }
+    .donut-center span { font-size: 8px; font-weight: 800; text-transform: uppercase; color: var(--ink-soft); letter-spacing: 0.06em; }
+    .donut-total { font-size: 9px; font-weight: 800; color: var(--ink); margin-top: 3px; }
+    .bar { height: 9px; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: rgba(0,0,0,0.07); padding: 1.5px; margin-top: 10px; }
+    .bar i { display: block; height: 100%; width: 0%; background: var(--ink); border-radius: 999px; transition: width 1.2s cubic-bezier(.22,.61,.36,1); }
+    .p-sec { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 8px; }
+    .p-sec-title { font-size: 13px; font-weight: 900; }
+    .p-sec-meta { font-size: 10px; color: var(--ink-soft); font-weight: 800; }
+    .p-sec-action { font-size: 10px; color: var(--ink); font-weight: 800; }
+    .chips { display: flex; gap: 7px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 12px; scrollbar-width: thin; }
+    .chip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      font-weight: 800;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 6px 9px;
+      white-space: nowrap;
+      background: #fff;
+      color: var(--ink);
+    }
+    .chip svg { width: 13px; height: 13px; flex-shrink: 0; }
+    .chip b { font-weight: 900; }
+    .chip.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .items { display: flex; flex-direction: column; gap: 7px; }
+    .item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      padding: 8px 10px;
+    }
+    .item-ico {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+      border-radius: 9px;
+      background: rgba(0,0,0,0.08);
+      border: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink);
+    }
+    .item-ico svg { width: 14px; height: 14px; }
+    .item-info { flex: 1; min-width: 0; }
+    .item .n { font-weight: 800; font-size: 11px; }
+    .item .d { font-size: 9px; color: var(--ink-soft); font-weight: 700; margin-top: 1px; }
+    .item .p { font-family: var(--mono); font-weight: 800; font-size: 11px; white-space: nowrap; color: var(--ink); }
+    .budget-input-row { display: flex; gap: 8px; margin-top: 10px; }
+    .budget-input {
+      flex: 1;
+      min-width: 0;
+      height: 40px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .budget-input::placeholder { color: var(--ink-faint); }
+    .budget-save {
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+      border: 0;
+      border-radius: 12px;
+      background: var(--ink);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .budget-save svg { width: 18px; height: 18px; }
+    .budget-message { font-size: 11px; color: var(--ink-soft); font-weight: 700; margin-top: 2px; }
+    .trend-panel {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+    }
+    .trend-summary { display: flex; align-items: center; }
+    .trend-item { flex: 1; text-align: center; }
+    .trend-item b { display: block; font-size: 13px; font-weight: 900; }
+    .trend-item span { display: block; font-size: 9px; font-weight: 800; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .06em; margin-top: 2px; }
+    .trend-divider { width: 1px; height: 26px; background: var(--line); }
+    .trend-empty { font-size: 9px; color: var(--ink-soft); font-weight: 700; text-align: center; margin-top: 8px; }
+    .empty-state {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      padding: 18px 12px;
+      text-align: center;
+    }
+    .empty-icon {
+      width: 42px;
+      height: 42px;
+      margin: 0 auto;
+      border-radius: 14px;
+      background: rgba(0,0,0,0.07);
+      border: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink);
+    }
+    .empty-icon svg { width: 20px; height: 20px; }
+    .empty-state h4 { font-size: 12px; font-weight: 900; margin-top: 10px; }
+    .empty-state p { font-size: 9px; color: var(--ink-soft); font-weight: 700; margin-top: 4px; line-height: 1.4; }
+    .tab-bar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      height: 56px;
+      background: rgba(255,255,255,0.9);
+      border-top: 1px solid var(--line);
+    }
+    .tab {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 40px;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: var(--ink-soft);
+    }
+    .tab svg { width: 20px; height: 20px; }
+    .tab.active { color: var(--ink); }
+    .fab {
+      position: absolute;
+      right: 12px;
+      bottom: 66px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--ink);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 16px -4px rgba(0,0,0,0.5);
+    }
+    .fab svg { width: 20px; height: 20px; }
+    .fab::after {
+      content: "";
+      position: absolute;
+      inset: -7px;
+      border-radius: 50%;
+      background: var(--ink);
+      opacity: 0.14;
+      animation: fabPulse 2.4s ease-in-out infinite;
+    }
+    @keyframes fabPulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.18); }
+    }
+
+    /* compact step phones (how it works) — small illustrations of set / scan / check */
+    .step-phone {
+      width: 218px;
+      height: 262px;
+      margin: 0 auto;
+      background: var(--paper);
+      border: 7px solid var(--ink);
+      border-radius: 30px;
+      box-shadow: 10px 12px 0 -6px rgba(32,27,22,0.12);
+      transform: rotate(var(--tilt, 0deg));
+      overflow: hidden;
+      position: relative;
+    }
+    .step-phone::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 70px;
+      height: 13px;
+      background: var(--ink);
+      border-radius: 0 0 10px 10px;
+      z-index: 5;
+    }
+    .step-phone .screen { height: 100%; box-sizing: border-box; padding: 22px 12px 16px; font-size: 10px; display: flex; flex-direction: column; justify-content: center; }
+    .step-phone .p-header { margin-bottom: 8px; }
+    .step-phone .phone-brand { gap: 6px; font-size: 13px; }
+    .step-phone .phone-brand img { width: 19px; height: 19px; border-radius: 6px; }
+    .step-phone .p-gear { width: 13px; height: 13px; }
+    .step-phone .budget-card { padding: 10px; border-radius: 14px; margin-bottom: 8px; }
+    .step-phone .budget-card .k { font-size: 8px; }
+    .step-phone .budget-card .big { font-size: 16px; }
+    .step-phone .budget-card .spent { font-size: 9px; }
+    .step-phone .budget-card .remaining { font-size: 10px; }
+    .step-phone .donut { width: 64px; }
+    .step-phone .donut svg { width: 64px; height: 64px; }
+    .step-phone .donut-center { top: 18px; }
+    .step-phone .donut-center b { font-size: 12px; }
+    .step-phone .donut-center span { font-size: 7px; }
+    .step-phone .donut-total { font-size: 8px; }
+    .step-phone .bar { height: 7px; margin-top: 8px; }
+    .step-phone .budget-input-row { margin-top: 8px; gap: 6px; }
+    .step-phone .budget-input { height: 34px; border-radius: 10px; font-size: 10px; padding: 0 10px; }
+    .step-phone .budget-save { width: 34px; height: 34px; border-radius: 10px; }
+    .step-phone .budget-save svg { width: 15px; height: 15px; }
+    .step-phone .summary { padding: 10px; border-radius: 12px; margin-bottom: 8px; }
+    .step-phone .summary .lbl { font-size: 8px; }
+    .step-phone .summary .amt { font-size: 18px; }
+    .step-phone .summary .sub { font-size: 8px; }
+    .step-phone .item { padding: 6px 8px; gap: 7px; border-radius: 9px; }
+    .step-phone .item .n { font-size: 9px; }
+    .step-phone .item .d { font-size: 8px; }
+    .step-phone .item .p { font-size: 9px; }
+    .step-phone .item-ico { width: 22px; height: 22px; border-radius: 7px; }
+    .step-phone .item-ico svg { width: 12px; height: 12px; }
+    .summary { background: #fff; border: 1px solid var(--line); }
+    .steps .step-body { padding: 24px 0 0; }
+
+    /* scan screen step (compact dark camera) */
+    .step-phone.scan .screen {
+      background: #0d0d0d;
+      padding: 22px 12px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .step-phone.scan .scan-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(15,20,28,0.85);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 20px;
+      padding: 5px 11px;
+      color: #fff;
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: .2px;
+    }
+    .step-phone.scan .scan-badge svg { width: 11px; height: 11px; }
+    .step-phone.scan .viewfinder {
+      position: relative;
+      width: 100%;
+      height: 96px;
+      border-radius: 13px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: linear-gradient(160deg, #1b1b1b, #2a2a2a);
+      overflow: hidden;
+    }
+    .step-phone.scan .v-corner { position: absolute; width: 16px; height: 16px; border: 2.5px solid #fff; }
+    .step-phone.scan .v-tl { top: 6px; left: 6px; border-right: 0; border-bottom: 0; border-top-left-radius: 7px; }
+    .step-phone.scan .v-tr { top: 6px; right: 6px; border-left: 0; border-bottom: 0; border-top-right-radius: 7px; }
+    .step-phone.scan .v-bl { bottom: 6px; left: 6px; border-right: 0; border-top: 0; border-bottom-left-radius: 7px; }
+    .step-phone.scan .v-br { bottom: 6px; right: 6px; border-left: 0; border-top: 0; border-bottom-right-radius: 7px; }
+    .step-phone.scan .scan-line {
+      position: absolute;
+      left: 8%;
+      right: 8%;
+      top: 12%;
+      height: 2.5px;
+      border-radius: 2px;
+      background: #fff;
+      box-shadow: 0 0 10px 2px rgba(255,255,255,0.55);
+      animation: scanSweep 2.2s ease-in-out infinite;
+    }
+    @keyframes scanSweep {
+      0%, 100% { top: 12%; }
+      50% { top: 82%; }
+    }
+    .step-phone.scan .capture-ring {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      background: rgba(255,255,255,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .step-phone.scan .capture-inner {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #fff;
+      color: #0d0d0d;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .step-phone.scan .capture-inner svg { width: 16px; height: 16px; }
+    .step-phone.scan .status-pill {
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: .2px;
+      color: #fff;
+      background: rgba(15,20,28,0.85);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 20px;
+      padding: 5px 11px;
+    }
+
+    /* toast screen step (compact cart + success overlay) */
+    .step-phone.success .screen {
+      background: #F7F7F4;
+      padding: 22px 12px 16px;
+      position: relative;
+      min-height: 218px;
+    }
+    .step-phone.success .p-header { margin-bottom: 8px; }
+    .step-phone.success .phone-brand { gap: 6px; font-size: 13px; }
+    .step-phone.success .phone-brand img { width: 19px; height: 19px; border-radius: 6px; }
+    .step-phone.success .p-gear { width: 13px; height: 13px; }
+    .step-phone.success .summary {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+    }
+    .step-phone.success .summary .lbl { font-size: 8px; }
+    .step-phone.success .summary .amt { font-size: 18px; }
+    .step-phone.success .summary .sub { font-size: 8px; }
+    .step-phone.success .success-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.92);
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .step-phone.success .success-check {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #080808;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      margin-bottom: 3px;
+    }
+    .step-phone.success .success-check svg { width: 21px; height: 21px; color: #fff; }
+    .step-phone.success .success-title {
+      font-size: 11px;
+      font-weight: 800;
+      color: #080808;
+    }
+    .step-phone.success .success-price {
+      font-size: 14px;
+      font-weight: 900;
+      color: #080808;
+    }
+    .hand-note {
+      position: absolute;
+      right: -18px;
+      bottom: -8px;
+      background: var(--paper-2);
+      border: 1.5px solid var(--ink);
+      padding: 8px 14px;
+      font-family: var(--hand);
+      font-size: 20px;
+      font-weight: 700;
+      transform: rotate(4deg);
+      box-shadow: 4px 4px 0 0 rgba(32,27,22,0.12);
+    }
+
+    /* ---------- price ticker ---------- */
+    .ticker {
+      border-top: 1px solid var(--ink);
+      border-bottom: 1px solid var(--ink);
+      background: var(--paper-2);
+      overflow: hidden;
+      position: relative;
+    }
+    .ticker::before, .ticker::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 60px;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .ticker::before { left: 0; background: linear-gradient(90deg, var(--paper-2), transparent); }
+    .ticker::after { right: 0; background: linear-gradient(-90deg, var(--paper-2), transparent); }
+    .ticker-track {
+      display: flex;
+      gap: 0;
+      width: max-content;
+      animation: tick 46s linear infinite;
+      will-change: transform;
+    }
+    .ticker:hover .ticker-track { animation-play-state: paused; }
+    .ticker-item {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 13px 18px;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .ticker-item span { color: var(--ink-soft); }
+    .ticker-item b { color: var(--accent); }
+    @keyframes tick { to { transform: translateX(-50%); } }
+
+    /* dark ticker (inside the download section) */
+    .ticker.dark-ticker {
+      background: var(--ink);
+      border-top: 1px solid rgba(247,243,234,0.22);
+      border-bottom: 1px solid rgba(247,243,234,0.22);
+    }
+    .ticker.dark-ticker::before { background: linear-gradient(90deg, var(--ink), transparent); }
+    .ticker.dark-ticker::after { background: linear-gradient(-90deg, var(--ink), transparent); }
+    .ticker.dark-ticker .ticker-item span { color: rgba(247,243,234,0.55); }
+    .ticker.dark-ticker .ticker-item b { color: var(--paper); }
+    @media (prefers-reduced-motion: reduce) {
+      .ticker-track { animation: none; }
+      .cow-float, .cow-stand, .cow-ok { animation: none; }
+      .rv { transition: none; opacity: 1; transform: none; }
+      .fab::after { animation: none; }
+      .step-phone.scan .scan-line { animation: none; }
+    }
+
+    /* ---------- section shell ---------- */
+    section { padding: 96px 0; }
+    .sec-head { max-width: 720px; margin-bottom: 64px; }
+    .sec-head.right-aligned { margin-left: auto; text-align: right; }
+    .sec-head.right-aligned .eyebrow { justify-content: flex-end; }
+    .sec-head.right-aligned .eyebrow::before { display: none; }
+    .sec-head.right-aligned .eyebrow::after { content: ''; width: 34px; height: 1px; background: var(--ink); }
+    .sec-title { font-size: clamp(28px, 3.6vw, 44px); font-weight: 900; letter-spacing: -0.025em; line-height: 1.1; margin-bottom: 14px; }
+    .sec-sub { font-size: 16px; color: var(--ink-soft); max-width: 560px; }
+    .sec-head.right-aligned .sec-sub { margin-left: auto; }
+
+    /* department sign cards */
+    .rail { height: 1px; background: var(--ink); position: relative; margin: 0 12px 46px; }
+    .rail::before {
+      content: 'DEPARTMENT GUIDE';
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      position: absolute;
+      top: -22px;
+      left: 0;
+      color: var(--ink-soft);
+    }
+    .aisles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 34px 28px; }
+    .aisle { position: relative; padding-top: 22px; }
+    .aisle::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 24px;
+      width: 1px;
+      height: 20px;
+      border-left: 2px dashed var(--ink-soft);
+    }
+    .sign {
+      background: var(--paper-2);
+      border: 2px solid var(--ink);
+      border-radius: 10px 22px 22px 22px;
+      padding: 22px 20px;
+      box-shadow: 5px 6px 0 0 rgba(32,27,22,0.12);
+      position: relative;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      transition: transform .2s;
+      transform: rotate(var(--tilt, 0deg));
+    }
+    .aisle:hover .sign { transform: rotate(var(--tilt, 0deg)) translate(-2px, -3px); }
+    .sign::before {
+      content: '';
+      position: absolute;
+      top: -12px;
+      left: 20px;
+      width: 10px;
+      height: 10px;
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      background: var(--paper);
+    }
+    .sign .dept { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--ink-soft); margin-bottom: 10px; }
+    .sign h3 { font-size: 20px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 8px; }
+    .sign p { font-size: 14px; color: var(--ink-soft); flex: 1; }
+    .sign .limit {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px dashed var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 11px;
+    }
+    .sign .limit .tag {
+      background: var(--ink);
+      color: #fff;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+
+    /* steps */
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; position: relative; }
+    .step {
+      background: var(--paper-2);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 28px 26px;
+      position: relative;
+    }
+    .step .num {
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--accent);
+      border: 1px solid var(--ink-faint);
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      background: #fff;
+    }
+    .step h3 { font-size: 20px; font-weight: 800; margin-bottom: 8px; }
+    .step p { font-size: 14px; color: var(--ink-soft); }
+    .step .foot {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px dashed var(--line);
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--ink);
+      font-weight: 700;
+    }
+    .steps .connector { display: none; }
+
+    /* receipt / scorecard */
+    .receipt {
+      background: var(--paper-2);
+      border: 1px solid var(--line);
+      border-radius: 8px 8px 4px 4px;
+      padding: 40px 36px 30px;
+      box-shadow: 0 22px 44px -28px rgba(32,27,22,0.5);
+      position: relative;
+      max-width: 920px;
+      margin: 0 auto;
+      overflow-x: auto;
+    }
+    .receipt::before {
+      content: '';
+      position: absolute;
+      top: 12px;
+      left: 0;
+      right: 0;
+      height: 8px;
+      background: repeating-linear-gradient(90deg, transparent 0 10px, var(--accent) 10px 16px);
+      opacity: 0.35;
+    }
+    .receipt-head { text-align: center; font-family: var(--mono); margin-bottom: 26px; }
+    .receipt-head .store { font-size: 22px; font-weight: 700; letter-spacing: 0.02em; }
+    .receipt-head .addr { font-size: 11px; color: var(--ink-soft); margin-top: 4px; }
+    .receipt-head .rule { border: none; border-top: 1px dashed var(--ink); margin: 18px auto 0; width: 84%; }
+    .score { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; min-width: 640px; }
+    .score th {
+      text-align: left;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: var(--ink-soft);
+      font-weight: 700;
+      padding: 8px 6px 12px;
+      border-bottom: 1px dashed var(--ink);
+    }
+    .score th:first-child { padding-left: 0; }
+    .score td {
+      padding: 13px 6px;
+      border-bottom: 1px dashed var(--line);
+      vertical-align: top;
+    }
+    .score td:first-child { padding-left: 0; font-weight: 700; }
+    .score .c { text-align: center; }
+    .yes { color: var(--green); font-weight: 700; }
+    .no { color: var(--ink-soft); }
+    .row-cany { background: rgba(32, 27, 22, 0.05); border-left: 3px solid var(--ink); }
+    .row-cany td:first-child { padding-left: 10px; }
+    .receipt-foot { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); text-align: center; margin-top: 24px; }
+    .stamp {
+      position: absolute;
+      bottom: 26px;
+      right: 34px;
+      font-family: var(--mono);
+      font-weight: 700;
+      font-size: 13px;
+      letter-spacing: 0.1em;
+      color: var(--ink);
+      border: 3px double rgba(32, 27, 22, 0.7);
+      padding: 6px 12px;
+      border-radius: 6px;
+      transform: rotate(-8deg) scale(1.6);
+      opacity: 0;
+      transition: transform .4s cubic-bezier(.34,1.56,.64,1), opacity .25s ease;
+    }
+    .stamp.pop { transform: rotate(-8deg) scale(1); opacity: 1; }
+
+    /* features */
+    .features { display: flex; flex-direction: column; gap: 0; }
+    .frow {
+      display: grid;
+      grid-template-columns: 96px 1fr 0.9fr;
+      gap: 28px;
+      padding: 34px 0;
+      border-top: 1px dashed var(--line);
+      align-items: start;
+    }
+    .frow:last-child { border-bottom: 1px dashed var(--line); }
+    .frow .fnum { font-family: var(--mono); font-weight: 700; color: var(--accent); font-size: 15px; padding-top: 6px; }
+    .frow h3 { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 8px; }
+    .frow p { font-size: 15px; color: var(--ink-soft); max-width: 460px; }
+    .frow .fmeta {
+      font-family: var(--mono);
+      font-size: 12px;
+      border: 1px solid var(--line);
+      background: var(--paper-2);
+      border-radius: 12px;
+      padding: 14px 16px;
+      line-height: 1.7;
+      color: var(--ink);
+    }
+    .frow .fmeta b { font-weight: 700; }
+
+    /* testimonials */
+    .notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
+    .note {
+      background: var(--paper-2);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 24px 22px;
+      font-family: var(--hand);
+      font-size: 22px;
+      line-height: 1.35;
+      box-shadow: 6px 8px 0 -4px rgba(32,27,22,0.1);
+      position: relative;
+      transform: rotate(var(--tilt, -0.8deg));
+    }
+    .note::before {
+      content: '';
+      position: absolute;
+      top: -9px;
+      left: 50%;
+      transform: translateX(-50%) rotate(-2deg);
+      width: 70px;
+      height: 20px;
+      background: rgba(32, 27, 22, 0.08);
+      border-left: 1px dashed rgba(32,27,22,0.2);
+      border-right: 1px dashed rgba(32,27,22,0.2);
+    }
+    .note .by {
+      display: block;
+      margin-top: 14px;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink-soft);
+    }
+    .note:nth-child(2) { --tilt: 1.2deg; }
+    .note:nth-child(3) { --tilt: -1deg; }
+    .note:nth-child(1) { --tilt: -0.8deg; }
+
+    /* download */
+    .dark {
+      background: var(--ink);
+      color: var(--paper);
+      border-top: 4px solid #F7F3EA;
+      background-image: radial-gradient(rgba(247, 243, 234, 0.06) 1px, transparent 1px);
+      background-size: 22px 22px;
+      position: relative;
+      overflow: hidden;
+    }
+    .dark .wrap { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 56px; align-items: center; position: relative; z-index: 2; }
+    .dark h2 { font-size: clamp(30px, 3.6vw, 46px); font-weight: 900; letter-spacing: -0.02em; line-height: 1.08; margin-bottom: 16px; }
+    .dark .sub { color: rgba(247, 243, 234, 0.65); font-size: 17px; max-width: 460px; margin-bottom: 30px; }
+    .specs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 30px;
+    }
+    .spec {
+      font-family: var(--mono);
+      font-size: 11px;
+      border: 1px solid rgba(247, 243, 234, 0.25);
+      border-radius: 999px;
+      padding: 6px 12px;
+      color: rgba(247, 243, 234, 0.85);
+    }
+    .dark .btn { border-color: var(--paper); box-shadow: 4px 4px 0 0 rgba(247,243,234,0.25); }
+    .dark .btn:hover { box-shadow: 2px 2px 0 0 rgba(247,243,234,0.25); }
+    .dark .btn-secondary { background: transparent; color: var(--paper); }
+    .dark .btn-secondary:hover { background: rgba(247,243,234,0.08); }
+    .dl-note { font-family: var(--mono); font-size: 12px; color: rgba(247, 243, 234, 0.55); margin-top: 18px; }
+
+    .dark-art { position: relative; display: flex; justify-content: center; }
+    .barcode-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 30px 34px 24px;
+      transform: rotate(2deg);
+      box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.6);
+      width: 300px;
+    }
+    .barcode-card .lbl { font-family: var(--mono); font-size: 11px; color: #444; margin-bottom: 16px; letter-spacing: 0.05em; }
+    .barcode {
+      height: 74px;
+      background: #201b16;
+      background-image: repeating-linear-gradient(90deg, transparent 0 3px, #fff 3px 5px, transparent 5px 6px);
+      -webkit-mask-image: linear-gradient(90deg, #000 0 4px, #fff 4px 8px, #000 8px 11px, #fff 11px 12px, #000 12px 15px, #fff 15px 19px, #000 19px 20px, #fff 20px 22px, #000 22px 26px, #fff 26px 27px, #000 27px 31px, #fff 31px 34px, #000 34px 36px, #fff 36px 37px, #000 37px 42px, #fff 42px 43px, #000 43px 45px, #fff 45px 46px, #000 46px 51px, #fff 51px 52px, #000 52px 56px, #fff 56px 58px, #000 58px 60px, #fff 60px 61px, #000 61px 66px, #fff 66px 68px, #000 68px 70px, #fff 70px 71px, #000 71px 74px);
+      mask-image: linear-gradient(90deg, #000 0 4px, #fff 4px 8px, #000 8px 11px, #fff 11px 12px, #000 12px 15px, #fff 15px 19px, #000 19px 20px, #fff 20px 22px, #000 22px 26px, #fff 26px 27px, #000 27px 31px, #fff 31px 34px, #000 34px 36px, #fff 36px 37px, #000 37px 42px, #fff 42px 43px, #000 43px 45px, #fff 45px 46px, #000 46px 51px, #fff 51px 52px, #000 52px 56px, #fff 56px 58px, #000 58px 60px, #fff 60px 61px, #000 61px 66px, #fff 66px 68px, #000 68px 70px, #fff 70px 71px, #000 71px 74px);
+      -webkit-mask-size: 100% 100%;
+      mask-size: 100% 100%;
+    }
+    .barcode-card .under { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: #444; margin-top: 14px; }
+    .barcode-card .under .price { font-weight: 700; font-size: 15px; color: var(--ink); }
+    .cow-float {
+      position: absolute;
+      bottom: -34px;
+      left: -16px;
+      width: 120px;
+      filter: drop-shadow(0 14px 16px rgba(0,0,0,0.35));
+      animation: cow-bob 3.4s ease-in-out infinite;
+    }
+    .cow-stand {
+      position: absolute;
+      bottom: -22px;
+      left: -40px;
+      width: 92px;
+      filter: drop-shadow(0 12px 14px rgba(32,27,22,0.2));
+      animation: cow-bob 3s ease-in-out infinite;
+    }
+    .cow-ok {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 88px;
+      filter: drop-shadow(0 12px 14px rgba(32,27,22,0.16));
+      animation: cow-bob 3.7s ease-in-out infinite;
+    }
+    @keyframes cow-bob {
+      0%, 100% { transform: translateY(0) rotate(-6deg); }
+      50% { transform: translateY(-10px) rotate(-4deg); }
+    }
+
+    /* footer */
+    footer { padding: 44px 0 56px; border-top: 1px solid var(--line); background: var(--paper); }
+    .foot-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; }
+    .foot-brand { display: flex; align-items: center; gap: 10px; font-weight: 800; }
+    .foot-brand img { width: 26px; height: 26px; border-radius: 8px; object-fit: cover; }
+    .foot-links { display: flex; gap: 20px; font-size: 13px; font-weight: 600; color: var(--ink-soft); }
+    .foot-links a { text-decoration: none; }
+    .foot-links a:hover { color: var(--ink); text-decoration: underline; }
+    .foot-note { width: 100%; font-family: var(--mono); font-size: 11px; color: var(--ink-soft); margin-top: 6px; }
+
+    /* reveal + scroll fx */
+    .scroll-progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 5px;
+      width: 0%;
+      background: var(--ink);
+      border-right: 3px dashed rgba(247, 243, 234, 0.9);
+      z-index: 100;
+    }
+    .rv {
+      opacity: 0;
+      transform: translateY(22px);
+      transition: opacity .6s cubic-bezier(.22,.61,.36,1), transform .6s cubic-bezier(.22,.61,.36,1);
+      will-change: opacity, transform;
+    }
+    .rv[data-rv="left"] { transform: translateX(-48px); }
+    .rv[data-rv="right"] { transform: translateX(48px); }
+    .rv[data-rv="zoom"] { transform: scale(.85); }
+    .rv[data-rv="flip"] { transform: rotate(-4deg) translateY(24px) scale(.97); }
+    .rv.in { opacity: 1; transform: none; }
+    
+    .ticker-track { will-change: transform; }
+
+    /* ---------- responsive ---------- */
+    @media (max-width: 1024px) {
+      .wrap { padding: 0 20px; }
+    }
+
+    @media (max-width: 940px) {
+      .hero-grid { grid-template-columns: 1fr; gap: 48px; }
+      .phone-wrap { justify-self: center; max-width: 100%; }
+      .aisles { grid-template-columns: repeat(2, 1fr); gap: 30px 22px; }
+      .steps { grid-template-columns: 1fr; }
+      .frow { grid-template-columns: 72px 1fr; }
+      .frow .fmeta { grid-column: 2; }
+      .notes { grid-template-columns: 1fr; }
+      .dark .wrap { grid-template-columns: 1fr; gap: 44px; }
+      .dark-art { margin-top: 20px; justify-content: center; }
+      .cow-float { left: 6px; }
+      .cow-ok { display: none; }
+      section { padding: 80px 0; }
+    }
+
+    @media (max-width: 620px) {
+      /* mobile nav */
+      .nav { position: relative; }
+      .nav .navlinks {
+        position: absolute;
+        top: calc(100% + 12px);
+        right: 0;
+        display: none;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+        background: var(--paper-2);
+        border: 2px solid var(--ink);
+        border-radius: 14px;
+        box-shadow: 6px 8px 0 0 rgba(32, 27, 22, 0.18);
+        padding: 8px;
+        min-width: 220px;
+        z-index: 60;
+      }
+      .nav .navlinks.open { display: flex; }
+      .nav .navlinks a {
+        padding: 12px 14px;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 700;
+        border-bottom: none;
+      }
+      .nav .navlinks a:hover { background: rgba(32, 27, 22, 0.06); color: var(--ink); }
+      .menu-toggle { display: flex; }
+      .topbar-inner { height: auto; padding: 12px 0; }
+
+      /* type scale */
+      h1 { font-size: clamp(32px, 8.6vw, 44px); }
+      .hero-sub { font-size: 16px; }
+      .eyebrow { font-size: 11px; }
+      .sec-title { font-size: 28px; }
+      .sec-head { margin-bottom: 44px; }
+      .sec-head.right-aligned { text-align: left; margin-left: 0; }
+      .sec-head.right-aligned .eyebrow { justify-content: flex-start; }
+      .sec-head.right-aligned .eyebrow::after { display: none; }
+      section { padding: 64px 0; }
+
+      /* hero */
+      .hero { padding: 52px 0 60px; }
+      .hero-grid { gap: 40px; }
+      .phone { transform: none; }
+
+      /* ticker */
+      .ticker-item { font-size: 11px; padding: 11px 13px; gap: 10px; }
+      .ticker::before, .ticker::after { width: 30px; }
+
+      /* aisles */
+      .aisles { grid-template-columns: 1fr; gap: 26px; }
+      .sign { padding: 18px 16px; }
+
+      /* floating mascots get out of the way on small screens */
+      .cow-stand { display: none; }
+
+      /* steps */
+      .step { padding: 22px 20px; }
+
+      /* features */
+      .frow { grid-template-columns: 1fr; gap: 8px; padding: 26px 0; }
+      .frow .fnum { padding-top: 0; }
+      .frow .fmeta { grid-column: 1; }
+
+      /* notes */
+      .note { font-size: 20px; padding: 22px 18px; }
+
+      /* receipt */
+      .receipt { padding: 30px 16px 34px; }
+      .stamp { display: none; }
+      .score { font-size: 12px; }
+      .score th { font-size: 10px; }
+      .receipt-head .store { font-size: 18px; }
+
+      /* dark */
+      .dark .wrap { gap: 36px; }
+      .spec { font-size: 10px; padding: 5px 10px; }
+      .barcode-card { width: 100%; max-width: 300px; padding: 24px 26px 20px; }
+    }
+
+    @media (max-width: 420px) {
+      .wrap { padding: 0 16px; }
+      .brand-ver { display: none; }
+      .brand-name { font-size: 18px; }
+      .nav { gap: 10px; }
+      .nav .navlinks { right: -8px; }
+
+      .hero-cta .btn { width: 100%; text-align: center; }
+      .perks { gap: 8px; }
+      .perk { font-size: 10px; padding: 6px 10px 6px 20px; }
+      .perk::before { left: 7px; }
+
+      .phone { width: 264px; border-width: 7px; border-radius: 34px; }
+      .phone-screen { padding: 34px 12px 76px; }
+      .phone-wrap { padding: 8px 6px 26px 4px; }
+      .phone-wrap .tape { left: 30%; }
+      .step-phone { width: 190px; height: 240px; border-width: 6px; border-radius: 26px; }
+      .step-phone.scan .viewfinder { height: 80px; }
+      .hand-note { right: -4px; bottom: -6px; font-size: 17px; padding: 7px 12px; }
+
+      .cow-float { width: 96px; bottom: -24px; }
+      .dark-art { justify-content: center; }
+
+      .foot-inner { flex-direction: column; align-items: flex-start; gap: 14px; }
+      .foot-links { flex-wrap: wrap; gap: 14px; }
     }
   </style>
 </head>
-<body class="text-[#080808] selection:bg-[#080808] selection:text-white antialiased">
-  
-  <!-- Navigation -->
-  <nav class="fixed top-6 inset-x-4 z-50 max-w-5xl mx-auto">
-    <div class="glass-nav rounded-full px-6 py-3 flex items-center justify-between shadow-sm">
-      <a class="flex items-center gap-2.5 group" href="#">
-        <img alt="Cany Logo" class="w-8 h-8 rounded-lg shadow-sm group-hover:scale-105 transition-transform duration-300" src="cany-logo2.png">
-        <span class="font-bold text-xl tracking-tight text-cany-dark">Cany</span>
+<body>
+  <div class="scroll-progress" aria-hidden="true"></div>
+
+  <!-- ======================= header ======================= -->
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="brand" href="#top">
+        <img src="assets/adaptive-icon2.png" alt="Cany app icon">
+        <span class="brand-name">Cany</span>
       </a>
-      <div class="flex items-center gap-6">
-        <a class="text-sm transition-colors font-medium text-cany-dark/70 hover:text-cany-dark" href="#features">Features</a>
-        <a class="text-sm transition-colors font-medium text-cany-dark/70 hover:text-cany-dark" href="#how-it-works">How it Works</a>
-        <a href="#download" class="text-sm bg-cany-dark text-white px-5 py-2.5 rounded-full hover:bg-cany-dark/90 transition-colors font-semibold shadow-sm">Download APK</a>
-      </div>
-    </div>
-  </nav>
-
-  <!-- Hero Section -->
-  <header class="pt-32 pb-20 md:pt-40 md:pb-28 overflow-hidden relative">
-    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/60 via-transparent to-transparent -z-10"></div>
-    
-    <div class="max-w-6xl mx-auto px-6 text-center flex flex-col items-center">
-
-      <h1 class="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-cany-dark mb-6 max-w-4xl leading-[1.08]">
-        The Grocery Scanner <br>That Pays for Itself.
-      </h1>
-      <p class="max-w-xl text-cany-muted mb-10 text-lg md:text-xl font-normal leading-relaxed">
-        Know exactly what you're spending before you hit the register. Set your budget, scan price tags instantly, and never go over limit.
-      </p>
-      
-      <div class="flex flex-col sm:flex-row items-center gap-4 justify-center mb-16">
-        <a href="#download" class="w-full sm:w-auto bg-cany-dark text-[#F7F7F4] px-8 py-4 rounded-full font-bold text-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md">
-          Download APK
-        </a>
-        <a href="#features" class="w-full sm:w-auto px-8 py-4 rounded-full font-bold text-lg border border-cany-border hover:bg-cany-soft transition-all">
-          Explore Features
-        </a>
-      </div>
-
-      <!-- App Screens Display (Hero Image) -->
-      <div class="relative w-full max-w-4xl flex justify-center items-center gap-6 mt-4">
-        <!-- Dashboard Screen Mockup -->
-        <div class="phone-mockup relative w-[240px] sm:w-[280px] md:w-[310px] transform -rotate-3 hover:rotate-0 transition-transform duration-500 z-10 hover:z-20">
-          <div class="phone-notch"></div>
-          <img alt="Cany Dashboard Screen" class="w-full h-auto object-cover aspect-[9/19.5]" src="assets/Cany images/1b727daa-d629-4da5-adbf-b9d22a46510a.jpg">
+      <nav class="nav">
+        <div class="navlinks">
+          <a href="#capabilities">Departments</a>
+          <a href="#how-it-works">How it goes</a>
+          <a href="#comparison">Scorecard</a>
+          <a href="#features">Features</a>
         </div>
-        
-        <!-- Cart Screen Mockup -->
-        <div class="phone-mockup relative w-[240px] sm:w-[280px] md:w-[310px] transform rotate-3 hover:rotate-0 transition-transform duration-500 z-10 hover:z-20 -ml-12 sm:-ml-16">
-          <div class="phone-notch"></div>
-          <img alt="Cany Shopping Cart Screen" class="w-full h-auto object-cover aspect-[9/19.5]" src="assets/Cany images/2a1b73b2-ddf4-4e02-b876-3a81b7d11588.jpg">
-        </div>
-      </div>
+        <a class="btn" href="cany-v1.0.0.apk" download>
+          <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.4395 5.5586c-.675 1.1664-1.352 2.3318-2.0274 3.498-.0366-.0155-.0742-.0286-.1113-.043-1.8249-.6957-3.484-.8-4.42-.787-1.8551.0185-3.3544.4643-4.2597.8203-.084-.1494-1.7526-3.021-2.0215-3.4864a1.1451 1.1451 0 0 0-.1406-.1914c-.3312-.364-.9054-.4859-1.379-.203-.475.282-.7136.9361-.3886 1.5019 1.9466 3.3696-.0966-.2158 1.9473 3.3593.0172.031-.4946.2642-1.3926 1.0177C2.8987 12.176.452 14.772 0 18.9902h24c-.119-1.1108-.3686-2.099-.7461-3.0683-.7438-1.9118-1.8435-3.2928-2.7402-4.1836a12.1048 12.1048 0 0 0-2.1309-1.6875c.6594-1.122 1.312-2.2559 1.9649-3.3848.2077-.3615.1886-.7956-.0079-1.1191a1.1001 1.1001 0 0 0-.8515-.5332c-.5225-.0536-.9392.3128-1.0488.5449zm-.0391 8.461c.3944.5926.324 1.3306-.1563 1.6503-.4799.3197-1.188.0985-1.582-.4941-.3944-.5927-.324-1.3307.1563-1.6504.4727-.315 1.1812-.1086 1.582.4941zM7.207 13.5273c.4803.3197.5506 1.0577.1563 1.6504-.394.5926-1.1038.8138-1.584.4941-.48-.3197-.5503-1.0577-.1563-1.6504.4008-.6021 1.1087-.8106 1.584-.4941z"/></svg>
+          Download for Android
+        </a>
+        <button class="menu-toggle" aria-label="Open menu" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </nav>
     </div>
   </header>
 
-  <!-- Features Section -->
-  <section id="features" class="py-20 md:py-32 border-t border-cany-border bg-white">
-    <div class="max-w-6xl mx-auto px-6">
-      
-      <div class="text-center max-w-2xl mx-auto mb-16 md:mb-24">
-        <h2 class="text-xs uppercase tracking-widest text-cany-muted font-bold mb-3">Core Features</h2>
-        <p class="text-3xl md:text-5xl font-extrabold tracking-tight text-cany-dark">
-          Everything you need to stay on budget.
-        </p>
-      </div>
+  <main id="top">
 
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center mb-24 md:mb-32">
-        <div class="lg:col-span-5 flex flex-col justify-center">
-          <div class="w-12 h-12 rounded-2xl bg-cany-soft flex items-center justify-center mb-6 border border-cany-border">
-            <span class="text-xl">📸</span>
-          </div>
-          <h3 class="text-2xl md:text-3xl font-extrabold tracking-tight mb-4">Instant price tag scanner</h3>
-          <p class="text-cany-muted leading-relaxed mb-6 font-normal">
-            Point your phone camera at any price label. Cany processes the text on-device to capture prices instantly without requiring internet connections.
+    <!-- ======================= hero ======================= -->
+    <section class="hero" style="padding-bottom: 72px;">
+      <div class="wrap hero-grid">
+
+        <div class="rv">
+          <div class="eyebrow">CANY v1.0.0 &middot; OFFLINE GROCERY BUDGET &amp; SCANNER</div>
+          <h1>The price tag never shows the <span class="hl">total</span>. Cany does.</h1>
+          <p class="hero-sub">
+            Point Cany at the shelf labels as you shop. It reads each price right on your phone,
+            keeps a running total, and warns you the instant you&rsquo;re about to blow past your
+            budget.
           </p>
-<ul class="space-y-3 text-sm font-semibold text-cany-dark/80">
-            <li class="flex items-center gap-2">
-              <span class="text-green-600">✓</span> Fast local text-recognition (OCR)
-            </li>
-            <li class="flex items-center gap-2">
-              <span class="text-green-600">✓</span> Fully offline capability
-            </li>
-          </ul>
-        </div>
-        <div class="lg:col-span-7 flex justify-center">
-          <div class="phone-mockup w-[260px] sm:w-[280px] md:w-[310px] transform hover:scale-105 transition-transform duration-500">
-            <div class="phone-notch"></div>
-            <img alt="Smart OCR Scanner" class="w-full h-auto aspect-[9/19.5] object-cover" src="assets/Cany images/23d03cbe-e726-469c-a4df-e9e2b5eb0dc0.jpg">
+          <div class="hero-cta">
+            <a class="btn" href="cany-v1.0.0.apk" download>
+              <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.4395 5.5586c-.675 1.1664-1.352 2.3318-2.0274 3.498-.0366-.0155-.0742-.0286-.1113-.043-1.8249-.6957-3.484-.8-4.42-.787-1.8551.0185-3.3544.4643-4.2597.8203-.084-.1494-1.7526-3.021-2.0215-3.4864a1.1451 1.1451 0 0 0-.1406-.1914c-.3312-.364-.9054-.4859-1.379-.203-.475.282-.7136.9361-.3886 1.5019 1.9466 3.3696-.0966-.2158 1.9473 3.3593.0172.031-.4946.2642-1.3926 1.0177C2.8987 12.176.452 14.772 0 18.9902h24c-.119-1.1108-.3686-2.099-.7461-3.0683-.7438-1.9118-1.8435-3.2928-2.7402-4.1836a12.1048 12.1048 0 0 0-2.1309-1.6875c.6594-1.122 1.312-2.2559 1.9649-3.3848.2077-.3615.1886-.7956-.0079-1.1191a1.1001 1.1001 0 0 0-.8515-.5332c-.5225-.0536-.9392.3128-1.0488.5449zm-.0391 8.461c.3944.5926.324 1.3306-.1563 1.6503-.4799.3197-1.188.0985-1.582-.4941-.3944-.5927-.324-1.3307.1563-1.6504.4727-.315 1.1812-.1086 1.582.4941zM7.207 13.5273c.4803.3197.5506 1.0577.1563 1.6504-.394.5926-1.1038.8138-1.584.4941-.48-.3197-.5503-1.0577-.1563-1.6504.4008-.6021 1.1087-.8106 1.584-.4941z"/></svg>
+              Download for Android
+            </a>
+            <a class="btn btn-secondary" href="#how-it-works">See how it works</a>
+          </div>
+          <p class="hero-note">Android &middot; no account, no ads, no cloud</p>
+          <div class="perks">
+            <span class="perk"><b data-count="0.1" data-decimals="1" data-suffix="s">0.1s</b> per tag scan</span>
+            <span class="perk"><b data-count="6">6</b> department budgets</span>
+            <span class="perk"><b data-count="13">13</b> currencies</span>
+            <span class="perk"><b data-count="7">7</b> languages</span>
           </div>
         </div>
-      </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-        <div class="lg:col-span-7 flex justify-center order-last lg:order-first">
-          <div class="phone-mockup w-[260px] sm:w-[280px] md:w-[310px] transform hover:scale-105 transition-transform duration-500">
-            <div class="phone-notch"></div>
-            <img alt="History Screen" class="w-full h-auto aspect-[9/19.5] object-cover" src="assets/Cany images/4496820c-e38d-4b88-aeef-ba7362fc7eab.jpg">
-          </div>
-        </div>
-        <div class="lg:col-span-5 flex flex-col justify-center">
-          <div class="w-12 h-12 rounded-2xl bg-cany-soft flex items-center justify-center mb-6 border border-cany-border">
-            <span class="text-xl">📊</span>
-          </div>
-          <h3 class="text-2xl md:text-3xl font-extrabold tracking-tight mb-4">Complete shopping history</h3>
-          <p class="text-cany-muted leading-relaxed mb-6 font-normal">
-            Keep track of every shopping trip. Review past receipts and understand how your food and grocery expenditures change month-to-month.
-          </p>
-          <ul class="space-y-3 text-sm font-semibold text-cany-dark/80">
-            <li class="flex items-center gap-2">
-              <span class="text-green-600">✓</span> Organized receipts list
-            </li>
-            <li class="flex items-center gap-2">
-              <span class="text-green-600">✓</span> Total budget vs. actual spent comparison
-            </li>
-            <li class="flex items-center gap-2">
-              <span class="text-green-600">✓</span> Saved locally on your device
-            </li>
-          </ul>
-        </div>
-      </div>
+        <div class="phone-wrap rv" style="transition-delay:.1s">
+          <div class="tape"></div>
+          <div class="phone">
+            <div class="notch"></div>
+            <div class="phone-screen">
+              <div class="p-header">
+                <div class="phone-brand">
+                  <img src="assets/adaptive-icon2.png" alt="">
+                  <b>Cany</b>
+                </div>
+                <svg class="p-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              </div>
 
+              <div class="mascot-bubble">
+                <img src="assets/cow.png" alt="Cany the cow assistant">
+                <div class="bubble-copy">
+                  <div class="tag">CANY ASSISTANT</div>
+                  <p>Budget&rsquo;s healthy. <b>P574.50 left.</b></p>
+                </div>
+              </div>
+
+              <div class="smart-panel">
+                <div class="smart-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
+                </div>
+                <div>
+                  <div class="smart-title">Smart suggestion</div>
+                  <p>You&rsquo;re P328 below your usual Puregold trip. Grab what&rsquo;s on your list.</p>
+                </div>
+              </div>
+
+              <div class="budget-card">
+                <div class="budget-top">
+                  <div class="budget-copy">
+                    <span class="k">BUDGET</span>
+                    <div class="big">P2,000.00</div>
+                    <div class="spent">Spent <span data-count="1425.50" data-prefix="P" data-decimals="2">P1,425.50</span></div>
+                    <div class="remaining">P574.50 left</div>
+                  </div>
+                  <div class="donut" role="img" aria-label="71 percent of budget used">
+                    <svg viewBox="0 0 92 92" aria-hidden="true">
+                      <circle cx="46" cy="46" r="41" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="10"/>
+                      <circle class="fill" data-donut="71" cx="46" cy="46" r="41" fill="none" stroke="#080808" stroke-width="10" stroke-linecap="round" stroke-dasharray="0 257.6" stroke-dashoffset="0" transform="rotate(-90 46 46)"/>
+                    </svg>
+                    <div class="donut-center"><b>71%</b><span>on track</span></div>
+                    <div class="donut-total">P1,425.50</div>
+                  </div>
+                </div>
+                <div class="bar"><i data-bar="71"></i></div>
+              </div>
+
+              <div class="p-sec">
+                <span class="p-sec-title">Categories</span>
+                <span class="p-sec-meta">P2,000.00 total</span>
+              </div>
+              <div class="chips">
+                <span class="chip active">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v20M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/></svg>
+                  Meat <b>P680</b>
+                </span>
+                <span class="chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10zM2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+                  Veggies <b>P140</b>
+                </span>
+                <span class="chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3"/></svg>
+                  Beverages <b>P605</b>
+                </span>
+                <span class="chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10a8 8 0 0 1 16 0H4zM3 13h18a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-1a1 1 0 0 1 1-1z"/></svg>
+                  Snacks <b>P0</b>
+                </span>
+              </div>
+
+              <div class="p-sec">
+                <span class="p-sec-title">Recent items</span>
+                <span class="p-sec-action">View cart</span>
+              </div>
+              <div class="items">
+                <div class="item">
+                  <span class="item-ico">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3M4 12h16"/></svg>
+                  </span>
+                  <div class="item-info">
+                    <div class="n">Ribeye Steak 500g</div>
+                    <div class="d">1 &times; P680.00</div>
+                  </div>
+                  <div class="p">P680.00</div>
+                </div>
+                <div class="item">
+                  <span class="item-ico">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3M4 12h16"/></svg>
+                  </span>
+                  <div class="item-info">
+                    <div class="n">Fresh Whole Milk 2L</div>
+                    <div class="d">1 &times; P185.50</div>
+                  </div>
+                  <div class="p">P185.50</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tab-bar">
+              <button class="tab active" type="button" aria-label="Dashboard" aria-current="page">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+              </button>
+              <button class="tab" type="button" aria-label="Cart">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+              </button>
+              <button class="tab" type="button" aria-label="List">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              </button>
+              <button class="tab" type="button" aria-label="History">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              </button>
+            </div>
+            <div class="fab" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3M4 12h16"/></svg>
+            </div>
+          </div>
+          <img class="cow-stand" src="assets/waving.png" alt="Cany the cow waving hello">
+          <div class="hand-note">works even without internet!</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ======================= price ticker ======================= -->
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker-track">
+        <div class="ticker-item"><span>OFFLINE OCR</span><b>SCAN PRICE TAGS</b></div>
+        <div class="ticker-item"><span>DEPARTMENT BUDGETS</span><b>6 CAPS</b></div>
+        <div class="ticker-item"><span>PER-KILO CALCULATOR</span><b>WEIGHT × PRICE</b></div>
+        <div class="ticker-item"><span>SHOPPING LIST</span><b>AUTO-CHECK</b></div>
+        <div class="ticker-item"><span>PRICE TRENDS</span><b>STORE BY STORE</b></div>
+        <div class="ticker-item"><span>NO ACCOUNT</span><b>0 ADS</b></div>
+        <div class="ticker-item"><span>13 CURRENCIES</span><b>7 LANGUAGES</b></div>
+        <div class="ticker-item"><span>YOUR DATA</span><b>STAYS ON DEVICE</b></div>
+        <div class="ticker-item"><span>INSTANT CONFIRM</span><b>CHECKMARK TOAST</b></div>
+        <div class="ticker-item"><span>RECEIPT HISTORY</span><b>KEEP EVERY TRIP</b></div>
+      </div>
     </div>
-  </section>
 
-  <!-- How It Works Section -->
-  <section id="how-it-works" class="py-20 md:py-32 border-t border-cany-border">
-    <div class="max-w-6xl mx-auto px-6">
-      
-      <div class="text-center max-w-2xl mx-auto mb-16 md:mb-24">
-        <h2 class="text-xs uppercase tracking-widest text-cany-muted font-bold mb-3">Simplicity First</h2>
-        <p class="text-3xl md:text-5xl font-extrabold tracking-tight text-cany-dark">
-          Spend smarter in three steps.
-        </p>
+    <!-- ======================= departments / hanging signs ======================= -->
+    <section id="capabilities">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="eyebrow">WHERE THE BUDGET GOES</div>
+          <h2 class="sec-title">Budget by department, not by guesswork.</h2>
+          <p class="sec-sub">
+            Cany keeps six separate limits. A fancy pork belly won&rsquo;t quietly eat
+            your vegetables&rsquo; money anymore &mdash; each department caps itself.
+          </p>
+        </div>
+
+        <div class="rail"></div>
+
+        <div class="aisles">
+          <div class="aisle rv">
+            <div class="sign">
+              <div class="dept">DEPT. 01</div>
+              <h3>Meat &amp; Poultry</h3>
+              <p>Fixed price tags or per-kilo. Pork belly, chicken, steaks, bangus &mdash; scanned and totaled.</p>
+              <div class="limit"><span>limit</span><span class="tag">P800</span></div>
+            </div>
+          </div>
+          <div class="aisle rv" style="transition-delay:.05s">
+            <div class="sign">
+              <div class="dept">DEPT. 02</div>
+              <h3>Vegetables &amp; Produce</h3>
+              <p>Price per kilo times weight. Bitter gourd to bananas, computed right there in the produce section.</p>
+              <div class="limit"><span>limit</span><span class="tag">P400</span></div>
+            </div>
+          </div>
+          <div class="aisle rv" style="transition-delay:.1s">
+            <div class="sign">
+              <div class="dept">DEPT. 03</div>
+              <h3>Beverages &amp; Dairy</h3>
+              <p>Milk, coffee, juices. Tracks the day&rsquo;s drinks so you&rsquo;re not paying for it all week.</p>
+              <div class="limit"><span>limit</span><span class="tag">P350</span></div>
+            </div>
+          </div>
+          <div class="aisle rv">
+            <div class="sign">
+              <div class="dept">DEPT. 04</div>
+              <h3>Snacks &amp; Treats</h3>
+              <p>The impulse shelf. Cany flags the second a bag of chips threatens the essentials. Politely.</p>
+              <div class="limit"><span>limit</span><span class="tag">P250</span></div>
+            </div>
+          </div>
+          <div class="aisle rv" style="transition-delay:.05s">
+            <div class="sign">
+              <div class="dept">DEPT. 05</div>
+              <h3>Household Essentials</h3>
+              <p>Detergent, soap, paper towels. Keeps food and non-food spending in separate columns.</p>
+              <div class="limit"><span>limit</span><span class="tag">P500</span></div>
+            </div>
+          </div>
+          <div class="aisle rv" style="transition-delay:.1s">
+            <div class="sign">
+              <div class="dept">DEPT. 06</div>
+              <h3>Others &amp; General</h3>
+              <p>The &ldquo;just this once&rdquo; shelf. Every scanned item finds a home, so nothing slips through.</p>
+              <div class="limit"><span>limit</span><span class="tag">P200</span></div>
+            </div>
+          </div>
+        </div>
       </div>
+    </section>
 
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
-        <!-- Step 1 -->
-        <div class="flex flex-col items-start glass-card p-8 rounded-3xl">
-          <div class="text-xs uppercase font-extrabold tracking-widest text-cany-muted mb-4">Step 01</div>
-          <h3 class="text-xl font-bold mb-3">Set Your Budget</h3>
-          <p class="text-cany-muted text-sm leading-relaxed mb-6">
-            Enter your budget amount before filling up your cart. Cany establishes a clear maximum limit for the trip.
+    <!-- ======================= how it works ======================= -->
+    <section id="how-it-works" style="background: var(--paper-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);">
+      <div class="wrap">
+        <div class="sec-head right-aligned">
+          <div class="eyebrow">HOW IT GOES</div>
+          <h2 class="sec-title">Three steps. Then the total is just... known.</h2>
+          <p class="sec-sub">
+            No manual list-keeping, no calculator app, no &ldquo;let me just add this in my head.&rdquo;
           </p>
-          <div class="mt-auto w-full aspect-video bg-cany-soft rounded-2xl flex items-center justify-center font-bold text-lg text-cany-dark/60 border border-cany-border">
-            ₱ Limit
-          </div>
         </div>
 
-        <!-- Step 2 -->
-        <div class="flex flex-col items-start glass-card p-8 rounded-3xl">
-          <div class="text-xs uppercase font-extrabold tracking-widest text-cany-muted mb-4">Step 02</div>
-          <h3 class="text-xl font-bold mb-3">Scan and Verify</h3>
-          <p class="text-cany-muted text-sm leading-relaxed mb-6">
-            Hover your camera scanner over price tags. Cany logs items instantly and calculates your budget status in real-time.
-          </p>
-          <div class="mt-auto w-full aspect-video bg-cany-soft rounded-2xl flex items-center justify-center font-bold text-lg text-cany-dark/60 border border-cany-border">
-            📷 Scan Tag
+        <div class="steps">
+          <div class="step rv">
+            <div class="step-phone">
+              <div class="screen">
+                <div class="p-header">
+                  <div class="phone-brand">
+                    <img src="assets/adaptive-icon2.png" alt="">
+                    <b>Cany</b>
+                  </div>
+                  <svg class="p-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </div>
+                <div class="budget-card">
+                  <div class="budget-top">
+                    <div class="budget-copy">
+                      <span class="k">BUDGET</span>
+                      <div class="big">P2,000.00</div>
+                      <div class="spent">Spent P0.00</div>
+                      <div class="remaining">P2,000.00 left</div>
+                    </div>
+                    <div class="donut" role="img" aria-label="no budget spent">
+                      <svg viewBox="0 0 92 92" aria-hidden="true">
+                        <circle cx="46" cy="46" r="41" fill="none" stroke="rgba(0,0,0,0.08)" stroke-width="10"/>
+                        <circle class="fill" data-donut="0" cx="46" cy="46" r="41" fill="none" stroke="#080808" stroke-width="10" stroke-linecap="round" stroke-dasharray="0 257.6" stroke-dashoffset="0" transform="rotate(-90 46 46)"/>
+                      </svg>
+                      <div class="donut-center"><b>0%</b><span>on track</span></div>
+                      <div class="donut-total">P0.00</div>
+                    </div>
+                  </div>
+                  <div class="bar"><i data-bar="0"></i></div>
+                  <div class="budget-input-row">
+                    <input class="budget-input" type="text" inputmode="decimal" placeholder="Set budget..." value="">
+                    <button class="budget-save" type="button" aria-label="Save budget">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="step-body">
+              <div class="num">STEP 01</div>
+              <h3>Set the limit</h3>
+              <p>Tap in your trip budget before you grab a cart. Cany holds the line from the first scan.</p>
+              <div class="foot">IN: P2,000.00</div>
+            </div>
           </div>
-        </div>
-
-        <!-- Step 3 -->
-        <div class="flex flex-col items-start glass-card p-8 rounded-3xl">
-          <div class="text-xs uppercase font-extrabold tracking-widest text-cany-muted mb-4">Step 03</div>
-          <h3 class="text-xl font-bold mb-3">Review & Save</h3>
-          <p class="text-cany-muted text-sm leading-relaxed mb-6">
-            Complete your grocery trip with zero check-out surprise. Save the session to build your historical logs.
-          </p>
-          <div class="mt-auto w-full aspect-video bg-cany-soft rounded-2xl flex items-center justify-center font-bold text-lg text-cany-dark/60 border border-cany-border">
-            ✅ Save Receipts
+          <div class="step rv" style="transition-delay:.08s">
+            <div class="step-phone scan">
+              <div class="screen">
+                <div class="scan-badge">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7V4h3M17 4h3v3M20 17v3h-3M7 20H4v-3"/></svg>
+                  ALIGN PRICE TAG
+                </div>
+                <div class="viewfinder">
+                  <span class="v-corner v-tl"></span>
+                  <span class="v-corner v-tr"></span>
+                  <span class="v-corner v-bl"></span>
+                  <span class="v-corner v-br"></span>
+                  <span class="scan-line"></span>
+                </div>
+                <div class="capture-ring">
+                  <div class="capture-inner">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                  </div>
+                </div>
+                <div class="status-pill">Tap to scan</div>
+              </div>
+            </div>
+            <div class="step-body">
+              <div class="num">STEP 02</div>
+              <h3>Scan as you go</h3>
+              <p>Hover over a shelf tag, tap. The price lands in the cart in about a tenth of a second &mdash; offline.</p>
+              <div class="foot">SCAN: 0.1s</div>
+            </div>
+          </div>
+          <div class="step rv" style="transition-delay:.16s">
+            <div class="step-phone success">
+              <div class="screen">
+                <div class="p-header">
+                  <div class="phone-brand">
+                    <img src="assets/adaptive-icon2.png" alt="">
+                    <b>Cart</b>
+                  </div>
+                  <svg class="p-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg>
+                </div>
+                <div class="summary">
+                  <div class="lbl">Cart total</div>
+                  <div class="amt"><span data-count="1425.50" data-prefix="P" data-decimals="2">P1,425.50</span></div>
+                  <div class="sub">2 items &bull; 2 unique</div>
+                </div>
+                <div class="success-overlay">
+                  <div class="success-check">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  </div>
+                  <div class="success-title">Added to cart</div>
+                  <div class="success-price">P680.00</div>
+                </div>
+              </div>
+            </div>
+            <div class="step-body">
+              <div class="num">STEP 03</div>
+              <h3>Watch it confirm</h3>
+              <p>Every scan snaps into the cart with a checkmark and its price.</p>
+              <div class="foot">OUT: no surprises</div>
+            </div>
           </div>
         </div>
       </div>
+    </section>
 
+    <!-- ======================= comparison / scorecard ======================= -->
+    <section id="comparison">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="eyebrow">SCORECARD</div>
+          <h2 class="sec-title">The honest comparison.</h2>
+          <p class="sec-sub">
+            Cany vs. doing it in your head vs. the generic budget apps that need a login, a cloud, and a prayer.
+          </p>
+        </div>
+
+        <div class="receipt rv">
+          <div class="receipt-head">
+            <div class="store">CANY SUPERMARKET</div>
+            <div class="addr">FULLY OFFLINE &middot; NO ACCOUNT &middot; v1.0.0</div>
+            <hr class="rule">
+          </div>
+          <table class="score">
+            <thead>
+              <tr>
+                <th>ITEM</th>
+                <th class="c">CANNY</th>
+                <th class="c">MENTAL MATH</th>
+                <th class="c">BUDGET APPS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="row-cany">
+                <td>Camera scan of shelf tags</td>
+                <td class="c yes">YES</td>
+                <td class="c no">no</td>
+                <td class="c no">typing only</td>
+              </tr>
+              <tr>
+                <td>Works with zero internet</td>
+                <td class="c yes">YES</td>
+                <td class="c yes">yes</td>
+                <td class="c no">login needed</td>
+              </tr>
+              <tr class="row-cany">
+                <td>Budget per department</td>
+                <td class="c yes">6 sections</td>
+                <td class="c no">no</td>
+                <td class="c no">monthly only</td>
+              </tr>
+              <tr>
+                <td>Per-kilo weight calculator</td>
+                <td class="c yes">built-in</td>
+                <td class="c no">error-prone</td>
+                <td class="c no">missing</td>
+              </tr>
+              <tr class="row-cany">
+                <td>Auto-checks your shopping list</td>
+                <td class="c yes">on scan</td>
+                <td class="c no">paper</td>
+                <td class="c no">separate app</td>
+              </tr>
+              <tr>
+                <td>Price history per store</td>
+                <td class="c yes">receipts kept</td>
+                <td class="c no">impossible</td>
+                <td class="c no">paywall</td>
+              </tr>
+              <tr class="row-cany">
+                <td>Price &amp; privacy</td>
+                <td class="c yes">free, 0 ads</td>
+                <td class="c yes">free</td>
+                <td class="c no">ads / subs</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="stamp">PRICE CHECK</div>
+          <div class="receipt-foot">* all data stays on your device. we never see it, and neither does anyone else.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= features ======================= -->
+    <section id="features" style="background: var(--paper-2); border-top: 1px solid var(--line);">
+      <div class="wrap">
+        <div class="sec-head">
+          <div class="eyebrow">UNDER THE HOOD</div>
+          <h2 class="sec-title">What it actually does.</h2>
+          <p class="sec-sub">The short version, in the order you&rsquo;ll meet it.</p>
+        </div>
+
+        <div class="features">
+          <div class="frow rv">
+            <div class="fnum">01 /</div>
+            <div>
+              <h3>Instant offline OCR</h3>
+              <p>Shelf tag goes in front of the camera, price comes out. Runs on-device via ML Kit, so it still works inside a basement supermarket.</p>
+            </div>
+            <div class="fmeta"><b>0.1s</b> per read &middot; no upload &middot; works on printed and handwritten price signs</div>
+          </div>
+          <div class="frow rv">
+            <div class="fnum">02 /</div>
+            <div>
+              <h3>Department budgets</h3>
+              <p>Six caps with a donut chart on the dashboard, so it&rsquo;s obvious at a glance where the money went before you check out.</p>
+            </div>
+            <div class="fmeta"><b>MEAT P680</b> &middot; PRODUCE P140 &middot; BEV P605 &middot; 71% total</div>
+          </div>
+          <div class="frow rv">
+            <div class="fnum">03 /</div>
+            <div>
+              <h3>Per-kilo calculator</h3>
+              <p>Produce, seafood, and meat sold by weight: price per kilo &times; weight, computed and added straight to the cart.</p>
+            </div>
+            <div class="fmeta"><b>P240/kg &times; 1.25kg = P300.00</b> &mdash; no decimals lost, no rounding surprises</div>
+          </div>
+          <div class="frow rv">
+            <div class="fnum">04 /</div>
+            <div>
+              <h3>Pre-shopping list</h3>
+              <p>Type your list before leaving the house. Every scan checks an item off by name match &mdash; including leftovers you forgot to grab.</p>
+            </div>
+            <div class="fmeta"><b>AUTO-CHECK:</b> scan matches list &rarr; item ticks itself &rarr; you keep walking</div>
+          </div>
+          <div class="frow rv">
+            <div class="fnum">05 /</div>
+            <div>
+              <h3>Store price trends</h3>
+              <p>Save each trip with its store name &mdash; SM, Robinsons, Puregold, the wet market. Compare later which branch charges less for the same basket.</p>
+            </div>
+            <div class="fmeta"><b>3 TRIPS SAVED</b> &middot; last trip: P1,425.50 &middot; vs usual P1,510.00 &mdash; P84.50 cheaper</div>
+          </div>
+          <div class="frow rv">
+            <div class="fnum">06 /</div>
+            <div>
+              <h3>Local privacy, full stop</h3>
+              <p>SQLite on your phone. No account, no registration, no uploads. If you delete the app, your data goes with it &mdash; and that&rsquo;s the whole point.</p>
+            </div>
+            <div class="fmeta"><b>DATA:</b> stays on device &middot; <b>BACKUPS:</b> your choice &middot; <b>ADS:</b> 0</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= testimonials ======================= -->
+    <section id="notes" style="position: relative;">
+      <div class="wrap" style="position: relative;">
+        <img class="cow-ok" src="assets/okay.png" alt="Cany the cow giving an okay sign">
+        <div class="sec-head">
+          <div class="eyebrow">FROM THE CART</div>
+          <h2 class="sec-title">Notes people have left us.</h2>
+          <p class="sec-sub">Names shortened so the neighbors won&rsquo;t know who overspent. Kidding. Mostly.</p>
+        </div>
+        <div class="notes">
+          <div class="note rv">
+            Saw right away I was over by P120. Put the chocolates back. Thanks, Cany!
+            <span class="by">&mdash; ALMA, TAGUIG</span>
+          </div>
+          <div class="note rv" style="transition-delay:.08s">
+            First time I got home with no mistakes on the bill. My wife said: get it on mine too.
+            <span class="by">&mdash; BEN, NOVALICHES</span>
+          </div>
+          <div class="note rv" style="transition-delay:.16s">
+            I use it at Puregold and the wet market. My vegetables don&rsquo;t rot in the fridge anymore.
+            <span class="by">&mdash; JEN, QUEZON CITY</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= feature ticker ======================= -->
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker-track">
+        <div class="ticker-item"><span>SCAN</span><b>ALIGN PRICE TAG</b></div>
+        <div class="ticker-item"><span>CONFIRM</span><b>CHECKMARK TOAST</b></div>
+        <div class="ticker-item"><span>BUDGET</span><b>DONUT CHART</b></div>
+        <div class="ticker-item"><span>COMPARE</span><b>STORE PRICES</b></div>
+        <div class="ticker-item"><span>OFFLINE</span><b>NO SIGNAL NEEDED</b></div>
+        <div class="ticker-item"><span>PRIVATE</span><b>DATA ON DEVICE</b></div>
+        <div class="ticker-item"><span>FREE</span><b>NO ADS</b></div>
+        <div class="ticker-item"><span>LIST</span><b>AUTO-CHECK</b></div>
+        <div class="ticker-item"><span>WEIGHT</span><b>PER-KILO MATH</b></div>
+        <div class="ticker-item"><span>HISTORY</span><b>RECEIPTS SAVED</b></div>
+      </div>
     </div>
-  </section>
 
-  <!-- Download Section -->
-  <section id="download" class="py-20 md:py-32 border-t border-cany-border bg-white">
-    <div class="max-w-4xl mx-auto px-6 text-center flex flex-col items-center">
-      <img src="cany-logo2.png" alt="Cany Logo" class="w-20 h-20 rounded-2xl mx-auto mb-8 shadow-md border border-cany-border">
-      <h2 class="text-3xl md:text-5xl font-extrabold tracking-tight text-cany-dark mb-6">
-        Ready to take control of your groceries?
-      </h2>
-      <p class="text-cany-muted text-lg max-w-lg mb-10 font-normal leading-relaxed">
-        Download the Cany APK directly and install it on your device. Free of ads, free of accounts, fully local.
-      </p>
-      
-      <div class="w-full max-w-sm">
-        <a href="#" class="w-full inline-block bg-cany-dark text-white px-10 py-4.5 rounded-full font-bold text-lg hover:scale-[1.02] active:scale-[0.98] transition-all shadow-md">
-          Download APK for Android
-        </a>
-        <p class="text-xs text-cany-muted mt-4">Requires Android 8.0 or later.</p>
-      </div>
-    </div>
-  </section>
+    <!-- ======================= download ======================= -->
+    <section id="download" class="dark">
+      <div class="wrap">
+        <div class="rv">
+          <div class="eyebrow" style="color: rgba(247,243,234,.6);">READY?</div>
+          <h2>Take it to the grocery. Even with no signal.</h2>
+          <p class="sub">
+            Android APK, free. No ads, no account, no &ldquo;sign in to continue.&rdquo; It runs inside the
+            store where the signal doesn&rsquo;t.
+          </p>
+          <div class="specs">
+            <span class="spec">v1.0.0</span>
+            <span class="spec">Android 8.0+</span>
+            <span class="spec">Fully offline</span>
+            <span class="spec">13 currencies</span>
+            <span class="spec">7 languages</span>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center;">
+            <a class="btn" href="cany-v1.0.0.apk" download>
+              <svg class="btn-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M18.4395 5.5586c-.675 1.1664-1.352 2.3318-2.0274 3.498-.0366-.0155-.0742-.0286-.1113-.043-1.8249-.6957-3.484-.8-4.42-.787-1.8551.0185-3.3544.4643-4.2597.8203-.084-.1494-1.7526-3.021-2.0215-3.4864a1.1451 1.1451 0 0 0-.1406-.1914c-.3312-.364-.9054-.4859-1.379-.203-.475.282-.7136.9361-.3886 1.5019 1.9466 3.3696-.0966-.2158 1.9473 3.3593.0172.031-.4946.2642-1.3926 1.0177C2.8987 12.176.452 14.772 0 18.9902h24c-.119-1.1108-.3686-2.099-.7461-3.0683-.7438-1.9118-1.8435-3.2928-2.7402-4.1836a12.1048 12.1048 0 0 0-2.1309-1.6875c.6594-1.122 1.312-2.2559 1.9649-3.3848.2077-.3615.1886-.7956-.0079-1.1191a1.1001 1.1001 0 0 0-.8515-.5332c-.5225-.0536-.9392.3128-1.0488.5449zm-.0391 8.461c.3944.5926.324 1.3306-.1563 1.6503-.4799.3197-1.188.0985-1.582-.4941-.3944-.5927-.324-1.3307.1563-1.6504.4727-.315 1.1812-.1086 1.582.4941zM7.207 13.5273c.4803.3197.5506 1.0577.1563 1.6504-.394.5926-1.1038.8138-1.584.4941-.48-.3197-.5503-1.0577-.1563-1.6504.4008-.6021 1.1087-.8106 1.584-.4941z"/></svg>
+              Download for Android
+            </a>
+            <a class="btn btn-secondary" href="#how-it-works">Read the how-to first</a>
+          </div>
+          <p class="dl-note">No tracking links. The file is what you get.</p>
+        </div>
 
-  <!-- Footer -->
-  <footer class="py-12 border-t border-cany-border bg-[#F7F7F4]">
-    <div class="max-w-6xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-6 text-sm text-cany-muted">
-      <div class="flex items-center gap-2">
-        <img src="cany-logo2.png" alt="Cany" class="w-6 h-6 rounded-md opacity-80">
-        <span class="font-bold text-cany-dark tracking-tight">Cany</span>
+        <div class="dark-art rv" style="transition-delay:.1s">
+          <div class="barcode-card">
+            <div class="lbl">ITEM&nbsp;&nbsp;&nbsp;:&nbsp;&nbsp;CANY GROCERY BUDGET</div>
+            <div class="barcode"></div>
+            <div class="under">
+              <span>PRICE&nbsp;:&nbsp;FREE</span>
+              <span class="price">P0.00</span>
+            </div>
+          </div>
+          <img class="cow-float" src="assets/cow.png" alt="Cany the cow, our mascot">
+        </div>
       </div>
-      <p>© 2026 Cany. All rights reserved.</p>
+    </section>
+  </main>
+
+  <!-- ======================= footer ======================= -->
+  <footer>
+    <div class="wrap foot-inner">
+      <div class="foot-brand">
+        <img src="assets/adaptive-icon2.png" alt="Cany app icon">
+        <span>Cany</span>
+      </div>
+      <div class="foot-links">
+        <a href="#capabilities">Departments</a>
+        <a href="#comparison">Scorecard</a>
+        <a href="#download">Download</a>
+        <a href="#top">Back to top</a>
+      </div>
+      <div class="foot-note">
+        &copy; 2026 Cany &middot; your shopping data never leaves your phone &middot; made by <a href="https://web.facebook.com/loui.naquines" target="_blank" rel="noopener noreferrer">Loui Naquines</a>
+      </div>
     </div>
   </footer>
 
+  <script>
+    // duplicate the ticker track for a seamless loop
+    (function () {
+      document.querySelectorAll('.ticker-track').forEach(function (track) {
+        if (track) {
+          track.innerHTML += track.innerHTML;
+          track.style.animation = 'none';
+        }
+      });
+    })();
+
+    // smooth marquee: velocity eases toward a scroll-driven target, so it
+    // never jumps or restarts — it accelerates and reverses in slow motion
+    (function () {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      var tracks = document.querySelectorAll('.ticker-track');
+      if (!tracks.length) return;
+
+      tracks.forEach(function (track) {
+        var wrap = track.parentElement;
+        var half = track.scrollWidth / 2;
+        var pos = 0;
+        var vel = 0;
+        var base = 60;          // px/s while idle
+        var maxBoost = 320;     // extra px/s when scrolling fast
+        var hovering = false;
+        var lastY = window.scrollY;
+        var lastT = performance.now();
+
+        function step(now) {
+          var dt = Math.min((now - lastT) / 1000, 0.05);
+          lastT = now;
+
+          var dy = window.scrollY - lastY;
+          lastY = window.scrollY;
+
+          var targetDir = dy < -30 ? -1 : 1;
+          var target = hovering ? 0 : (base + Math.min(maxBoost, Math.abs(dy) * 6)) * targetDir;
+
+          // ease toward target so speed/direction change is gradual
+          vel += (target - vel) * Math.min(1, dt * 3.2);
+
+          pos += vel * dt;
+          if (half > 0) pos = ((pos % half) + half) % half;
+
+          track.style.transform = 'translateX(' + (-pos).toFixed(2) + 'px)';
+          requestAnimationFrame(step);
+        }
+
+        wrap.addEventListener('mouseenter', function () { hovering = true; });
+        wrap.addEventListener('mouseleave', function () { hovering = false; });
+        window.addEventListener('resize', function () { half = track.scrollWidth / 2; });
+
+        requestAnimationFrame(step);
+      });
+    })();
+
+    // mobile menu toggle
+    (function () {
+      var toggle = document.querySelector('.menu-toggle');
+      var navlinks = document.querySelector('.nav .navlinks');
+      if (!toggle || !navlinks) return;
+      toggle.addEventListener('click', function () {
+        var open = navlinks.classList.toggle('open');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      });
+      navlinks.addEventListener('click', function (e) {
+        if (e.target && e.target.tagName === 'A') {
+          navlinks.classList.remove('open');
+          toggle.setAttribute('aria-expanded', 'false');
+        }
+      });
+    })();
+
+    // little handmade wobble so nothing sits perfectly straight
+    (function () {
+      var signs = document.querySelectorAll('.aisle .sign, .note, .phone, .perk, .step-phone');
+      signs.forEach(function (el) {
+        var r = (Math.random() * 1.2 - 0.6).toFixed(2);
+        el.style.setProperty('--tilt', r + 'deg');
+      });
+    })();
+
+    // scroll fx: progress bar, ticker reacts to scroll, parallax
+    (function () {
+      var sp = document.querySelector('.scroll-progress');
+      var parEls = document.querySelectorAll('.phone');
+      var lastY = window.scrollY;
+
+      function onScroll() {
+        var y = window.scrollY;
+        lastY = y;
+
+        // receipt-style progress bar at the very top
+        var h = document.documentElement.scrollHeight - window.innerHeight;
+        if (sp) sp.style.width = (h > 0 ? (y / h) * 100 : 0) + '%';
+
+        // gentle parallax on the phone mockup
+        var vh = window.innerHeight;
+        parEls.forEach(function (el) {
+          var r = el.getBoundingClientRect();
+          var mid = r.top + r.height / 2 - vh / 2;
+          el.style.setProperty('--par', (mid * 0.05).toFixed(1) + 'px');
+        });
+      }
+
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    })();
+
+    // reveal on scroll + count-up numbers + stamp pop
+    (function () {
+      // assign playful entrance variants before observing
+      document.querySelectorAll('.aisle').forEach(function (el, i) {
+        el.setAttribute('data-rv', i % 2 ? 'right' : 'left');
+      });
+      document.querySelectorAll('.frow').forEach(function (el, i) {
+        el.setAttribute('data-rv', i % 2 ? 'left' : 'right');
+      });
+      document.querySelectorAll('.note').forEach(function (el) {
+        el.setAttribute('data-rv', 'flip');
+      });
+      document.querySelectorAll('.step').forEach(function (el) {
+        el.setAttribute('data-rv', 'zoom');
+      });
+      var receipt = document.querySelector('.receipt');
+      if (receipt) receipt.setAttribute('data-rv', 'zoom');
+      var phoneWrap = document.querySelector('.phone-wrap');
+      if (phoneWrap) phoneWrap.setAttribute('data-rv', 'right');
+
+      function fmt(v, dec) {
+        var p = v.toFixed(dec).split('.');
+        p[0] = p[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return p.join('.');
+      }
+      function countUp(el) {
+        el.dataset.done = '1';
+        var target = parseFloat(el.getAttribute('data-count'));
+        var dec = parseInt(el.getAttribute('data-decimals') || '0', 10);
+        var prefix = el.getAttribute('data-prefix') || '';
+        var suffix = el.getAttribute('data-suffix') || '';
+        var dur = 900;
+        var start = null;
+        function frame(now) {
+          if (start === null) start = now;
+          var t = Math.min((now - start) / dur, 1);
+          var eased = 1 - Math.pow(1 - t, 3);
+          el.textContent = prefix + fmt(target * eased, dec) + suffix;
+          if (t < 1) requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+      }
+
+      var els = document.querySelectorAll('.rv');
+      if (!('IntersectionObserver' in window)) {
+        els.forEach(function (el) { el.classList.add('in'); });
+        return;
+      }
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (!entry.isIntersecting) return;
+          var el = entry.target;
+          el.classList.add('in');
+          io.unobserve(el);
+
+          if (el.classList.contains('receipt')) {
+            var stamp = el.querySelector('.stamp');
+            if (stamp) setTimeout(function () { stamp.classList.add('pop'); }, 260);
+          }
+
+          el.querySelectorAll('[data-count]').forEach(function (n) {
+            if (!n.dataset.done) countUp(n);
+          });
+
+          var bar = el.querySelector('[data-bar]');
+          if (bar) setTimeout(function () { bar.style.width = bar.getAttribute('data-bar') + '%'; }, 140);
+
+          var donut = el.querySelector('[data-donut]');
+          if (donut) {
+            var donutR = parseFloat(donut.getAttribute('r'));
+            var donutC = 2 * Math.PI * donutR;
+            var donutP = Math.min(parseFloat(donut.getAttribute('data-donut')) / 100, 1);
+            setTimeout(function () {
+              donut.style.strokeDasharray = (donutP * donutC) + ' ' + donutC;
+            }, 140);
+          }
+        });
+      }, { threshold: 0.15 });
+      els.forEach(function (el) { io.observe(el); });
+    })();
+  </script>
 </body>
 </html>
