@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, useCallback, useEffect } from 'react';
-import { Animated, Easing, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Easing, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import AppDialog from '../../components/AppDialog';
@@ -14,6 +14,8 @@ import { useTranslation } from '../../lib/i18n';
 import { formatWeightBadge } from '../../lib/weightCalculator';
 import { getCurrency } from '../../lib/currencies';
 import Skeleton from '../../components/Skeleton';
+
+const ITEMS_PER_PAGE = 5;
 
 export default function Cart() {
     const { items, budget, householdMembers, activeMemberId, currencyId, addHouseholdMember, removeHouseholdMember, setActiveMember, addItem, removeItem, updateItem, updateQuantity, toggleRecurringItem, addRecurringItemsToCart, saveSession, clearCart, total, themeMode, loadState } = useCartStore();
@@ -39,6 +41,7 @@ export default function Cart() {
     const [price, setPrice] = useState('');
     const [quantity, setQuantity] = useState('1');
     const [storeName, setStoreName] = useState('');
+    const [storePromptOpen, setStorePromptOpen] = useState(false);
     const [memberName, setMemberName] = useState('');
     const [category, setCategory] = useState<BudgetCategoryId>(DEFAULT_CATEGORY);
     const [editingItem, setEditingItem] = useState<CartItem | null>(null);
@@ -46,13 +49,15 @@ export default function Cart() {
     const [editPrice, setEditPrice] = useState('');
     const [editQuantity, setEditQuantity] = useState('1');
     const [editCategory, setEditCategory] = useState<BudgetCategoryId>(DEFAULT_CATEGORY);
-    const [dialog, setDialog] = useState<{ title: string; message: string; icon?: keyof typeof Ionicons.glyphMap; actions?: { label: string; onPress: () => void; variant?: 'primary' | 'soft' }[] } | null>(null);
+    const [dialog, setDialog] = useState<{ title: string; message: string; icon?: keyof typeof Ionicons.glyphMap; actions?: { label: string; onPress: () => void; variant?: 'primary' | 'soft' | 'danger' }[] } | null>(null);
     const [showSuccess, setShowSuccess] = useState(false);
     const [addedItemPrice, setAddedItemPrice] = useState(0);
+    const [itemsPage, setItemsPage] = useState(0);
     const successScale = useRef(new Animated.Value(0));
     const successOpacity = useRef(new Animated.Value(0));
     const checkScale = useRef(new Animated.Value(0));
     const textOpacity = useRef(new Animated.Value(0));
+    const successTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const screenPadding = useScreenPadding();
 
     const darkMode = themeMode === 'dark';
@@ -63,7 +68,22 @@ export default function Cart() {
 
     const cartTotal = total();
     const itemCount = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
+    const totalItemPages = Math.max(1, Math.ceil(items.length / ITEMS_PER_PAGE));
+    const visibleItems = useMemo(
+        () => items.slice(itemsPage * ITEMS_PER_PAGE, itemsPage * ITEMS_PER_PAGE + ITEMS_PER_PAGE),
+        [items, itemsPage]
+    );
     const getMemberName = (id?: string) => householdMembers.find((member) => member.id === id)?.name;
+
+    useEffect(() => {
+        if (itemsPage > totalItemPages - 1) {
+            setItemsPage(Math.max(0, totalItemPages - 1));
+        }
+    }, [itemsPage, totalItemPages]);
+
+    useEffect(() => () => {
+        if (successTimer.current) clearTimeout(successTimer.current);
+    }, []);
 
     const handleAddMember = () => {
         addHouseholdMember(memberName);
@@ -88,6 +108,7 @@ export default function Cart() {
     };
 
     const handleAdd = () => {
+        Keyboard.dismiss();
         const cleanName = name.trim();
         const parsedPrice = Number(price.replace(',', '.'));
         const parsedQuantity = Math.max(1, Math.floor(Number(quantity) || 1));
@@ -103,43 +124,47 @@ export default function Cart() {
 
         addItem({ name: cleanName, price: parsedPrice, quantity: parsedQuantity, category, isScanned: false });
         const itemTotal = parsedPrice * parsedQuantity;
+        if (successTimer.current) clearTimeout(successTimer.current);
         setAddedItemPrice(itemTotal);
-        setShowSuccess(true);
+        setShowSuccess(false);
 
         successScale.current.setValue(0);
         successOpacity.current.setValue(0);
         checkScale.current.setValue(0);
         textOpacity.current.setValue(0);
 
-        Animated.parallel([
-            Animated.timing(successOpacity.current, {
-                toValue: 1,
-                duration: 200,
-                useNativeDriver: true,
-            }),
-            Animated.spring(successScale.current, {
-                toValue: 1,
-                friction: 6,
-                tension: 80,
-                useNativeDriver: true,
-            }),
-        ]).start(() => {
+        requestAnimationFrame(() => {
+            setShowSuccess(true);
             Animated.parallel([
-                Animated.spring(checkScale.current, {
-                    toValue: 1,
-                    friction: 4,
-                    tension: 100,
-                    useNativeDriver: true,
-                }),
-                Animated.timing(textOpacity.current, {
+                Animated.timing(successOpacity.current, {
                     toValue: 1,
                     duration: 200,
                     useNativeDriver: true,
                 }),
-            ]).start();
+                Animated.spring(successScale.current, {
+                    toValue: 1,
+                    friction: 6,
+                    tension: 80,
+                    useNativeDriver: true,
+                }),
+            ]).start(() => {
+                Animated.parallel([
+                    Animated.spring(checkScale.current, {
+                        toValue: 1,
+                        friction: 4,
+                        tension: 100,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(textOpacity.current, {
+                        toValue: 1,
+                        duration: 200,
+                        useNativeDriver: true,
+                    }),
+                ]).start();
+            });
         });
 
-        setTimeout(() => {
+        successTimer.current = setTimeout(() => {
             setShowSuccess(false);
         }, 1500);
 
@@ -153,8 +178,14 @@ export default function Cart() {
             setDialog({ title: tr('emptyCart'), message: tr('addItemsBeforeSharing'), icon: 'bag-outline' });
             return;
         }
+        Keyboard.dismiss();
+        setStorePromptOpen(true);
+    };
+
+    const handleConfirmSaveSession = async () => {
         const success = await saveSession(storeName.trim() || undefined);
         if (success) {
+            setStorePromptOpen(false);
             setDialog({
                 title: tr('sessionSaved'),
                 message: tr('sessionSavedMsg'),
@@ -164,7 +195,32 @@ export default function Cart() {
         }
     };
 
+    const handleCancelStorePrompt = () => {
+        setStorePromptOpen(false);
+        setStoreName('');
+    };
+
+    const requestDeleteItem = (item: CartItem) => {
+        setDialog({
+            title: 'Delete this item?',
+            message: `${item.name} will be removed from your cart.`,
+            icon: 'trash-outline',
+            actions: [
+                { label: tr('cancel'), variant: 'soft', onPress: () => setDialog(null) },
+                {
+                    label: tr('delete'),
+                    variant: 'danger',
+                    onPress: () => {
+                        removeItem(item.id);
+                        setDialog(null);
+                    },
+                },
+            ],
+        });
+    };
+
     const openEditModal = (item: CartItem) => {
+        Keyboard.dismiss();
         setEditingItem(item);
         setEditName(item.name);
         setEditPrice(String(item.price));
@@ -380,7 +436,7 @@ export default function Cart() {
                     </TouchableOpacity>
                 </View>
             ) : (
-                items.map((item) => {
+                visibleItems.map((item) => {
                     const memberName = getMemberName(item.addedByMemberId);
                     const weightText = item.weight && item.unit && item.pricePerKg ? formatWeightBadge(item.weight, item.unit, item.pricePerKg, currencySymbol) : '';
                     return (
@@ -423,7 +479,7 @@ export default function Cart() {
                                     <TouchableOpacity style={styles.editButton} onPress={() => openEditModal(item)} accessibilityLabel={tr('editItemLabel')}>
                                         <Ionicons name="create-outline" size={17} color={t.text} />
                                     </TouchableOpacity>
-                                    <TouchableOpacity style={styles.deleteButton} onPress={() => removeItem(item.id)} accessibilityLabel={tr('removeItem')}>
+                                    <TouchableOpacity style={styles.deleteButton} onPress={() => requestDeleteItem(item)} accessibilityLabel={tr('removeItem')}>
                                         <Ionicons name="trash-outline" size={17} color={t.danger} />
                                     </TouchableOpacity>
                                 </View>
@@ -433,17 +489,31 @@ export default function Cart() {
                 })
             )}
 
+            {items.length > ITEMS_PER_PAGE && (
+                <View style={styles.paginationBar}>
+                    <TouchableOpacity
+                        style={[styles.pageButton, itemsPage === 0 && styles.pageButtonDisabled]}
+                        onPress={() => setItemsPage((page) => Math.max(0, page - 1))}
+                        disabled={itemsPage === 0}
+                        activeOpacity={0.78}>
+                        <Ionicons name="chevron-back" size={18} color={itemsPage === 0 ? t.soft : t.text} />
+                    </TouchableOpacity>
+                    <Text style={styles.pageText}>
+                        Page {itemsPage + 1} / {totalItemPages}
+                    </Text>
+                    <TouchableOpacity
+                        style={[styles.pageButton, itemsPage >= totalItemPages - 1 && styles.pageButtonDisabled]}
+                        onPress={() => setItemsPage((page) => Math.min(totalItemPages - 1, page + 1))}
+                        disabled={itemsPage >= totalItemPages - 1}
+                        activeOpacity={0.78}>
+                        <Ionicons name="chevron-forward" size={18} color={itemsPage >= totalItemPages - 1 ? t.soft : t.text} />
+                    </TouchableOpacity>
+                </View>
+            )}
+
             {/* Store & Checkout Section */}
             {items.length > 0 && (
                 <View style={styles.storeBox}>
-                    <Text style={styles.storeLabel}>{tr('storeName')}</Text>
-                    <TextInput
-                        style={styles.storeInput}
-                        placeholder={tr('storePlaceholder')}
-                        placeholderTextColor={t.soft}
-                        value={storeName}
-                        onChangeText={setStoreName}
-                    />
                     <TouchableOpacity style={styles.checkoutButton} onPress={handleSaveSession} activeOpacity={0.88}>
                         <View style={styles.checkoutFill} />
                         <Ionicons name="checkmark-done-circle-outline" size={20} color={darkMode ? '#111' : '#FFF'} />
@@ -455,8 +525,8 @@ export default function Cart() {
             <View style={{ height: 100 }} />
 
             {/* Edit Item Modal */}
-            <Modal visible={editingItem !== null} transparent animationType="slide" onRequestClose={() => setEditingItem(null)}>
-                <View style={styles.editModalRoot}>
+            <Modal visible={editingItem !== null} transparent animationType="fade" onRequestClose={() => setEditingItem(null)}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.editModalRoot}>
                     <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditingItem(null)} />
                     <View style={styles.editSheet}>
                         <View style={styles.editHandle} />
@@ -502,7 +572,38 @@ export default function Cart() {
                             </TouchableOpacity>
                         </View>
                     </View>
-                </View>
+                </KeyboardAvoidingView>
+            </Modal>
+
+            <Modal visible={storePromptOpen} transparent animationType="fade" onRequestClose={handleCancelStorePrompt}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.editModalRoot}>
+                    <Pressable style={StyleSheet.absoluteFill} onPress={handleCancelStorePrompt} />
+                    <View style={styles.storePromptSheet}>
+                        <View style={styles.storePromptIcon}>
+                            <Ionicons name="storefront-outline" size={24} color={t.text} />
+                        </View>
+                        <Text style={styles.storePromptTitle}>What store?</Text>
+                        <Text style={styles.storePromptText}>Add the store name so Cany can compare prices across trips.</Text>
+                        <TextInput
+                            style={styles.storePromptInput}
+                            placeholder={tr('storePlaceholder')}
+                            placeholderTextColor={t.soft}
+                            value={storeName}
+                            onChangeText={setStoreName}
+                            autoCapitalize="words"
+                            returnKeyType="done"
+                            onSubmitEditing={handleConfirmSaveSession}
+                        />
+                        <View style={styles.editActions}>
+                            <TouchableOpacity style={[styles.editActionButton, styles.editCancel]} onPress={handleCancelStorePrompt}>
+                                <Text style={styles.editCancelText}>{tr('cancel')}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.editActionButton, styles.editSave]} onPress={handleConfirmSaveSession}>
+                                <Text style={styles.editSaveText}>Done</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
             </Modal>
 
             {/* Dialog */}
@@ -605,16 +706,25 @@ const getStyles = (t: ReturnType<typeof getTheme>) => StyleSheet.create({
     editButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: t.surfaceBlue, borderWidth: 1, borderColor: t.glassBorder, alignItems: 'center', justifyContent: 'center' },
     recurringButtonActive: { backgroundColor: t.primary, borderColor: t.primary },
     deleteButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: t.dangerSoft, borderWidth: 1, borderColor: t.danger, alignItems: 'center', justifyContent: 'center' },
+    paginationBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 2, marginBottom: 12 },
+    pageButton: { width: 42, height: 42, borderRadius: 14, backgroundColor: t.card, borderWidth: 1, borderColor: t.glassBorder, alignItems: 'center', justifyContent: 'center' },
+    pageButtonDisabled: { opacity: 0.45 },
+    pageText: { color: t.muted, fontSize: 13, fontWeight: '900' },
 
     storeBox: { backgroundColor: t.card, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: t.glassBorder, marginTop: 8 },
     storeLabel: { color: t.muted, fontSize: 12, fontWeight: '900', textTransform: 'uppercase' },
     storeInput: { height: 48, backgroundColor: t.glass, borderRadius: 15, paddingHorizontal: 14, color: t.text, borderWidth: 1, borderColor: t.glassBorder, marginTop: 10, fontSize: 15 },
 
-    checkoutButton: { marginTop: 12, height: 56, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, ...shadow, overflow: 'hidden' },
+    checkoutButton: { height: 56, borderRadius: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, ...shadow, overflow: 'hidden' },
     checkoutFill: { ...StyleSheet.absoluteFillObject, backgroundColor: t.success },
     checkoutText: { fontSize: 17, fontWeight: '900' },
-    editModalRoot: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.34)' },
-    editSheet: { backgroundColor: t.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 38 : 22, borderWidth: 1, borderColor: t.glassBorder },
+    editModalRoot: { flex: 1, justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.34)', paddingHorizontal: 18 },
+    editSheet: { backgroundColor: t.card, borderRadius: 24, paddingHorizontal: 20, paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 28 : 22, borderWidth: 1, borderColor: t.glassBorder, maxHeight: '86%' },
+    storePromptSheet: { backgroundColor: t.card, borderRadius: 24, padding: 20, borderWidth: 1, borderColor: t.glassBorder, ...shadow },
+    storePromptIcon: { width: 56, height: 56, borderRadius: 18, backgroundColor: t.surfaceBlue, borderWidth: 1, borderColor: t.glassBorder, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 14 },
+    storePromptTitle: { color: t.text, fontSize: 22, fontWeight: '900', textAlign: 'center' },
+    storePromptText: { color: t.muted, fontSize: 14, fontWeight: '700', lineHeight: 20, textAlign: 'center', marginTop: 8, marginBottom: 10 },
+    storePromptInput: { height: 50, backgroundColor: t.glass, borderRadius: 15, paddingHorizontal: 14, color: t.text, borderWidth: 1, borderColor: t.glassBorder, marginTop: 10, fontSize: 15 },
     editHandle: { alignSelf: 'center', width: 38, height: 4, borderRadius: 2, backgroundColor: t.muted, marginBottom: 16 },
     editTitle: { color: t.text, fontSize: 22, fontWeight: '900', textAlign: 'center', marginBottom: 16 },
     itemWeightBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Animated, Image, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, Keyboard, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from '../../lib/i18n';
@@ -26,7 +26,6 @@ export default function Dashboard() {
     const [budgetInput, setBudgetInput] = useState(budget > 0 ? String(budget) : '');
     const [categoryInputs, setCategoryInputs] = useState<Record<string, string>>({});
     const [dialogOpen, setDialogOpen] = useState(false);
-    const [budgetSavedDialogOpen, setBudgetSavedDialogOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [activeCategory, setActiveCategory] = useState<BudgetCategoryId | null>(null);
     const [userName, setUserName] = useState('');
@@ -295,13 +294,13 @@ export default function Dashboard() {
         : null;
 
     const handleBudgetSave = async () => {
+        Keyboard.dismiss();
         const value = Number(budgetInput.replace(/,/g, ''));
         if (!Number.isFinite(value) || value <= 0) {
             setDialogOpen(true);
             return;
         }
         await setBudget(value);
-        setBudgetSavedDialogOpen(true);
     };
 
     const handleCategoryBudgetSave = async (category: BudgetCategoryId) => {
@@ -313,7 +312,6 @@ export default function Dashboard() {
         }
         await setCategoryBudget(category, value);
         setCategoryInputs((current) => ({ ...current, [category]: '' }));
-        setBudgetSavedDialogOpen(true);
     };
 
     let mascotMessage = userName ? `Hi ${userName}! ${t('readyToScan')}` : t('readyToScan');
@@ -435,6 +433,8 @@ export default function Dashboard() {
                             keyboardType="decimal-pad"
                             placeholder={t('setBudgetPlaceholder')}
                             placeholderTextColor={colors.soft}
+                            returnKeyType="done"
+                            onSubmitEditing={handleBudgetSave}
                         />
                         <TouchableOpacity style={styles.saveButton} onPress={handleBudgetSave}>
                             <Ionicons name="checkmark" size={20} color={isDark ? '#111' : '#FFF'} />
@@ -612,14 +612,6 @@ export default function Dashboard() {
                 icon="wallet-outline"
                 onDismiss={() => setDialogOpen(false)}
                 actions={[{ label: t('ok'), onPress: () => setDialogOpen(false) }]}
-            />
-            <AppDialog
-                visible={budgetSavedDialogOpen}
-                title={t('budgetSet')}
-                message={t('budgetUpdated')}
-                icon="checkmark-done-outline"
-                onDismiss={() => setBudgetSavedDialogOpen(false)}
-                actions={[{ label: t('ok'), onPress: () => setBudgetSavedDialogOpen(false) }]}
             />
             <SettingsSheet
                 open={settingsOpen}

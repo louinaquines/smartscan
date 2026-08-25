@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -111,6 +112,7 @@ export default function VerifySheet({
   }, [calcMode, inputPricePerKg, inputWeight, weightUnit]);
 
   const handleConfirm = () => {
+    Keyboard.dismiss();
     Animated.sequence([
       Animated.timing(pressAnim.current, {
         toValue: 0.9,

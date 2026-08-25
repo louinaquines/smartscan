@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Modal, PanResponder, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Keyboard, Modal, PanResponder, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { OcrTextChoice, ReceiptParsedItem } from '../lib/receiptParser';
 import { formatMoney } from '../lib/format';
@@ -94,6 +94,7 @@ export default function ReceiptReviewSheet({
   const totalMismatch = receiptTotal != null && receiptTotal > 0 && Math.abs(total - receiptTotal) > 0.2;
 
   const handleConfirm = () => {
+    Keyboard.dismiss();
     setConfirmedTotal(total);
     setShowSuccess(true);
 
