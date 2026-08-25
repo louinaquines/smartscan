@@ -41,4 +41,4 @@ yarn-error.*
 /android
 
 # large APK downloads (hosted on GitHub Releases instead)
-web/cany-v1.0.0.apk
+web/*.apk
